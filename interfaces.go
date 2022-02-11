@@ -11,20 +11,14 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package encryptonize
 
-import (
-	"github.com/gofrs/uuid"
-)
+// KeyWrapperInterface offers an API to wrap / unwrap key material
+type KeyWrapperInterface interface {
+	//Wrap wraps the provided key material.
+	Wrap(data []byte) ([]byte, error)
 
-type ScopeType uint64 // TODO: This is out of scope
-
-type GroupData struct {
-	Scopes ScopeType
-}
-
-type ProtectedGroupData struct {
-	GroupID    uuid.UUID
-	GroupData  []byte
-	WrappedKey []byte
+	// Unwrap unwraps a wrapped key.
+	Unwrap(data []byte) ([]byte, error)
 }

@@ -11,20 +11,17 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package encryptonize
+package crypto
 
 import (
-	"github.com/gofrs/uuid"
+	"crypto/rand"
 )
 
-type ScopeType uint64 // TODO: This is out of scope
-
-type GroupData struct {
-	Scopes ScopeType
-}
-
-type ProtectedGroupData struct {
-	GroupID    uuid.UUID
-	GroupData  []byte
-	WrappedKey []byte
+// Random returns n cryptographically secure random bytes
+func Random(n int) ([]byte, error) {
+	bytes := make([]byte, n)
+	if _, err := rand.Read(bytes); err != nil {
+		return nil, err
+	}
+	return bytes, nil
 }

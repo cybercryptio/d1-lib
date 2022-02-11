@@ -15,29 +15,19 @@ package encryptonize
 
 import (
 	"bytes"
-	"crypto/rand"
 	"encoding/gob"
 	"errors"
 
-	"encryption-service/common"
+	"encryptonize/crypto"
 )
 
-// Random returns n cryptographically secure random bytes
-func Random(n int) ([]byte, error) {
-	bytes := make([]byte, n)
-	if _, err := rand.Read(bytes); err != nil {
-		return nil, err
-	}
-	return bytes, nil
-}
-
 type AESCryptor struct {
-	keyWrap common.KeyWrapperInterface
-	crypter *AESCrypter
+	keyWrap KeyWrapperInterface
+	crypter *crypto.AESCrypter
 }
 
 func NewAESCryptor(KEK []byte) (*AESCryptor, error) {
-	keyWrap, err := NewKWP(KEK)
+	keyWrap, err := crypto.NewKWP(KEK)
 	if err != nil {
 		return nil, err
 	}
@@ -45,15 +35,15 @@ func NewAESCryptor(KEK []byte) (*AESCryptor, error) {
 	return NewAESCryptorWithKeyWrap(keyWrap), nil
 }
 
-func NewAESCryptorWithKeyWrap(keyWrap common.KeyWrapperInterface) *AESCryptor {
+func NewAESCryptorWithKeyWrap(keyWrap KeyWrapperInterface) *AESCryptor {
 	return &AESCryptor{
 		keyWrap: keyWrap,
-		crypter: &AESCrypter{},
+		crypter: &crypto.AESCrypter{},
 	}
 }
 
 func (c *AESCryptor) Encrypt(data, aad []byte) ([]byte, []byte, error) {
-	key, err := Random(32)
+	key, err := crypto.Random(32)
 	if err != nil {
 		return nil, nil, err
 	}
