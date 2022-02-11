@@ -17,50 +17,47 @@ import (
 	"github.com/gofrs/uuid"
 )
 
-type AccessObject struct {
-	GroupIDs map[uuid.UUID]bool
-	Woek     []byte
-	Version  uint64
+type Access struct {
+	groups     map[uuid.UUID]bool
+	wrappedOEK []byte
 }
 
-type ProtectedAccessObject struct {
-	ObjectID     uuid.UUID
-	AccessObject []byte
-	WrappedKey   []byte
+type SealedAccess struct {
+	ID         uuid.UUID
+	ciphertext []byte
+	wrappedKey []byte
 }
 
 // AccessObject instantiates a new Access Object with given groupID and WOEK.
 // A new object starts with Version: 0
-func NewAccessObject(groupID uuid.UUID, woek []byte) *AccessObject {
-	return &AccessObject{
-		GroupIDs: map[uuid.UUID]bool{groupID: true},
-		Woek:     woek,
-		Version:  0,
+func newAccess(groupID uuid.UUID, wrappedOEK []byte) Access {
+	return Access{
+		groups:     map[uuid.UUID]bool{groupID: true},
+		wrappedOEK: wrappedOEK,
 	}
 }
 
 // AddGroup adds a new groupID to an Access Object
-func (a *AccessObject) AddGroup(groupID uuid.UUID) {
-	a.GroupIDs[groupID] = true
+func (a *Access) addGroup(id uuid.UUID) {
+	a.groups[id] = true
 }
 
-// ContainsGroup returns whether a groupID is in the AccessObject
-func (a *AccessObject) ContainsGroup(groupID uuid.UUID) bool {
-	_, ok := a.GroupIDs[groupID]
-	return ok
+// ContainsGroup returns whether a groupID is in the Access
+func (a *Access) containsGroup(id uuid.UUID) bool {
+	return a.groups[id]
 }
 
 // RemoveGroup removes a groupID from an Access Object
-func (a *AccessObject) RemoveGroup(groupID uuid.UUID) {
-	delete(a.GroupIDs, groupID)
+func (a *Access) removeGroup(id uuid.UUID) {
+	delete(a.groups, id)
 }
 
-// GetGroups returns a set of groupIDs that may access the Object
-func (a *AccessObject) GetGroups() map[uuid.UUID]bool {
-	return a.GroupIDs
+// GetGroups returns a set of groups that may access the Object
+func (a *Access) getGroups() map[uuid.UUID]bool {
+	return a.groups
 }
 
 // GetWOEK returns the wrapped object encryption key
-func (a *AccessObject) GetWOEK() []byte {
-	return a.Woek
+func (a *Access) getWOEK() []byte {
+	return a.wrappedOEK
 }

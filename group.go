@@ -17,14 +17,14 @@ import (
 	"github.com/gofrs/uuid"
 )
 
-type ScopeType uint64 // TODO: This is out of scope
+type ScopeType uint64 // TODO: This is out of scope (lol)
 
-type GroupData struct {
-	Scopes ScopeType
+type Group struct {
+	scopes ScopeType
 }
 
-type ProtectedGroupData struct {
-	GroupID    uuid.UUID
-	GroupData  []byte
-	WrappedKey []byte
+type SealedGroup struct {
+	ID         uuid.UUID
+	ciphertext []byte
+	wrappedKey []byte
 }

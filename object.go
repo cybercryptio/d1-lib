@@ -14,11 +14,17 @@
 
 package encryptonize
 
-// KeyWrapperInterface offers an API to wrap / unwrap key material
-type KeyWrapperInterface interface {
-	//Wrap wraps the provided key material.
-	Wrap(data []byte) ([]byte, error)
+import (
+	"github.com/gofrs/uuid"
+)
 
-	// Unwrap unwraps a wrapped key.
-	Unwrap(data []byte) ([]byte, error)
+type Object struct {
+	Plaintext      []byte
+	AssociatedData []byte
+}
+
+type SealedObject struct {
+	ciphertext     []byte
+	AssociatedData []byte
+	ID             uuid.UUID
 }

@@ -11,23 +11,21 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package encryptonize
+package crypto
 
 import (
 	"bytes"
 	"encoding/gob"
 	"errors"
-
-	"encryptonize/crypto"
 )
 
 type AESCryptor struct {
 	keyWrap KeyWrapperInterface
-	crypter *crypto.AESCrypter
+	crypter *AESCrypter
 }
 
 func NewAESCryptor(KEK []byte) (*AESCryptor, error) {
-	keyWrap, err := crypto.NewKWP(KEK)
+	keyWrap, err := NewKWP(KEK)
 	if err != nil {
 		return nil, err
 	}
@@ -38,12 +36,12 @@ func NewAESCryptor(KEK []byte) (*AESCryptor, error) {
 func NewAESCryptorWithKeyWrap(keyWrap KeyWrapperInterface) *AESCryptor {
 	return &AESCryptor{
 		keyWrap: keyWrap,
-		crypter: &crypto.AESCrypter{},
+		crypter: &AESCrypter{},
 	}
 }
 
 func (c *AESCryptor) Encrypt(data, aad []byte) ([]byte, []byte, error) {
-	key, err := crypto.Random(32)
+	key, err := Random(32)
 	if err != nil {
 		return nil, nil, err
 	}
