@@ -15,7 +15,7 @@
 // source: https://github.com/google/tink/blob/22467ef7273d73b2d65e4b50310aab4af006bb7e/go/subtle/kwp/kwp_test.go
 // adjusted: package name and remove tink dependencies; added 256 bit wrapping test case
 
-package crypt
+package crypto
 
 import (
 	"bytes"
