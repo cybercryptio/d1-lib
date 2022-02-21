@@ -15,6 +15,8 @@ package encryptonize
 
 import (
 	"github.com/gofrs/uuid"
+
+	"encryptonize/crypto"
 )
 
 type User struct {
@@ -27,6 +29,14 @@ type SealedUser struct {
 	ID         uuid.UUID
 	ciphertext []byte
 	wrappedKey []byte
+}
+
+func (u *User) seal(id uuid.UUID, cryptor crypto.CryptorInterface) (SealedUser, error) {
+	wrappedKey, ciphertext, err := cryptor.EncodeAndEncrypt(u, id.Bytes())
+	if err != nil {
+		return SealedUser{}, err
+	}
+	return SealedUser{id, ciphertext, wrappedKey}, nil
 }
 
 func (u *User) addGroup(id uuid.UUID) {
@@ -47,4 +57,17 @@ func (u *User) getGroups() []uuid.UUID {
 		ids = append(ids, id)
 	}
 	return ids
+}
+
+func (u *SealedUser) unseal(cryptor crypto.CryptorInterface) (User, error) {
+	user := User{}
+	if err := cryptor.DecodeAndDecrypt(&user, u.wrappedKey, u.ciphertext, u.ID.Bytes()); err != nil {
+		return User{}, err
+	}
+	return user, nil
+}
+
+func (u *SealedUser) verify(cryptor crypto.CryptorInterface) bool {
+	_, err := u.unseal(cryptor)
+	return err != nil
 }

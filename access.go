@@ -15,6 +15,8 @@ package encryptonize
 
 import (
 	"github.com/gofrs/uuid"
+
+	"encryptonize/crypto"
 )
 
 type Access struct {
@@ -37,6 +39,14 @@ func newAccess(groupID uuid.UUID, wrappedOEK []byte) Access {
 	}
 }
 
+func (a *Access) seal(id uuid.UUID, cryptor crypto.CryptorInterface) (SealedAccess, error) {
+	wrappedKey, ciphertext, err := cryptor.EncodeAndEncrypt(a, id.Bytes())
+	if err != nil {
+		return SealedAccess{}, err
+	}
+	return SealedAccess{id, ciphertext, wrappedKey}, nil
+}
+
 // AddGroup adds a new groupID to an Access Object
 func (a *Access) addGroup(id uuid.UUID) {
 	a.groups[id] = true
@@ -52,12 +62,15 @@ func (a *Access) removeGroup(id uuid.UUID) {
 	delete(a.groups, id)
 }
 
-// GetGroups returns a set of groups that may access the Object
-func (a *Access) getGroups() map[uuid.UUID]bool {
-	return a.groups
+func (a *SealedAccess) unseal(cryptor crypto.CryptorInterface) (Access, error) {
+	access := Access{}
+	if err := cryptor.DecodeAndDecrypt(&access, a.wrappedKey, a.ciphertext, a.ID.Bytes()); err != nil {
+		return Access{}, err
+	}
+	return access, nil
 }
 
-// GetWOEK returns the wrapped object encryption key
-func (a *Access) getWOEK() []byte {
-	return a.wrappedOEK
+func (a *SealedAccess) verify(cryptor crypto.CryptorInterface) bool {
+	_, err := a.unseal(cryptor)
+	return err != nil
 }

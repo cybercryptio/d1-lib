@@ -16,6 +16,8 @@ package encryptonize
 
 import (
 	"github.com/gofrs/uuid"
+
+	"encryptonize/crypto"
 )
 
 type Object struct {
@@ -27,4 +29,35 @@ type SealedObject struct {
 	ciphertext     []byte
 	AssociatedData []byte
 	ID             uuid.UUID
+}
+
+func (o *Object) seal(cryptor crypto.CryptorInterface) ([]byte, SealedObject, error) {
+	id, err := uuid.NewV4()
+	if err != nil {
+		return nil, SealedObject{}, err
+	}
+
+	associatedData := make([]byte, 0, uuid.Size+len(o.AssociatedData))
+	associatedData = append(associatedData, id.Bytes()...)
+	associatedData = append(associatedData, o.AssociatedData...)
+
+	wrappedKey, ciphertext, err := cryptor.Encrypt(o.Plaintext, associatedData)
+	if err != nil {
+		return nil, SealedObject{}, err
+	}
+
+	return wrappedKey, SealedObject{ciphertext, o.AssociatedData, id}, nil
+}
+
+func (o *SealedObject) unseal(wrappedKey []byte, cryptor crypto.CryptorInterface) (Object, error) {
+	associatedData := make([]byte, 0, uuid.Size+len(o.AssociatedData))
+	associatedData = append(associatedData, o.ID.Bytes()...)
+	associatedData = append(associatedData, o.AssociatedData...)
+
+	plaintext, err := cryptor.Decrypt(wrappedKey, o.ciphertext, o.AssociatedData)
+	if err != nil {
+		return Object{}, err
+	}
+
+	return Object{plaintext, o.AssociatedData}, nil
 }

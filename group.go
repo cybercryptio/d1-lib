@@ -15,6 +15,8 @@ package encryptonize
 
 import (
 	"github.com/gofrs/uuid"
+
+	"encryptonize/crypto"
 )
 
 type ScopeType uint64 // TODO: This is out of scope (lol)
@@ -27,4 +29,31 @@ type SealedGroup struct {
 	ID         uuid.UUID
 	ciphertext []byte
 	wrappedKey []byte
+}
+
+func (g *Group) seal(cryptor crypto.CryptorInterface) (SealedGroup, error) {
+	id, err := uuid.NewV4()
+	if err != nil {
+		return SealedGroup{}, err
+	}
+
+	wrappedKey, ciphertext, err := cryptor.EncodeAndEncrypt(g, id.Bytes())
+	if err != nil {
+		return SealedGroup{}, err
+	}
+
+	return SealedGroup{id, ciphertext, wrappedKey}, nil
+}
+
+func (g *SealedGroup) unseal(cryptor crypto.CryptorInterface) (Group, error) {
+	group := Group{}
+	if err := cryptor.DecodeAndDecrypt(&group, g.wrappedKey, g.ciphertext, g.ID.Bytes()); err != nil {
+		return Group{}, err
+	}
+	return group, nil
+}
+
+func (g *SealedGroup) verify(cryptor crypto.CryptorInterface) bool {
+	_, err := g.unseal(cryptor)
+	return err != nil
 }
