@@ -18,12 +18,10 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"testing"
-
-	"encryptonize/crypto"
 )
 
 func TestAESCrypter(t *testing.T) {
-	KEK, err := crypto.Random(32)
+	KEK, err := Random(32)
 	if err != nil {
 		t.Fatalf("Random failed: %v", err)
 	}
@@ -34,12 +32,12 @@ func TestAESCrypter(t *testing.T) {
 
 	for i := 0; i < 65; i++ {
 		for j := 0; j < 65; j++ {
-			data, err := crypto.Random(i)
+			data, err := Random(i)
 			if err != nil {
 				t.Fatalf("Random failed: %v", err)
 			}
 
-			aad, err := crypto.Random(j)
+			aad, err := Random(j)
 			if err != nil {
 				t.Fatalf("Random failed: %v", err)
 			}
@@ -175,7 +173,7 @@ func TestAESCrypterInvalidLength(t *testing.T) {
 		t.Fatalf("NewAESCryptor failed: %v", err)
 	}
 
-	kwp, err := crypto.NewKWP(KEK)
+	kwp, err := NewKWP(KEK)
 	if err != nil {
 		t.Fatalf("NewKWP failed: %v", err)
 	}

@@ -21,23 +21,23 @@ import (
 
 func TestGetGroupIDs(t *testing.T) {
 	groupID := uuid.Must(uuid.NewV4())
-	userData := &UserData{
-		GroupIDs: map[uuid.UUID]bool{
+	userData := &User{
+		groups: map[uuid.UUID]bool{
 			groupID: true,
 		},
 	}
 
-	uuids := userData.GetGroupIDs()
+	uuids := userData.getGroups()
 	if len(uuids) == 0 || groupID != uuids[0] {
-		t.Error("Expected GetGroupIDs to return a group ID")
+		t.Error("Expected getGroups to return a group ID")
 	}
 }
 
 func TestGetZeroGroupIDs(t *testing.T) {
-	userData := &UserData{}
+	userData := &User{}
 
-	uuids := userData.GetGroupIDs()
+	uuids := userData.getGroups()
 	if len(uuids) != 0 {
-		t.Error("GetGroupIDs should have returned empty array")
+		t.Error("getGroups should have returned empty array")
 	}
 }

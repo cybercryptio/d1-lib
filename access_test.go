@@ -20,20 +20,19 @@ import (
 	"github.com/gofrs/uuid"
 )
 
-var accessObject = &AccessObject{
-	Version: 1337,
-	GroupIDs: map[uuid.UUID]bool{
+var access = &Access{
+	groups: map[uuid.UUID]bool{
 		uuid.Must(uuid.FromString("10000000-0000-0000-0000-000000000000")): true,
 		uuid.Must(uuid.FromString("20000000-0000-0000-0000-000000000000")): true,
 		uuid.Must(uuid.FromString("30000000-0000-0000-0000-000000000000")): true,
 		uuid.Must(uuid.FromString("40000000-0000-0000-0000-000000000000")): true,
 	},
-	Woek: []byte("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"),
+	wrappedOEK: []byte("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"),
 }
 
 func TestContainsGroupTrue(t *testing.T) {
-	for groupID := range accessObject.GroupIDs {
-		exists := accessObject.ContainsGroup(groupID)
+	for groupID := range access.groups {
+		exists := access.containsGroup(groupID)
 
 		if !exists {
 			t.Error("ContainsGroup returned false")
@@ -42,35 +41,35 @@ func TestContainsGroupTrue(t *testing.T) {
 }
 
 func TestContainsGroupFalse(t *testing.T) {
-	exists := accessObject.ContainsGroup(uuid.Must(uuid.NewV4()))
+	exists := access.containsGroup(uuid.Must(uuid.NewV4()))
 	if exists {
 		t.Error("ContainsGroup returned true")
 	}
 }
 
 func TestAdd(t *testing.T) {
-	accessObject := &AccessObject{
-		GroupIDs: map[uuid.UUID]bool{},
+	access := &Access{
+		groups: map[uuid.UUID]bool{},
 	}
 
 	expected := map[uuid.UUID]bool{}
 	for i := 0; i < 256; i++ {
 		g := uuid.Must(uuid.NewV4())
-		accessObject.AddGroup(g)
+		access.addGroup(g)
 
 		expected[g] = true
 
-		if !reflect.DeepEqual(expected, accessObject.GroupIDs) {
+		if !reflect.DeepEqual(expected, access.groups) {
 			t.Error("AddGroup failed")
 		}
 	}
 }
 
 func TestAddDuplicate(t *testing.T) {
-	expected := accessObject.GroupIDs
-	accessObject.AddGroup(uuid.Must(uuid.FromString("10000000-0000-0000-0000-000000000000")))
+	expected := access.groups
+	access.addGroup(uuid.Must(uuid.FromString("10000000-0000-0000-0000-000000000000")))
 
-	if !reflect.DeepEqual(expected, accessObject.GroupIDs) {
+	if !reflect.DeepEqual(expected, access.groups) {
 		t.Error("AddGroupDuplicate failed")
 	}
 }
@@ -79,26 +78,25 @@ func TestNew(t *testing.T) {
 	groupID := uuid.Must(uuid.NewV4())
 	woek := []byte{1, 2, 3, 4}
 
-	accessObject := NewAccessObject(groupID, woek)
+	access := newAccess(groupID, woek)
 
-	expected := &AccessObject{
-		GroupIDs: map[uuid.UUID]bool{
+	expected := Access{
+		groups: map[uuid.UUID]bool{
 			groupID: true,
 		},
-		Woek:    woek,
-		Version: 0,
+		wrappedOEK: woek,
 	}
 
-	if !reflect.DeepEqual(expected, accessObject) {
+	if !reflect.DeepEqual(expected, access) {
 		t.Error("New failed")
 	}
 }
 
 //nolint: gosec
 func TestRemoveGroup(t *testing.T) {
-	for groupID := range accessObject.GroupIDs {
-		accessObject.RemoveGroup(groupID)
-		exists := accessObject.ContainsGroup(groupID)
+	for groupID := range access.groups {
+		access.removeGroup(groupID)
+		exists := access.containsGroup(groupID)
 		if exists {
 			t.Error("RemoveGroup failed")
 		}
