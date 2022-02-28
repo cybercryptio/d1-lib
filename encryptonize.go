@@ -173,7 +173,8 @@ func (e *Encryptonize) NewUser(groups ...uuid.UUID) (SealedUser, string, error) 
 		return SealedUser{}, "", err
 	}
 
-	pwd, salt, err := crypto.GenerateUserPassword()
+	pwdHasher := crypto.NewPasswordHasher()
+	pwd, saltAndHash, err := pwdHasher.GeneratePassword()
 	if err != nil {
 		return SealedUser{}, "", err
 	}
@@ -184,9 +185,8 @@ func (e *Encryptonize) NewUser(groups ...uuid.UUID) (SealedUser, string, error) 
 	}
 
 	user := &User{
-		hashedPassword: crypto.HashPassword(pwd, salt),
-		salt:           salt,
-		groups:         groupMap,
+		saltAndHash: saltAndHash,
+		groups:      groupMap,
 	}
 	sealedUser, err := user.seal(id, e.userCryptor)
 	if err != nil {

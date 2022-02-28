@@ -15,13 +15,31 @@ package crypto
 
 import (
 	"crypto/rand"
+	"errors"
 )
 
-// Random returns n cryptographically secure random bytes
-func Random(n int) ([]byte, error) {
+// NativeRandom implements RandomInterface.
+type NativeRandom struct {
+}
+
+func (r *NativeRandom) GetBytes(n uint) ([]byte, error) {
 	bytes := make([]byte, n)
 	if _, err := rand.Read(bytes); err != nil {
 		return nil, err
 	}
 	return bytes, nil
+}
+
+// MockRandom is a mock implementation of RandomInterface for testing.
+type MockRandom struct {
+	bytes []byte
+}
+
+func (r *MockRandom) GetBytes(n uint) ([]byte, error) {
+	if int(n) > len(r.bytes) {
+		return nil, errors.New("No more random bytes")
+	}
+	var out []byte
+	out, r.bytes = r.bytes[:n], r.bytes[n:]
+	return out, nil
 }

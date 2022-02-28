@@ -16,22 +16,26 @@ package crypto
 import (
 	"crypto/aes"
 	"crypto/cipher"
-	"fmt"
+	"errors"
 )
 
-type AESCrypter struct {
+// AES256GCM implements AEADInterface.
+type AES256GCM struct {
+	random RandomInterface
 }
 
+const keyLength = 32
 const nonceLength = 12
 const tagLength = 16
-
 const Overhead = int(tagLength + nonceLength)
 
-// Encrypt encrypts a plaintext with additional associated data (aad) using the provided key returning the resulting ciphertext.
-// The backing array of plaintext is likely modified during this operation.
-func (c *AESCrypter) Encrypt(plaintext, aad, key []byte) ([]byte, error) {
+func (a *AES256GCM) Encrypt(plaintext, aad, key []byte) ([]byte, error) {
+	if len(key) != keyLength {
+		return nil, errors.New("invalid key length")
+	}
+
 	ciphertext := append(plaintext, make([]byte, Overhead)...) // make sure we also have space
-	nonce, err := Random(nonceLength)
+	nonce, err := a.random.GetBytes(nonceLength)
 	if err != nil {
 		return nil, err
 	}
@@ -53,11 +57,12 @@ func (c *AESCrypter) Encrypt(plaintext, aad, key []byte) ([]byte, error) {
 	return ciphertext, nil
 }
 
-// Decrypt decrypts a ciphertext with additional associated data (aad) using the provided key returning the resulting plaintext.
-// ciphertext is modified during this operation.
-func (c *AESCrypter) Decrypt(ciphertext, aad, key []byte) ([]byte, error) {
+func (a *AES256GCM) Decrypt(ciphertext, aad, key []byte) ([]byte, error) {
+	if len(key) != keyLength {
+		return nil, errors.New("invalid key length")
+	}
 	if len(ciphertext) < Overhead {
-		return nil, fmt.Errorf("ciphertext is too short")
+		return nil, errors.New("invalid ciphertext length")
 	}
 
 	data := ciphertext[:len(ciphertext)-nonceLength]

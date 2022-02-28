@@ -20,9 +20,8 @@ import (
 )
 
 type User struct {
-	hashedPassword []byte
-	salt           []byte
-	groups         map[uuid.UUID]bool
+	saltAndHash []byte
+	groups      map[uuid.UUID]bool
 }
 
 type SealedUser struct {
@@ -32,7 +31,7 @@ type SealedUser struct {
 }
 
 func (u *User) seal(id uuid.UUID, cryptor crypto.CryptorInterface) (SealedUser, error) {
-	wrappedKey, ciphertext, err := cryptor.EncodeAndEncrypt(u, id.Bytes())
+	wrappedKey, ciphertext, err := cryptor.Encrypt(u, id.Bytes())
 	if err != nil {
 		return SealedUser{}, err
 	}
@@ -61,7 +60,7 @@ func (u *User) getGroups() []uuid.UUID {
 
 func (u *SealedUser) unseal(cryptor crypto.CryptorInterface) (User, error) {
 	user := User{}
-	if err := cryptor.DecodeAndDecrypt(&user, u.wrappedKey, u.ciphertext, u.ID.Bytes()); err != nil {
+	if err := cryptor.Decrypt(&user, u.ID.Bytes(), u.wrappedKey, u.ciphertext); err != nil {
 		return User{}, err
 	}
 	return user, nil

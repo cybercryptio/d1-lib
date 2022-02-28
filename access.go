@@ -40,7 +40,7 @@ func newAccess(groupID uuid.UUID, wrappedOEK []byte) Access {
 }
 
 func (a *Access) seal(id uuid.UUID, cryptor crypto.CryptorInterface) (SealedAccess, error) {
-	wrappedKey, ciphertext, err := cryptor.EncodeAndEncrypt(a, id.Bytes())
+	wrappedKey, ciphertext, err := cryptor.Encrypt(a, id.Bytes())
 	if err != nil {
 		return SealedAccess{}, err
 	}
@@ -64,7 +64,7 @@ func (a *Access) removeGroup(id uuid.UUID) {
 
 func (a *SealedAccess) unseal(cryptor crypto.CryptorInterface) (Access, error) {
 	access := Access{}
-	if err := cryptor.DecodeAndDecrypt(&access, a.wrappedKey, a.ciphertext, a.ID.Bytes()); err != nil {
+	if err := cryptor.Decrypt(&access, a.ID.Bytes(), a.wrappedKey, a.ciphertext); err != nil {
 		return Access{}, err
 	}
 	return access, nil

@@ -24,24 +24,17 @@ import (
 	"testing"
 )
 
-func GetRandomBytes(n uint32) []byte {
-	r, err := Random(int(n))
-	if err != nil {
-		panic(err)
-	}
-	return r
-}
-
 func TestWrapUnwrap(t *testing.T) {
-	kek := GetRandomBytes(16)
+	rand := &NativeRandom{}
+	kek, _ := rand.GetBytes(16)
 	cipher, err := NewKWP(kek)
 	if err != nil {
 		t.Fatalf("failed to make kwp, error: %v", err)
 	}
 
-	for i := uint32(16); i < 128; i++ {
+	for i := uint(16); i < 128; i++ {
 		t.Run(fmt.Sprintf("MessageSize%d", i), func(t *testing.T) {
-			toWrap := GetRandomBytes(i)
+			toWrap, _ := rand.GetBytes(i)
 
 			wrapped, err := cipher.Wrap(toWrap)
 			if err != nil {
@@ -78,7 +71,8 @@ func TestKeySizes(t *testing.T) {
 }
 
 func TestInvalidWrappingSizes(t *testing.T) {
-	kek := GetRandomBytes(16)
+	rand := &NativeRandom{}
+	kek, _ := rand.GetBytes(16)
 	cipher, err := NewKWP(kek)
 	if err != nil {
 		t.Fatalf("failed to make kwp, error: %v", err)

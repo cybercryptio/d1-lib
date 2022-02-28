@@ -54,7 +54,8 @@ func (o *SealedObject) unseal(wrappedKey []byte, cryptor crypto.CryptorInterface
 	associatedData = append(associatedData, o.ID.Bytes()...)
 	associatedData = append(associatedData, o.AssociatedData...)
 
-	plaintext, err := cryptor.Decrypt(wrappedKey, o.ciphertext, o.AssociatedData)
+	plaintext := []byte{}
+	err := cryptor.Decrypt(&plaintext, associatedData, wrappedKey, o.ciphertext)
 	if err != nil {
 		return Object{}, err
 	}

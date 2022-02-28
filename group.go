@@ -37,7 +37,7 @@ func (g *Group) seal(cryptor crypto.CryptorInterface) (SealedGroup, error) {
 		return SealedGroup{}, err
 	}
 
-	wrappedKey, ciphertext, err := cryptor.EncodeAndEncrypt(g, id.Bytes())
+	wrappedKey, ciphertext, err := cryptor.Encrypt(g, id.Bytes())
 	if err != nil {
 		return SealedGroup{}, err
 	}
@@ -47,7 +47,7 @@ func (g *Group) seal(cryptor crypto.CryptorInterface) (SealedGroup, error) {
 
 func (g *SealedGroup) unseal(cryptor crypto.CryptorInterface) (Group, error) {
 	group := Group{}
-	if err := cryptor.DecodeAndDecrypt(&group, g.wrappedKey, g.ciphertext, g.ID.Bytes()); err != nil {
+	if err := cryptor.Decrypt(&group, g.ID.Bytes(), g.wrappedKey, g.ciphertext); err != nil {
 		return Group{}, err
 	}
 	return group, nil

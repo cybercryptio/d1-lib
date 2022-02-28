@@ -16,42 +16,55 @@ package crypto
 import (
 	"bytes"
 	"encoding/gob"
-	"errors"
 )
 
-type AESCryptor struct {
-	keyWrap KeyWrapperInterface
-	crypter *AESCrypter
+const encryptionKeyLength = 32
+
+// Cryptor implements the CryptorInterface.
+type Cryptor struct {
+	random     RandomInterface
+	keyWrapper KeyWrapperInterface
+	aead       AEADInterface
 }
 
-func NewAESCryptor(KEK []byte) (*AESCryptor, error) {
-	keyWrap, err := NewKWP(KEK)
+// NewAESCryptor creates a Cryptor which uses AES-256 in GCM mode.
+func NewAESCryptor(KEK []byte) (*Cryptor, error) {
+	keyWrapper, err := NewKWP(KEK)
 	if err != nil {
 		return nil, err
 	}
 
-	return NewAESCryptorWithKeyWrap(keyWrap), nil
+	return &Cryptor{
+		random:     &NativeRandom{},
+		keyWrapper: keyWrapper,
+		aead:       &AES256GCM{&NativeRandom{}},
+	}, nil
 }
 
-func NewAESCryptorWithKeyWrap(keyWrap KeyWrapperInterface) *AESCryptor {
-	return &AESCryptor{
-		keyWrap: keyWrap,
-		crypter: &AESCrypter{},
+func (c *Cryptor) Encrypt(plaintext, data interface{}) ([]byte, []byte, error) {
+	var plaintextBuffer bytes.Buffer
+	enc := gob.NewEncoder(&plaintextBuffer)
+	if err := enc.Encode(plaintext); err != nil {
+		return nil, nil, err
 	}
-}
 
-func (c *AESCryptor) Encrypt(data, aad []byte) ([]byte, []byte, error) {
-	key, err := Random(32)
+	var dataBuffer bytes.Buffer
+	enc = gob.NewEncoder(&dataBuffer)
+	if err := enc.Encode(data); err != nil {
+		return nil, nil, err
+	}
+
+	key, err := c.random.GetBytes(encryptionKeyLength)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	ciphertext, err := c.crypter.Encrypt(data, aad, key)
+	ciphertext, err := c.aead.Encrypt(plaintextBuffer.Bytes(), dataBuffer.Bytes(), key)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	wrappedKey, err := c.keyWrap.Wrap(key)
+	wrappedKey, err := c.keyWrapper.Wrap(key)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -59,60 +72,24 @@ func (c *AESCryptor) Encrypt(data, aad []byte) ([]byte, []byte, error) {
 	return wrappedKey, ciphertext, nil
 }
 
-func (c *AESCryptor) EncryptWithKey(data, aad, wrappedKey []byte) ([]byte, error) {
-	key, err := c.keyWrap.Unwrap(wrappedKey)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(key) != 32 {
-		return nil, errors.New("invalid key length")
-	}
-
-	ciphertext, err := c.crypter.Encrypt(data, aad, key)
-	if err != nil {
-		return nil, err
-	}
-	return ciphertext, nil
-}
-
-func (c *AESCryptor) Decrypt(wrappedKey, ciphertext, aad []byte) ([]byte, error) {
-	key, err := c.keyWrap.Unwrap(wrappedKey)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(key) != 32 {
-		return nil, errors.New("invalid key length")
-	}
-
-	data, err := c.crypter.Decrypt(ciphertext, aad, key)
-	if err != nil {
-		return nil, err
-	}
-
-	return data, nil
-}
-
-// EncodeAndEncrypt serializes the data, but otherwise behaves like `Encrypt`
-func (c *AESCryptor) EncodeAndEncrypt(data interface{}, aad []byte) ([]byte, []byte, error) {
-	var buffer bytes.Buffer
-	enc := gob.NewEncoder(&buffer)
-	if err := enc.Encode(data); err != nil {
-		return nil, nil, err
-	}
-
-	dataBytes := buffer.Bytes()
-	return c.Encrypt(dataBytes, aad)
-}
-
-// DecodeAndDecrypt behaves like `Decrypt` by deserializes the result into `data`
-func (c *AESCryptor) DecodeAndDecrypt(data interface{}, wrappedKey, ciphertext, aad []byte) error {
-	plaintext, err := c.Decrypt(wrappedKey, ciphertext, aad)
+func (c *Cryptor) Decrypt(plaintext, data interface{}, wrappedKey, ciphertext []byte) error {
+	key, err := c.keyWrapper.Unwrap(wrappedKey)
 	if err != nil {
 		return err
 	}
 
-	dec := gob.NewDecoder(bytes.NewReader(plaintext))
-	return dec.Decode(data)
+	var buffer bytes.Buffer
+	enc := gob.NewEncoder(&buffer)
+	if err := enc.Encode(data); err != nil {
+		return err
+	}
+	dataBytes := buffer.Bytes()
+
+	plaintextBytes, err := c.aead.Decrypt(ciphertext, dataBytes, key)
+	if err != nil {
+		return err
+	}
+
+	dec := gob.NewDecoder(bytes.NewReader(plaintextBytes))
+	return dec.Decode(plaintext)
 }

@@ -14,29 +14,49 @@
 
 package crypto
 
-// CryptorInterface offers an API to encrypt / decrypt data and additional associated data with a (wrapped) random key
+// CryptorInterface provides an API to encrypt/decrypt data and additional associated data with a
+// (wrapped) random key.
 type CryptorInterface interface {
-	// Encrypt encrypts data + aad with a random key and return the wrapped key and the ciphertext
-	Encrypt(data, aad []byte) (wrappedKey, ciphertext []byte, err error)
+	// Encrypt encrypts plaintext and associated data with a random key. It returns the wrapped key
+	// and the ciphertext.
+	Encrypt(plaintext, data interface{}) (wrappedKey, ciphertext []byte, err error)
 
-	// EncryptWithKey encrypts data + aad with a wrapped key and returns the ciphertext
-	EncryptWithKey(data, aad, key []byte) (ciphertext []byte, err error)
-
-	// EncodeAndEncrypt serializes the data, but otherwise behaves like `Encrypt`
-	EncodeAndEncrypt(data interface{}, aad []byte) (wrappedKey, ciphertext []byte, err error)
-
-	// Decrypt decrypts a ciphertext + aad with a wrapped key
-	Decrypt(wrappedKey, ciphertext, aad []byte) (plaintext []byte, err error)
-
-	// DecodeAndDecrypt behaves like `Decrypt` by deserializes the result into `data`
-	DecodeAndDecrypt(data interface{}, wrappedKey, ciphertext, aad []byte) (err error)
+	// Decrypt decrypts a ciphertext using the provided wrapped key and associated data. It
+	// deserializes the result into `plaintext`.
+	Decrypt(plaintext, data interface{}, wrappedKey, ciphertext []byte) (err error)
 }
 
-// KeyWrapperInterface offers an API to wrap / unwrap key material
+// KeyWrapperInterface provides an API to wrap/unwrap key material.
 type KeyWrapperInterface interface {
-	//Wrap wraps the provided key material.
-	Wrap(data []byte) ([]byte, error)
+	// Wrap wraps the provided key material.
+	Wrap(key []byte) ([]byte, error)
 
 	// Unwrap unwraps a wrapped key.
-	Unwrap(data []byte) ([]byte, error)
+	Unwrap(key []byte) ([]byte, error)
+}
+
+// AEADInterface represents an Authenticated Encryption scheme with Associated Data.
+type AEADInterface interface {
+	// Encrypt encrypts uses the key to encrypt and authenticate the plaintext and authenticated the
+	// associated data. The backing array of `plaintext` is likely modified during this operation.
+	Encrypt(plaintext, data, key []byte) ([]byte, error)
+
+	// Decrypt uses the key to verify the authenticity of the ciphertext and associated data and
+	// decrypt the ciphertext. The `ciphertext` array is modified during this operation.
+	Decrypt(ciphertext, data, key []byte) ([]byte, error)
+}
+
+// RandomInterface provides an API for getting cryptographically secure random bytes.
+type RandomInterface interface {
+	// GetBytes generates the requested number of random bytes.
+	GetBytes(n uint) ([]byte, error)
+}
+
+// PasswordHasherInterface provides an API for securely generating and checking passwords.
+type PasswordHasherInterface interface {
+	// GeneratePassword returns a random password and a salted hash of that password.
+	GeneratePassword() (string, []byte, error)
+
+	// Compare checks if the password matches the given hash.
+	Compare(password string, saltAndHash []byte) bool
 }

@@ -21,27 +21,44 @@ import (
 	"golang.org/x/crypto/sha3"
 )
 
-// GenerateUserPassword generates a random base64 encoded password and a salt
-func GenerateUserPassword() (string, []byte, error) {
-	password, err := Random(32)
+const passwordLength = 32
+const saltLength = 8
+const hashLength = 32
+const iterationCount = 10000
+
+// PasswordHasher implements PasswordHasherInterface using bpkdf2.
+type PasswordHasher struct {
+	random RandomInterface
+}
+
+func NewPasswordHasher() *PasswordHasher {
+	return &PasswordHasher{&NativeRandom{}}
+}
+
+func (p *PasswordHasher) GeneratePassword() (string, []byte, error) {
+	passwordBytes, err := p.random.GetBytes(passwordLength)
+	if err != nil {
+		return "", nil, err
+	}
+	password := base64.RawURLEncoding.EncodeToString(passwordBytes)
+
+	salt, err := p.random.GetBytes(saltLength)
 	if err != nil {
 		return "", nil, err
 	}
 
-	salt, err := Random(8)
-	if err != nil {
-		return "", nil, err
-	}
-	return base64.RawURLEncoding.EncodeToString(password), salt, nil
+	hash := pbkdf2.Key([]byte(password), salt, iterationCount, hashLength, sha3.New256)
+	saltAndHash := append(salt, hash...)
+
+	return password, saltAndHash, nil
 }
 
-// HashPassword hashes a password according to
-// https://pages.nist.gov/800-63-3/sp800-63b.html#-5112-memorized-secret-verifiers
-func HashPassword(password string, salt []byte) []byte {
-	return pbkdf2.Key([]byte(password), salt, 10000, 32, sha3.New256)
+func (p *PasswordHasher) Compare(password string, saltAndHash []byte) bool {
+	salt := saltAndHash[:saltLength]
+	hash := saltAndHash[saltLength:]
+	return subtle.ConstantTimeCompare(passwordHash([]byte(password), salt), hash) == 1
 }
 
-// CompareHashAndPassword returns true if hash and password are equal
-func CompareHashAndPassword(password string, hash []byte, salt []byte) bool {
-	return subtle.ConstantTimeCompare(HashPassword(password, salt), hash) == 1
+func passwordHash(password, salt []byte) []byte {
+	return pbkdf2.Key(password, salt, iterationCount, hashLength, sha3.New256)
 }
