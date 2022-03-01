@@ -92,22 +92,9 @@ func (e *Encryptonize) Encrypt(object *Object, user *SealedUser) (SealedObject, 
 }
 
 func (e *Encryptonize) Update(authorizer *SealedUser, object *Object, access *SealedAccess) (SealedObject, error) {
-	plainAccess, err := access.unseal(e.accessCryptor)
+	plainAccess, err := e.authorize(authorizer, access)
 	if err != nil {
 		return SealedObject{}, err
-	}
-
-	plainAuthorizer, err := authorizer.unseal(e.userCryptor)
-	if err != nil {
-		return SealedObject{}, err
-	}
-
-	allowed := false
-	for _, id := range plainAuthorizer.getGroups() {
-		allowed = allowed || plainAccess.containsGroup(id)
-	}
-	if !allowed {
-		return SealedObject{}, errors.New("User not authorized")
 	}
 
 	wrappedOEK, sealedObject, err := object.seal(e.objectCryptor)
@@ -126,22 +113,9 @@ func (e *Encryptonize) Update(authorizer *SealedUser, object *Object, access *Se
 }
 
 func (e *Encryptonize) Decrypt(authorizer *SealedUser, object *SealedObject, access *SealedAccess) (Object, error) {
-	plainAccess, err := access.unseal(e.accessCryptor)
+	plainAccess, err := e.authorize(authorizer, access)
 	if err != nil {
 		return Object{}, err
-	}
-
-	plainAuthorizer, err := authorizer.unseal(e.userCryptor)
-	if err != nil {
-		return Object{}, err
-	}
-
-	allowed := false
-	for _, id := range plainAuthorizer.getGroups() {
-		allowed = allowed || plainAccess.containsGroup(id)
-	}
-	if !allowed {
-		return Object{}, errors.New("User not authorized")
 	}
 
 	return object.unseal(plainAccess.wrappedOEK, e.objectCryptor)
@@ -152,21 +126,9 @@ func (e *Encryptonize) AddGroupToAccess(authorizer *SealedUser, group *SealedGro
 		return errors.New("User not authorized")
 	}
 
-	plainAccess, err := access.unseal(e.accessCryptor)
+	plainAccess, err := e.authorize(authorizer, access)
 	if err != nil {
 		return err
-	}
-	plainAuthorizer, err := authorizer.unseal(e.userCryptor)
-	if err != nil {
-		return err
-	}
-
-	allowed := false
-	for _, id := range plainAuthorizer.getGroups() {
-		allowed = allowed || plainAccess.containsGroup(id)
-	}
-	if !allowed {
-		return errors.New("User not authorized")
 	}
 	plainAccess.addGroup(group.ID)
 
@@ -179,21 +141,9 @@ func (e *Encryptonize) RemoveGroupFromAccess(authorizer *SealedUser, group *Seal
 		return errors.New("User not authorized")
 	}
 
-	plainAccess, err := access.unseal(e.accessCryptor)
+	plainAccess, err := e.authorize(authorizer, access)
 	if err != nil {
 		return err
-	}
-	plainAuthorizer, err := authorizer.unseal(e.userCryptor)
-	if err != nil {
-		return err
-	}
-
-	allowed := false
-	for _, id := range plainAuthorizer.getGroups() {
-		allowed = allowed || plainAccess.containsGroup(id)
-	}
-	if !allowed {
-		return errors.New("User not authorized")
 	}
 	plainAccess.removeGroup(group.ID)
 
@@ -287,4 +237,23 @@ func (e *Encryptonize) RemoveUserFromGroup(authorizer *SealedUser, user *SealedU
 // NewGroup creates a group with the specified scopes in the authStorage
 func (e *Encryptonize) NewGroup(scopes ScopeType) (SealedGroup, error) {
 	return (&Group{scopes}).seal(e.groupCryptor)
+}
+
+func (e *Encryptonize) authorize(authorizer *SealedUser, access *SealedAccess) (Access, error) {
+	plainAccess, err := access.unseal(e.accessCryptor)
+	if err != nil {
+		return Access{}, err
+	}
+
+	plainAuthorizer, err := authorizer.unseal(e.userCryptor)
+	if err != nil {
+		return Access{}, err
+	}
+
+	for _, id := range plainAuthorizer.getGroups() {
+		if plainAccess.containsGroup(id) {
+			return plainAccess, nil
+		}
+	}
+	return Access{}, errors.New("User not authorized")
 }
