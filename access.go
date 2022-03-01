@@ -31,7 +31,6 @@ type SealedAccess struct {
 	wrappedKey []byte
 }
 
-// AccessObject instantiates a new Access Object with given groupID and WOEK.
 func newAccess(wrappedOEK []byte) Access {
 	return Access{
 		Groups:     map[uuid.UUID]struct{}{},
@@ -47,20 +46,25 @@ func (a *Access) seal(id uuid.UUID, cryptor crypto.CryptorInterface) (SealedAcce
 	return SealedAccess{id, ciphertext, wrappedKey}, nil
 }
 
-// AddGroup adds a new groupID to an Access Object
-func (a *Access) addGroup(id uuid.UUID) {
-	a.Groups[id] = struct{}{}
+func (a *Access) addGroups(ids ...uuid.UUID) {
+	for _, id := range ids {
+		a.Groups[id] = struct{}{}
+	}
 }
 
-// ContainsGroup returns whether a groupID is in the Access
-func (a *Access) containsGroup(id uuid.UUID) bool {
-	_, exists := a.Groups[id]
-	return exists
+func (a *Access) containsGroups(ids ...uuid.UUID) bool {
+	for _, id := range ids {
+		if _, exists := a.Groups[id]; !exists {
+			return false
+		}
+	}
+	return true
 }
 
-// RemoveGroup removes a groupID from an Access Object
-func (a *Access) removeGroup(id uuid.UUID) {
-	delete(a.Groups, id)
+func (a *Access) removeGroups(ids ...uuid.UUID) {
+	for _, id := range ids {
+		delete(a.Groups, id)
+	}
 }
 
 func (a *SealedAccess) unseal(cryptor crypto.CryptorInterface) (Access, error) {

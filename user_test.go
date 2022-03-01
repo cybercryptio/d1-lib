@@ -61,13 +61,11 @@ func TestUserContainsGroup(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	for _, g := range userGroups {
-		if !user.containsGroup(g) {
-			t.Error("ContainsGroup returned false")
-		}
+	if !user.containsGroups(userGroups...) {
+		t.Error("ContainsGroup returned false")
 	}
 
-	if user.containsGroup(uuid.Must(uuid.NewV4())) {
+	if user.containsGroups(uuid.Must(uuid.NewV4())) {
 		t.Error("ContainsGroup returned true")
 	}
 }
@@ -80,8 +78,8 @@ func TestUserAdd(t *testing.T) {
 
 	for i := 0; i < 256; i++ {
 		g := uuid.Must(uuid.NewV4())
-		user.addGroup(g)
-		if !user.containsGroup(g) {
+		user.addGroups(g)
+		if !user.containsGroups(g) {
 			t.Error("AddGroup failed")
 		}
 	}
@@ -93,9 +91,9 @@ func TestUserAddDuplicate(t *testing.T) {
 		t.Fatal(err)
 	}
 	g := uuid.Must(uuid.NewV4())
-	user.addGroup(g)
-	user.addGroup(g)
-	if !user.containsGroup(g) {
+	user.addGroups(g)
+	user.addGroups(g)
+	if !user.containsGroups(g) {
 		t.Error("calling AddGroup twice with same ID failed")
 	}
 }
@@ -107,8 +105,8 @@ func TestUserRemoveGroup(t *testing.T) {
 	}
 
 	for _, g := range userGroups {
-		user.removeGroup(g)
-		if user.containsGroup(g) {
+		user.removeGroups(g)
+		if user.containsGroups(g) {
 			t.Error("RemoveGroup failed")
 		}
 	}

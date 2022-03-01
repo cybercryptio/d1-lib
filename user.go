@@ -59,17 +59,25 @@ func (u *User) seal(id uuid.UUID, cryptor crypto.CryptorInterface) (SealedUser, 
 	return SealedUser{id, ciphertext, wrappedKey}, nil
 }
 
-func (u *User) addGroup(id uuid.UUID) {
-	u.Groups[id] = struct{}{}
+func (u *User) addGroups(ids ...uuid.UUID) {
+	for _, id := range ids {
+		u.Groups[id] = struct{}{}
+	}
 }
 
-func (u *User) removeGroup(id uuid.UUID) {
-	delete(u.Groups, id)
+func (u *User) removeGroups(ids ...uuid.UUID) {
+	for _, id := range ids {
+		delete(u.Groups, id)
+	}
 }
 
-func (u *User) containsGroup(id uuid.UUID) bool {
-	_, exists := u.Groups[id]
-	return exists
+func (u *User) containsGroups(ids ...uuid.UUID) bool {
+	for _, id := range ids {
+		if _, exists := u.Groups[id]; !exists {
+			return false
+		}
+	}
+	return true
 }
 
 func (u *User) getGroups() []uuid.UUID {

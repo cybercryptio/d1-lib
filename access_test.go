@@ -32,17 +32,13 @@ var accessGroups = []uuid.UUID{
 
 func TestAccessContainsGroup(t *testing.T) {
 	access := newAccess(nil)
-	for _, g := range accessGroups {
-		access.addGroup(g)
+	access.addGroups(accessGroups...)
+
+	if !access.containsGroups(accessGroups...) {
+		t.Error("ContainsGroup returned false")
 	}
 
-	for _, g := range accessGroups {
-		if !access.containsGroup(g) {
-			t.Error("ContainsGroup returned false")
-		}
-	}
-
-	if access.containsGroup(uuid.Must(uuid.NewV4())) {
+	if access.containsGroups(uuid.Must(uuid.NewV4())) {
 		t.Error("ContainsGroup returned true")
 	}
 }
@@ -52,8 +48,8 @@ func TestAccessAdd(t *testing.T) {
 
 	for i := 0; i < 256; i++ {
 		g := uuid.Must(uuid.NewV4())
-		access.addGroup(g)
-		if !access.containsGroup(g) {
+		access.addGroups(g)
+		if !access.containsGroups(g) {
 			t.Error("AddGroup failed")
 		}
 	}
@@ -62,22 +58,20 @@ func TestAccessAdd(t *testing.T) {
 func TestAccessAddDuplicate(t *testing.T) {
 	access := newAccess(nil)
 	g := uuid.Must(uuid.NewV4())
-	access.addGroup(g)
-	access.addGroup(g)
-	if !access.containsGroup(g) {
+	access.addGroups(g)
+	access.addGroups(g)
+	if !access.containsGroups(g) {
 		t.Error("calling AddGroup twice with same ID failed")
 	}
 }
 
 func TestAccessRemoveGroup(t *testing.T) {
 	access := newAccess(nil)
-	for _, g := range accessGroups {
-		access.addGroup(g)
-	}
+	access.addGroups(accessGroups...)
 
 	for _, g := range accessGroups {
-		access.removeGroup(g)
-		if access.containsGroup(g) {
+		access.removeGroups(g)
+		if access.containsGroups(g) {
 			t.Error("RemoveGroup failed")
 		}
 	}
@@ -91,9 +85,7 @@ func TestAccessSeal(t *testing.T) {
 	}
 
 	access := newAccess(nil)
-	for _, g := range accessGroups {
-		access.addGroup(g)
-	}
+	access.addGroups(accessGroups...)
 
 	id := uuid.Must(uuid.NewV4())
 	sealed, err := access.seal(id, &cryptor)
@@ -121,9 +113,7 @@ func TestAccessVerifyCiphertext(t *testing.T) {
 	}
 
 	access := newAccess(nil)
-	for _, g := range accessGroups {
-		access.addGroup(g)
-	}
+	access.addGroups(accessGroups...)
 
 	id := uuid.Must(uuid.NewV4())
 	sealed, err := access.seal(id, &cryptor)
@@ -148,9 +138,7 @@ func TestAccessVerifyID(t *testing.T) {
 	}
 
 	access := newAccess(nil)
-	for _, g := range accessGroups {
-		access.addGroup(g)
-	}
+	access.addGroups(accessGroups...)
 
 	id := uuid.Must(uuid.NewV4())
 	sealed, err := access.seal(id, &cryptor)
