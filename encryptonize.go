@@ -69,7 +69,7 @@ func New(config Config) (Encryptonize, error) {
 		return Encryptonize{}, err
 	}
 
-	return Encryptonize{objectCryptor, accessCryptor, tokenCryptor, userCryptor, groupCryptor}, nil
+	return Encryptonize{&objectCryptor, &accessCryptor, &tokenCryptor, &userCryptor, &groupCryptor}, nil
 }
 
 func (e *Encryptonize) Encrypt(object *Object, user *SealedUser) (SealedObject, SealedAccess, error) {
@@ -82,7 +82,8 @@ func (e *Encryptonize) Encrypt(object *Object, user *SealedUser) (SealedObject, 
 		return SealedObject{}, SealedAccess{}, err
 	}
 
-	access := newAccess(user.ID, wrappedOEK)
+	access := newAccess(wrappedOEK)
+	access.addGroup(user.ID)
 	sealedAccess, err := access.seal(sealedObject.ID, e.accessCryptor)
 	if err != nil {
 		return SealedObject{}, SealedAccess{}, err
@@ -102,7 +103,7 @@ func (e *Encryptonize) Update(authorizer *SealedUser, object *Object, access *Se
 		return SealedObject{}, err
 	}
 
-	plainAccess.wrappedOEK = wrappedOEK
+	plainAccess.WrappedOEK = wrappedOEK
 	sealedAccess, err := plainAccess.seal(sealedObject.ID, e.accessCryptor)
 	if err != nil {
 		return SealedObject{}, err
@@ -118,7 +119,7 @@ func (e *Encryptonize) Decrypt(authorizer *SealedUser, object *SealedObject, acc
 		return Object{}, err
 	}
 
-	return object.unseal(plainAccess.wrappedOEK, e.objectCryptor)
+	return object.unseal(plainAccess.WrappedOEK, e.objectCryptor)
 }
 
 func (e *Encryptonize) AddGroupToAccess(authorizer *SealedUser, group *SealedGroup, access *SealedAccess) error {
@@ -157,21 +158,11 @@ func (e *Encryptonize) NewUser(groups ...uuid.UUID) (SealedUser, string, error) 
 		return SealedUser{}, "", err
 	}
 
-	pwdHasher := crypto.NewPasswordHasher()
-	pwd, saltAndHash, err := pwdHasher.GeneratePassword()
+	user, pwd, err := newUser(groups...)
 	if err != nil {
 		return SealedUser{}, "", err
 	}
 
-	groupMap := make(map[uuid.UUID]bool)
-	for _, g := range groups {
-		groupMap[g] = true
-	}
-
-	user := &User{
-		saltAndHash: saltAndHash,
-		groups:      groupMap,
-	}
 	sealedUser, err := user.seal(id, e.userCryptor)
 	if err != nil {
 		return SealedUser{}, "", err

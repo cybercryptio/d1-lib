@@ -16,28 +16,184 @@ package encryptonize
 import (
 	"testing"
 
+	"reflect"
+
 	"github.com/gofrs/uuid"
+
+	"encryptonize/crypto"
 )
+
+var userGroups = []uuid.UUID{
+	uuid.Must(uuid.FromString("10000000-0000-0000-0000-000000000000")),
+	uuid.Must(uuid.FromString("20000000-0000-0000-0000-000000000000")),
+	uuid.Must(uuid.FromString("30000000-0000-0000-0000-000000000000")),
+	uuid.Must(uuid.FromString("40000000-0000-0000-0000-000000000000")),
+}
 
 func TestGetGroupIDs(t *testing.T) {
 	groupID := uuid.Must(uuid.NewV4())
-	userData := &User{
-		groups: map[uuid.UUID]bool{
-			groupID: true,
-		},
+	user, _, err := newUser(groupID)
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	uuids := userData.getGroups()
+	uuids := user.getGroups()
 	if len(uuids) == 0 || groupID != uuids[0] {
 		t.Error("Expected getGroups to return a group ID")
 	}
 }
 
 func TestGetZeroGroupIDs(t *testing.T) {
-	userData := &User{}
+	user, _, err := newUser()
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	uuids := userData.getGroups()
+	uuids := user.getGroups()
 	if len(uuids) != 0 {
 		t.Error("getGroups should have returned empty array")
+	}
+}
+
+func TestUserContainsGroup(t *testing.T) {
+	user, _, err := newUser(userGroups...)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, g := range userGroups {
+		if !user.containsGroup(g) {
+			t.Error("ContainsGroup returned false")
+		}
+	}
+
+	if user.containsGroup(uuid.Must(uuid.NewV4())) {
+		t.Error("ContainsGroup returned true")
+	}
+}
+
+func TestUserAdd(t *testing.T) {
+	user, _, err := newUser()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for i := 0; i < 256; i++ {
+		g := uuid.Must(uuid.NewV4())
+		user.addGroup(g)
+		if !user.containsGroup(g) {
+			t.Error("AddGroup failed")
+		}
+	}
+}
+
+func TestUserAddDuplicate(t *testing.T) {
+	user, _, err := newUser()
+	if err != nil {
+		t.Fatal(err)
+	}
+	g := uuid.Must(uuid.NewV4())
+	user.addGroup(g)
+	user.addGroup(g)
+	if !user.containsGroup(g) {
+		t.Error("calling AddGroup twice with same ID failed")
+	}
+}
+
+func TestUserRemoveGroup(t *testing.T) {
+	user, _, err := newUser(userGroups...)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, g := range userGroups {
+		user.removeGroup(g)
+		if user.containsGroup(g) {
+			t.Error("RemoveGroup failed")
+		}
+	}
+}
+
+func TestUserSeal(t *testing.T) {
+	key := make([]byte, 32)
+	cryptor, err := crypto.NewAESCryptor(key)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	user, _, err := newUser(userGroups...)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	id := uuid.Must(uuid.NewV4())
+	sealed, err := user.seal(id, &cryptor)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sealed.ID != id {
+		t.Fatalf("Wrong ID: %s != %s", sealed.ID, id)
+	}
+
+	unsealed, err := sealed.unseal(&cryptor)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(user, unsealed) {
+		t.Fatal("Unsealed object not equal to original")
+	}
+}
+
+func TestUserVerifyCiphertext(t *testing.T) {
+	key := make([]byte, 32)
+	cryptor, err := crypto.NewAESCryptor(key)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	user, _, err := newUser(userGroups...)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	id := uuid.Must(uuid.NewV4())
+	sealed, err := user.seal(id, &cryptor)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !sealed.verify(&cryptor) {
+		t.Fatal("Verification failed")
+	}
+	sealed.ciphertext[0] = sealed.ciphertext[0] ^ 1
+	if sealed.verify(&cryptor) {
+		t.Fatal("Verification should have failed")
+	}
+}
+
+func TestUserVerifyID(t *testing.T) {
+	key := make([]byte, 32)
+	cryptor, err := crypto.NewAESCryptor(key)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	user, _, err := newUser(userGroups...)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	id := uuid.Must(uuid.NewV4())
+	sealed, err := user.seal(id, &cryptor)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !sealed.verify(&cryptor) {
+		t.Fatal("Verification failed")
+	}
+	sealed.ID = uuid.Must(uuid.NewV4())
+	if sealed.verify(&cryptor) {
+		t.Fatal("Verification should have failed")
 	}
 }

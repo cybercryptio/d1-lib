@@ -20,8 +20,9 @@ import (
 )
 
 type Access struct {
-	groups     map[uuid.UUID]bool
-	wrappedOEK []byte
+	// Note: All fields need to exported in order for gob to serialize them.
+	Groups     map[uuid.UUID]struct{}
+	WrappedOEK []byte
 }
 
 type SealedAccess struct {
@@ -31,11 +32,10 @@ type SealedAccess struct {
 }
 
 // AccessObject instantiates a new Access Object with given groupID and WOEK.
-// A new object starts with Version: 0
-func newAccess(groupID uuid.UUID, wrappedOEK []byte) Access {
+func newAccess(wrappedOEK []byte) Access {
 	return Access{
-		groups:     map[uuid.UUID]bool{groupID: true},
-		wrappedOEK: wrappedOEK,
+		Groups:     map[uuid.UUID]struct{}{},
+		WrappedOEK: wrappedOEK,
 	}
 }
 
@@ -49,17 +49,18 @@ func (a *Access) seal(id uuid.UUID, cryptor crypto.CryptorInterface) (SealedAcce
 
 // AddGroup adds a new groupID to an Access Object
 func (a *Access) addGroup(id uuid.UUID) {
-	a.groups[id] = true
+	a.Groups[id] = struct{}{}
 }
 
 // ContainsGroup returns whether a groupID is in the Access
 func (a *Access) containsGroup(id uuid.UUID) bool {
-	return a.groups[id]
+	_, exists := a.Groups[id]
+	return exists
 }
 
 // RemoveGroup removes a groupID from an Access Object
 func (a *Access) removeGroup(id uuid.UUID) {
-	delete(a.groups, id)
+	delete(a.Groups, id)
 }
 
 func (a *SealedAccess) unseal(cryptor crypto.CryptorInterface) (Access, error) {
@@ -72,5 +73,5 @@ func (a *SealedAccess) unseal(cryptor crypto.CryptorInterface) (Access, error) {
 
 func (a *SealedAccess) verify(cryptor crypto.CryptorInterface) bool {
 	_, err := a.unseal(cryptor)
-	return err != nil
+	return err == nil
 }

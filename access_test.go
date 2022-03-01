@@ -14,91 +14,155 @@
 package encryptonize
 
 import (
-	"reflect"
 	"testing"
 
+	"reflect"
+
 	"github.com/gofrs/uuid"
+
+	"encryptonize/crypto"
 )
 
-var access = &Access{
-	groups: map[uuid.UUID]bool{
-		uuid.Must(uuid.FromString("10000000-0000-0000-0000-000000000000")): true,
-		uuid.Must(uuid.FromString("20000000-0000-0000-0000-000000000000")): true,
-		uuid.Must(uuid.FromString("30000000-0000-0000-0000-000000000000")): true,
-		uuid.Must(uuid.FromString("40000000-0000-0000-0000-000000000000")): true,
-	},
-	wrappedOEK: []byte("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"),
+var accessGroups = []uuid.UUID{
+	uuid.Must(uuid.FromString("10000000-0000-0000-0000-000000000000")),
+	uuid.Must(uuid.FromString("20000000-0000-0000-0000-000000000000")),
+	uuid.Must(uuid.FromString("30000000-0000-0000-0000-000000000000")),
+	uuid.Must(uuid.FromString("40000000-0000-0000-0000-000000000000")),
 }
 
-func TestContainsGroupTrue(t *testing.T) {
-	for groupID := range access.groups {
-		exists := access.containsGroup(groupID)
+func TestAccessContainsGroup(t *testing.T) {
+	access := newAccess(nil)
+	for _, g := range accessGroups {
+		access.addGroup(g)
+	}
 
-		if !exists {
+	for _, g := range accessGroups {
+		if !access.containsGroup(g) {
 			t.Error("ContainsGroup returned false")
 		}
 	}
-}
 
-func TestContainsGroupFalse(t *testing.T) {
-	exists := access.containsGroup(uuid.Must(uuid.NewV4()))
-	if exists {
+	if access.containsGroup(uuid.Must(uuid.NewV4())) {
 		t.Error("ContainsGroup returned true")
 	}
 }
 
-func TestAdd(t *testing.T) {
-	access := &Access{
-		groups: map[uuid.UUID]bool{},
-	}
+func TestAccessAdd(t *testing.T) {
+	access := newAccess(nil)
 
-	expected := map[uuid.UUID]bool{}
 	for i := 0; i < 256; i++ {
 		g := uuid.Must(uuid.NewV4())
 		access.addGroup(g)
-
-		expected[g] = true
-
-		if !reflect.DeepEqual(expected, access.groups) {
+		if !access.containsGroup(g) {
 			t.Error("AddGroup failed")
 		}
 	}
 }
 
-func TestAddDuplicate(t *testing.T) {
-	expected := access.groups
-	access.addGroup(uuid.Must(uuid.FromString("10000000-0000-0000-0000-000000000000")))
-
-	if !reflect.DeepEqual(expected, access.groups) {
-		t.Error("AddGroupDuplicate failed")
+func TestAccessAddDuplicate(t *testing.T) {
+	access := newAccess(nil)
+	g := uuid.Must(uuid.NewV4())
+	access.addGroup(g)
+	access.addGroup(g)
+	if !access.containsGroup(g) {
+		t.Error("calling AddGroup twice with same ID failed")
 	}
 }
 
-func TestNew(t *testing.T) {
-	groupID := uuid.Must(uuid.NewV4())
-	woek := []byte{1, 2, 3, 4}
-
-	access := newAccess(groupID, woek)
-
-	expected := Access{
-		groups: map[uuid.UUID]bool{
-			groupID: true,
-		},
-		wrappedOEK: woek,
+func TestAccessRemoveGroup(t *testing.T) {
+	access := newAccess(nil)
+	for _, g := range accessGroups {
+		access.addGroup(g)
 	}
 
-	if !reflect.DeepEqual(expected, access) {
-		t.Error("New failed")
-	}
-}
-
-//nolint: gosec
-func TestRemoveGroup(t *testing.T) {
-	for groupID := range access.groups {
-		access.removeGroup(groupID)
-		exists := access.containsGroup(groupID)
-		if exists {
+	for _, g := range accessGroups {
+		access.removeGroup(g)
+		if access.containsGroup(g) {
 			t.Error("RemoveGroup failed")
 		}
+	}
+}
+
+func TestAccessSeal(t *testing.T) {
+	key := make([]byte, 32)
+	cryptor, err := crypto.NewAESCryptor(key)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	access := newAccess(nil)
+	for _, g := range accessGroups {
+		access.addGroup(g)
+	}
+
+	id := uuid.Must(uuid.NewV4())
+	sealed, err := access.seal(id, &cryptor)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sealed.ID != id {
+		t.Fatalf("Wrong ID: %s != %s", sealed.ID, id)
+	}
+
+	unsealed, err := sealed.unseal(&cryptor)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(access, unsealed) {
+		t.Fatal("Unsealed object not equal to original")
+	}
+}
+
+func TestAccessVerifyCiphertext(t *testing.T) {
+	key := make([]byte, 32)
+	cryptor, err := crypto.NewAESCryptor(key)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	access := newAccess(nil)
+	for _, g := range accessGroups {
+		access.addGroup(g)
+	}
+
+	id := uuid.Must(uuid.NewV4())
+	sealed, err := access.seal(id, &cryptor)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !sealed.verify(&cryptor) {
+		t.Fatal("Verification failed")
+	}
+	sealed.ciphertext[0] = sealed.ciphertext[0] ^ 1
+	if sealed.verify(&cryptor) {
+		t.Fatal("Verification should have failed")
+	}
+}
+
+func TestAccessVerifyID(t *testing.T) {
+	key := make([]byte, 32)
+	cryptor, err := crypto.NewAESCryptor(key)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	access := newAccess(nil)
+	for _, g := range accessGroups {
+		access.addGroup(g)
+	}
+
+	id := uuid.Must(uuid.NewV4())
+	sealed, err := access.seal(id, &cryptor)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !sealed.verify(&cryptor) {
+		t.Fatal("Verification failed")
+	}
+	sealed.ID = uuid.Must(uuid.NewV4())
+	if sealed.verify(&cryptor) {
+		t.Fatal("Verification should have failed")
 	}
 }

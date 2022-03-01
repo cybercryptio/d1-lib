@@ -20,14 +20,35 @@ import (
 )
 
 type User struct {
-	saltAndHash []byte
-	groups      map[uuid.UUID]bool
+	// Note: All fields need to exported in order for gob to serialize them.
+	SaltAndHash []byte
+	Groups      map[uuid.UUID]struct{}
 }
 
 type SealedUser struct {
 	ID         uuid.UUID
 	ciphertext []byte
 	wrappedKey []byte
+}
+
+func newUser(groups ...uuid.UUID) (User, string, error) {
+	pwdHasher := crypto.NewPasswordHasher()
+	pwd, saltAndHash, err := pwdHasher.GeneratePassword()
+	if err != nil {
+		return User{}, "", err
+	}
+
+	groupMap := make(map[uuid.UUID]struct{})
+	for _, g := range groups {
+		groupMap[g] = struct{}{}
+	}
+
+	user := User{
+		SaltAndHash: saltAndHash,
+		Groups:      groupMap,
+	}
+
+	return user, pwd, nil
 }
 
 func (u *User) seal(id uuid.UUID, cryptor crypto.CryptorInterface) (SealedUser, error) {
@@ -39,20 +60,21 @@ func (u *User) seal(id uuid.UUID, cryptor crypto.CryptorInterface) (SealedUser, 
 }
 
 func (u *User) addGroup(id uuid.UUID) {
-	u.groups[id] = true
+	u.Groups[id] = struct{}{}
 }
 
 func (u *User) removeGroup(id uuid.UUID) {
-	delete(u.groups, id)
+	delete(u.Groups, id)
 }
 
 func (u *User) containsGroup(id uuid.UUID) bool {
-	return u.groups[id]
+	_, exists := u.Groups[id]
+	return exists
 }
 
 func (u *User) getGroups() []uuid.UUID {
-	ids := make([]uuid.UUID, 0, len(u.groups))
-	for id := range u.groups {
+	ids := make([]uuid.UUID, 0, len(u.Groups))
+	for id := range u.Groups {
 		ids = append(ids, id)
 	}
 	return ids
@@ -68,5 +90,5 @@ func (u *SealedUser) unseal(cryptor crypto.CryptorInterface) (User, error) {
 
 func (u *SealedUser) verify(cryptor crypto.CryptorInterface) bool {
 	_, err := u.unseal(cryptor)
-	return err != nil
+	return err == nil
 }

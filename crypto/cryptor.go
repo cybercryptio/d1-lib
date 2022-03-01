@@ -28,13 +28,13 @@ type Cryptor struct {
 }
 
 // NewAESCryptor creates a Cryptor which uses AES-256 in GCM mode.
-func NewAESCryptor(KEK []byte) (*Cryptor, error) {
+func NewAESCryptor(KEK []byte) (Cryptor, error) {
 	keyWrapper, err := NewKWP(KEK)
 	if err != nil {
-		return nil, err
+		return Cryptor{}, err
 	}
 
-	return &Cryptor{
+	return Cryptor{
 		random:     &NativeRandom{},
 		keyWrapper: keyWrapper,
 		aead:       &AES256GCM{&NativeRandom{}},

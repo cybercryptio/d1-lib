@@ -22,7 +22,8 @@ import (
 type ScopeType uint64 // TODO: This is out of scope (lol)
 
 type Group struct {
-	scopes ScopeType
+	// Note: All fields need to exported in order for gob to serialize them.
+	Scopes ScopeType
 }
 
 type SealedGroup struct {
@@ -55,5 +56,5 @@ func (g *SealedGroup) unseal(cryptor crypto.CryptorInterface) (Group, error) {
 
 func (g *SealedGroup) verify(cryptor crypto.CryptorInterface) bool {
 	_, err := g.unseal(cryptor)
-	return err != nil
+	return err == nil
 }

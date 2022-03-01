@@ -62,3 +62,8 @@ func (o *SealedObject) unseal(wrappedKey []byte, cryptor crypto.CryptorInterface
 
 	return Object{plaintext, o.AssociatedData}, nil
 }
+
+func (o *SealedObject) verify(wrappedKey []byte, cryptor crypto.CryptorInterface) bool {
+	_, err := o.unseal(wrappedKey, cryptor)
+	return err == nil
+}
