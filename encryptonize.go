@@ -91,6 +91,40 @@ func (e *Encryptonize) Encrypt(object *Object, user *SealedUser) (SealedObject, 
 	return sealedObject, sealedAccess, nil
 }
 
+func (e *Encryptonize) Update(authorizer *SealedUser, object *Object, access *SealedAccess) (SealedObject, error) {
+	plainAccess, err := access.unseal(e.accessCryptor)
+	if err != nil {
+		return SealedObject{}, err
+	}
+
+	plainAuthorizer, err := authorizer.unseal(e.userCryptor)
+	if err != nil {
+		return SealedObject{}, err
+	}
+
+	allowed := false
+	for _, id := range plainAuthorizer.getGroups() {
+		allowed = allowed || plainAccess.containsGroup(id)
+	}
+	if !allowed {
+		return SealedObject{}, errors.New("User not authorized")
+	}
+
+	wrappedOEK, sealedObject, err := object.seal(e.objectCryptor)
+	if err != nil {
+		return SealedObject{}, err
+	}
+
+	plainAccess.wrappedOEK = wrappedOEK
+	sealedAccess, err := plainAccess.seal(sealedObject.ID, e.accessCryptor)
+	if err != nil {
+		return SealedObject{}, err
+	}
+	*access = sealedAccess
+
+	return sealedObject, nil
+}
+
 func (e *Encryptonize) Decrypt(authorizer *SealedUser, object *SealedObject, access *SealedAccess) (Object, error) {
 	plainAccess, err := access.unseal(e.accessCryptor)
 	if err != nil {
