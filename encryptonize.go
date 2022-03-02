@@ -105,6 +105,19 @@ func (e *Encryptonize) Decrypt(authorizer *SealedUser, object *SealedObject, acc
 	return object.unseal(plainAccess.WrappedOEK, e.objectCryptor)
 }
 
+func (e *Encryptonize) CreateToken(plaintext []byte) (SealedToken, error) {
+	token := NewToken(plaintext, TokenValidity)
+	return token.seal(e.tokenCryptor)
+}
+
+func (e *Encryptonize) GetTokenContents(token *SealedToken) ([]byte, error) {
+	plainToken, err := token.unseal(e.tokenCryptor)
+	if err != nil {
+		return nil, err
+	}
+	return plainToken.Plaintext, nil
+}
+
 func (e *Encryptonize) AddGroupsToAccess(authorizer *SealedUser, access *SealedAccess, groups ...*SealedGroup) error {
 	groupIDs, err := e.verifyGroups(groups...)
 	if err != nil {
