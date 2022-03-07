@@ -30,6 +30,25 @@ var accessGroups = []uuid.UUID{
 	uuid.Must(uuid.FromString("40000000-0000-0000-0000-000000000000")),
 }
 
+func TestAccessGetGroupIDs(t *testing.T) {
+	groupID := uuid.Must(uuid.NewV4())
+	access := newAccess(nil)
+	access.addGroups(groupID)
+
+	uuids := access.getGroups()
+	if _, ok := uuids[groupID]; len(uuids) == 0 || !ok {
+		t.Error("Expected getGroups to return a group ID")
+	}
+}
+
+func TestAccessGetZeroGroupIDs(t *testing.T) {
+	access := newAccess(nil)
+	uuids := access.getGroups()
+	if len(uuids) != 0 {
+		t.Error("getGroups should have returned empty array")
+	}
+}
+
 func TestAccessContainsGroup(t *testing.T) {
 	access := newAccess(nil)
 	access.addGroups(accessGroups...)
@@ -124,7 +143,7 @@ func TestAccessVerifyCiphertext(t *testing.T) {
 	if !sealed.verify(&cryptor) {
 		t.Fatal("Verification failed")
 	}
-	sealed.ciphertext[0] = sealed.ciphertext[0] ^ 1
+	sealed.Ciphertext[0] = sealed.Ciphertext[0] ^ 1
 	if sealed.verify(&cryptor) {
 		t.Fatal("Verification should have failed")
 	}

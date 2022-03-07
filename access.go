@@ -27,8 +27,8 @@ type Access struct {
 
 type SealedAccess struct {
 	ID         uuid.UUID
-	ciphertext []byte
-	wrappedKey []byte
+	Ciphertext []byte
+	WrappedKey []byte
 }
 
 func newAccess(wrappedOEK []byte) Access {
@@ -52,6 +52,12 @@ func (a *Access) addGroups(ids ...uuid.UUID) {
 	}
 }
 
+func (a *Access) removeGroups(ids ...uuid.UUID) {
+	for _, id := range ids {
+		delete(a.Groups, id)
+	}
+}
+
 func (a *Access) containsGroups(ids ...uuid.UUID) bool {
 	for _, id := range ids {
 		if _, exists := a.Groups[id]; !exists {
@@ -61,15 +67,13 @@ func (a *Access) containsGroups(ids ...uuid.UUID) bool {
 	return true
 }
 
-func (a *Access) removeGroups(ids ...uuid.UUID) {
-	for _, id := range ids {
-		delete(a.Groups, id)
-	}
+func (a *Access) getGroups() map[uuid.UUID]struct{} {
+	return a.Groups
 }
 
 func (a *SealedAccess) unseal(cryptor crypto.CryptorInterface) (Access, error) {
 	access := Access{}
-	if err := cryptor.Decrypt(&access, a.ID.Bytes(), a.wrappedKey, a.ciphertext); err != nil {
+	if err := cryptor.Decrypt(&access, a.ID.Bytes(), a.WrappedKey, a.Ciphertext); err != nil {
 		return Access{}, err
 	}
 	return access, nil

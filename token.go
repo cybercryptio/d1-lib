@@ -15,6 +15,9 @@
 package encryptonize
 
 import (
+	"bytes"
+	"encoding/base64"
+	"encoding/gob"
 	"errors"
 	"time"
 
@@ -29,8 +32,8 @@ type Token struct {
 }
 
 type SealedToken struct {
-	ciphertext []byte
-	wrappedKey []byte
+	Ciphertext []byte
+	WrappedKey []byte
 	ExpiryTime time.Time
 }
 
@@ -60,7 +63,7 @@ func (t *SealedToken) unseal(cryptor crypto.CryptorInterface) (Token, error) {
 	}
 
 	plaintext := []byte{}
-	err = cryptor.Decrypt(&plaintext, associatedData, t.wrappedKey, t.ciphertext)
+	err = cryptor.Decrypt(&plaintext, associatedData, t.WrappedKey, t.Ciphertext)
 	if err != nil {
 		return Token{}, err
 	}
@@ -78,4 +81,27 @@ func (t *SealedToken) verify(cryptor crypto.CryptorInterface) bool {
 		return false
 	}
 	return t.ExpiryTime.After(time.Now())
+}
+
+func (t *SealedToken) String() (string, error) {
+	var buffer bytes.Buffer
+	enc := gob.NewEncoder(&buffer)
+	if err := enc.Encode(t); err != nil {
+		return "", err
+	}
+
+	return base64.RawURLEncoding.EncodeToString(buffer.Bytes()), nil
+}
+
+func TokenFromString(tokenString string) (SealedToken, error) {
+	tokenBytes, err := base64.RawURLEncoding.DecodeString(tokenString)
+	if err != nil {
+		return SealedToken{}, err
+	}
+	var token SealedToken
+	dec := gob.NewDecoder(bytes.NewReader(tokenBytes))
+	if err := dec.Decode(&token); err != nil {
+		return SealedToken{}, err
+	}
+	return token, nil
 }

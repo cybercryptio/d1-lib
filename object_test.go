@@ -23,6 +23,8 @@ import (
 	"encryptonize/crypto"
 )
 
+var id = uuid.FromStringOrNil("10000000-0000-0000-0000-000000000000")
+
 func TestObjectSeal(t *testing.T) {
 	key := make([]byte, 32)
 	cryptor, err := crypto.NewAESCryptor(key)
@@ -31,7 +33,7 @@ func TestObjectSeal(t *testing.T) {
 	}
 
 	object := Object{[]byte("plaintext"), []byte("data")}
-	wrappedKey, sealed, err := object.seal(&cryptor)
+	wrappedKey, sealed, err := object.seal(id, &cryptor)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -53,7 +55,7 @@ func TestObjectVerifyCiphertext(t *testing.T) {
 	}
 
 	object := Object{[]byte("plaintext"), []byte("data")}
-	wrappedKey, sealed, err := object.seal(&cryptor)
+	wrappedKey, sealed, err := object.seal(id, &cryptor)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -61,7 +63,7 @@ func TestObjectVerifyCiphertext(t *testing.T) {
 	if !sealed.verify(wrappedKey, &cryptor) {
 		t.Fatal("Verification failed")
 	}
-	sealed.ciphertext[0] = sealed.ciphertext[0] ^ 1
+	sealed.Ciphertext[0] = sealed.Ciphertext[0] ^ 1
 	if sealed.verify(wrappedKey, &cryptor) {
 		t.Fatal("Verification should have failed")
 	}
@@ -75,7 +77,7 @@ func TestObjectVerifyData(t *testing.T) {
 	}
 
 	object := Object{[]byte("plaintext"), []byte("data")}
-	wrappedKey, sealed, err := object.seal(&cryptor)
+	wrappedKey, sealed, err := object.seal(id, &cryptor)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -97,7 +99,7 @@ func TestObjectVerifyID(t *testing.T) {
 	}
 
 	object := Object{[]byte("plaintext"), []byte("data")}
-	wrappedKey, sealed, err := object.seal(&cryptor)
+	wrappedKey, sealed, err := object.seal(id, &cryptor)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -119,16 +121,11 @@ func TestObjectID(t *testing.T) {
 	}
 
 	object := Object{[]byte("plaintext"), []byte("data")}
-	_, sealed1, err := object.seal(&cryptor)
+	_, sealed, err := object.seal(id, &cryptor)
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, sealed2, err := object.seal(&cryptor)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if sealed1.ID == sealed2.ID {
-		t.Fatal("Expected different IDs")
+	if sealed.ID != id {
+		t.Fatalf("Object ID not equal to expected value: %s != %s", sealed.ID, id)
 	}
 }

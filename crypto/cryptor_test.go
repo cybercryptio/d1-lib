@@ -58,3 +58,57 @@ func TestCryptor(t *testing.T) {
 		}
 	}
 }
+
+func TestCryptorIdempotent(t *testing.T) {
+	rand := &NativeRandom{}
+	KEK, err := rand.GetBytes(32)
+	if err != nil {
+		t.Fatalf("Random failed: %v", err)
+	}
+	cryptor, err := NewAESCryptor(KEK)
+	if err != nil {
+		t.Fatalf("NewAESCryptor failed: %v", err)
+	}
+
+	data, err := rand.GetBytes(1024)
+	if err != nil {
+		t.Fatalf("Random failed: %v", err)
+	}
+	dataCopy := make([]byte, len(data))
+	copy(dataCopy, data)
+
+	aad, err := rand.GetBytes(1024)
+	if err != nil {
+		t.Fatalf("Random failed: %v", err)
+	}
+	aadCopy := make([]byte, len(aad))
+	copy(aadCopy, aad)
+
+	wrappedKey, ciphertext, err := cryptor.Encrypt(data, aad)
+	if err != nil {
+		t.Fatalf("Encrypt failed: %v", err)
+	}
+	ciphertextCopy := make([]byte, len(ciphertext))
+	copy(ciphertextCopy, ciphertext)
+	wrappedKeyCopy := make([]byte, len(wrappedKey))
+	copy(wrappedKeyCopy, wrappedKey)
+
+	var plaintext []byte
+	err = cryptor.Decrypt(&plaintext, aad, wrappedKey, ciphertext)
+	if err != nil {
+		t.Fatalf("Decrypt failed: %v", err)
+	}
+
+	if !bytes.Equal(data, dataCopy) {
+		t.Fatalf("'data' was changed during operation")
+	}
+	if !bytes.Equal(aad, aadCopy) {
+		t.Fatalf("'aad' was changed during operation")
+	}
+	if !bytes.Equal(ciphertext, ciphertextCopy) {
+		t.Fatalf("'ciphertext' was changed during operation")
+	}
+	if !bytes.Equal(wrappedKey, wrappedKeyCopy) {
+		t.Fatalf("'wrappedKey' was changed during operation")
+	}
+}

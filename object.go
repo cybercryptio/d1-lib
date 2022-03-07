@@ -26,17 +26,12 @@ type Object struct {
 }
 
 type SealedObject struct {
-	ciphertext     []byte
+	Ciphertext     []byte
 	AssociatedData []byte
 	ID             uuid.UUID
 }
 
-func (o *Object) seal(cryptor crypto.CryptorInterface) ([]byte, SealedObject, error) {
-	id, err := uuid.NewV4()
-	if err != nil {
-		return nil, SealedObject{}, err
-	}
-
+func (o *Object) seal(id uuid.UUID, cryptor crypto.CryptorInterface) ([]byte, SealedObject, error) {
 	associatedData := make([]byte, 0, uuid.Size+len(o.AssociatedData))
 	associatedData = append(associatedData, id.Bytes()...)
 	associatedData = append(associatedData, o.AssociatedData...)
@@ -55,7 +50,7 @@ func (o *SealedObject) unseal(wrappedKey []byte, cryptor crypto.CryptorInterface
 	associatedData = append(associatedData, o.AssociatedData...)
 
 	plaintext := []byte{}
-	err := cryptor.Decrypt(&plaintext, associatedData, wrappedKey, o.ciphertext)
+	err := cryptor.Decrypt(&plaintext, associatedData, wrappedKey, o.Ciphertext)
 	if err != nil {
 		return Object{}, err
 	}

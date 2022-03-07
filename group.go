@@ -19,17 +19,15 @@ import (
 	"encryptonize/crypto"
 )
 
-type ScopeType uint64 // TODO: This is out of scope (lol)
-
 type Group struct {
 	// Note: All fields need to exported in order for gob to serialize them.
-	Scopes ScopeType
+	Data []byte
 }
 
 type SealedGroup struct {
 	ID         uuid.UUID
-	ciphertext []byte
-	wrappedKey []byte
+	Ciphertext []byte
+	WrappedKey []byte
 }
 
 func (g *Group) seal(cryptor crypto.CryptorInterface) (SealedGroup, error) {
@@ -48,7 +46,7 @@ func (g *Group) seal(cryptor crypto.CryptorInterface) (SealedGroup, error) {
 
 func (g *SealedGroup) unseal(cryptor crypto.CryptorInterface) (Group, error) {
 	group := Group{}
-	if err := cryptor.Decrypt(&group, g.ID.Bytes(), g.wrappedKey, g.ciphertext); err != nil {
+	if err := cryptor.Decrypt(&group, g.ID.Bytes(), g.WrappedKey, g.Ciphertext); err != nil {
 		return Group{}, err
 	}
 	return group, nil

@@ -61,7 +61,7 @@ func TestTokenVerifyCiphertext(t *testing.T) {
 	if !sealed.verify(&cryptor) {
 		t.Fatal("Verification failed")
 	}
-	sealed.ciphertext[0] = sealed.ciphertext[0] ^ 1
+	sealed.Ciphertext[0] = sealed.Ciphertext[0] ^ 1
 	if sealed.verify(&cryptor) {
 		t.Fatal("Verification should have failed")
 	}

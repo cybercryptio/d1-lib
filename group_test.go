@@ -30,7 +30,7 @@ func TestGroupSeal(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	group := Group{42}
+	group := Group{[]byte("data")}
 	sealed, err := group.seal(&cryptor)
 	if err != nil {
 		t.Fatal(err)
@@ -52,7 +52,7 @@ func TestGroupVerifyCiphertext(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	group := Group{42}
+	group := Group{[]byte("data")}
 	sealed, err := group.seal(&cryptor)
 	if err != nil {
 		t.Fatal(err)
@@ -61,7 +61,7 @@ func TestGroupVerifyCiphertext(t *testing.T) {
 	if !sealed.verify(&cryptor) {
 		t.Fatal("Verification failed")
 	}
-	sealed.ciphertext[0] = sealed.ciphertext[0] ^ 1
+	sealed.Ciphertext[0] = sealed.Ciphertext[0] ^ 1
 	if sealed.verify(&cryptor) {
 		t.Fatal("Verification should have failed")
 	}
@@ -74,7 +74,7 @@ func TestGroupVerifyID(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	group := Group{42}
+	group := Group{[]byte("data")}
 	sealed, err := group.seal(&cryptor)
 	if err != nil {
 		t.Fatal(err)
@@ -96,7 +96,7 @@ func TestGroupID(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	group := Group{42}
+	group := Group{[]byte("data")}
 	sealed1, err := group.seal(&cryptor)
 	if err != nil {
 		t.Fatal(err)

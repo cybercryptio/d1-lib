@@ -85,7 +85,10 @@ func (c *Cryptor) Decrypt(plaintext, data interface{}, wrappedKey, ciphertext []
 	}
 	dataBytes := buffer.Bytes()
 
-	plaintextBytes, err := c.aead.Decrypt(ciphertext, dataBytes, key)
+	// Need to copy here, as AEADInterface is allowed to modify the array.
+	ciphertextCopy := make([]byte, len(ciphertext))
+	copy(ciphertextCopy, ciphertext)
+	plaintextBytes, err := c.aead.Decrypt(ciphertextCopy, dataBytes, key)
 	if err != nil {
 		return err
 	}

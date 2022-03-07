@@ -55,12 +55,21 @@ func New(config Config) (Encryptonize, error) {
 	return Encryptonize{&objectCryptor, &accessCryptor, &tokenCryptor, &userCryptor, &groupCryptor}, nil
 }
 
-func (e *Encryptonize) Encrypt(object *Object, user *SealedUser) (SealedObject, SealedAccess, error) {
+////////////////////////////////////////////////////////
+//                       Object                       //
+////////////////////////////////////////////////////////
+
+func (e *Encryptonize) Encrypt(user *SealedUser, object *Object) (SealedObject, SealedAccess, error) {
 	if !user.verify(e.userCryptor) {
 		return SealedObject{}, SealedAccess{}, errors.New("User not authorized")
 	}
 
-	wrappedOEK, sealedObject, err := object.seal(e.objectCryptor)
+	id, err := uuid.NewV4()
+	if err != nil {
+		return SealedObject{}, SealedAccess{}, err
+	}
+
+	wrappedOEK, sealedObject, err := object.seal(id, e.objectCryptor)
 	if err != nil {
 		return SealedObject{}, SealedAccess{}, err
 	}
@@ -76,12 +85,12 @@ func (e *Encryptonize) Encrypt(object *Object, user *SealedUser) (SealedObject, 
 }
 
 func (e *Encryptonize) Update(authorizer *SealedUser, object *Object, access *SealedAccess) (SealedObject, error) {
-	plainAccess, err := e.authorize(authorizer, access)
+	plainAccess, err := e.authorizeAccess(authorizer, access)
 	if err != nil {
 		return SealedObject{}, err
 	}
 
-	wrappedOEK, sealedObject, err := object.seal(e.objectCryptor)
+	wrappedOEK, sealedObject, err := object.seal(access.ID, e.objectCryptor)
 	if err != nil {
 		return SealedObject{}, err
 	}
@@ -97,13 +106,17 @@ func (e *Encryptonize) Update(authorizer *SealedUser, object *Object, access *Se
 }
 
 func (e *Encryptonize) Decrypt(authorizer *SealedUser, object *SealedObject, access *SealedAccess) (Object, error) {
-	plainAccess, err := e.authorize(authorizer, access)
+	plainAccess, err := e.authorizeAccess(authorizer, access)
 	if err != nil {
 		return Object{}, err
 	}
 
 	return object.unseal(plainAccess.WrappedOEK, e.objectCryptor)
 }
+
+////////////////////////////////////////////////////////
+//                       Token                        //
+////////////////////////////////////////////////////////
 
 func (e *Encryptonize) CreateToken(plaintext []byte) (SealedToken, error) {
 	token := NewToken(plaintext, TokenValidity)
@@ -118,13 +131,25 @@ func (e *Encryptonize) GetTokenContents(token *SealedToken) ([]byte, error) {
 	return plainToken.Plaintext, nil
 }
 
+////////////////////////////////////////////////////////
+//                       Access                       //
+////////////////////////////////////////////////////////
+
+func (e *Encryptonize) GetAccessGroups(authorizer *SealedUser, access *SealedAccess) (map[uuid.UUID]struct{}, error) {
+	plainAccess, err := e.authorizeAccess(authorizer, access)
+	if err != nil {
+		return nil, err
+	}
+	return plainAccess.getGroups(), nil
+}
+
 func (e *Encryptonize) AddGroupsToAccess(authorizer *SealedUser, access *SealedAccess, groups ...*SealedGroup) error {
 	groupIDs, err := e.verifyGroups(groups...)
 	if err != nil {
 		return err
 	}
 
-	plainAccess, err := e.authorize(authorizer, access)
+	plainAccess, err := e.authorizeAccess(authorizer, access)
 	if err != nil {
 		return err
 	}
@@ -140,7 +165,7 @@ func (e *Encryptonize) RemoveGroupsFromAccess(authorizer *SealedUser, access *Se
 		return err
 	}
 
-	plainAccess, err := e.authorize(authorizer, access)
+	plainAccess, err := e.authorizeAccess(authorizer, access)
 	if err != nil {
 		return err
 	}
@@ -150,37 +175,57 @@ func (e *Encryptonize) RemoveGroupsFromAccess(authorizer *SealedUser, access *Se
 	return err
 }
 
-func (e *Encryptonize) NewUser(groups ...uuid.UUID) (SealedUser, string, error) {
-	id, err := uuid.NewV4()
+func (e *Encryptonize) AuthorizeUser(authorizer *SealedUser, access *SealedAccess) error {
+	_, err := e.authorizeAccess(authorizer, access)
+	return err
+}
+
+////////////////////////////////////////////////////////
+//                        User                        //
+////////////////////////////////////////////////////////
+
+func (e *Encryptonize) NewUser(data []byte, groups ...uuid.UUID) (SealedUser, SealedGroup, string, error) {
+	group, err := (&Group{data}).seal(e.groupCryptor)
 	if err != nil {
-		return SealedUser{}, "", err
+		return SealedUser{}, SealedGroup{}, "", err
 	}
 
-	user, pwd, err := newUser(groups...)
+	user, pwd, err := newUser(append(groups, group.ID)...)
 	if err != nil {
-		return SealedUser{}, "", err
+		return SealedUser{}, SealedGroup{}, "", err
 	}
 
-	sealedUser, err := user.seal(id, e.userCryptor)
+	sealedUser, err := user.seal(group.ID, e.userCryptor)
 	if err != nil {
-		return SealedUser{}, "", err
+		return SealedUser{}, SealedGroup{}, "", err
 	}
 
-	return sealedUser, pwd, nil
+	return sealedUser, group, pwd, nil
+}
+
+func (e *Encryptonize) GetUserGroups(user *SealedUser) (map[uuid.UUID]struct{}, error) {
+	plainUser, err := user.unseal(e.userCryptor)
+	if err != nil {
+		return nil, err
+	}
+	return plainUser.getGroups(), nil
+}
+
+func (e *Encryptonize) AuthenticateUser(user *SealedUser, password string) error {
+	plainUser, err := user.unseal(e.userCryptor)
+	if err != nil {
+		return err
+	}
+	if !crypto.NewPasswordHasher().Compare(password, plainUser.SaltAndHash) {
+		return errors.New("Invalid password")
+	}
+	return nil
 }
 
 func (e *Encryptonize) AddUserToGroups(authorizer *SealedUser, user *SealedUser, groups ...*SealedGroup) error {
-	groupIDs, err := e.verifyGroups(groups...)
+	groupIDs, err := e.authorizeGroups(authorizer, groups...)
 	if err != nil {
 		return err
-	}
-
-	plainAuthorizer, err := authorizer.unseal(e.userCryptor)
-	if err != nil {
-		return err
-	}
-	if !plainAuthorizer.containsGroups(groupIDs...) {
-		return errors.New("User not authorized")
 	}
 
 	plainUser, err := user.unseal(e.userCryptor)
@@ -198,17 +243,9 @@ func (e *Encryptonize) AddUserToGroups(authorizer *SealedUser, user *SealedUser,
 }
 
 func (e *Encryptonize) RemoveUserFromGroups(authorizer *SealedUser, user *SealedUser, groups ...*SealedGroup) error {
-	groupIDs, err := e.verifyGroups(groups...)
+	groupIDs, err := e.authorizeGroups(authorizer, groups...)
 	if err != nil {
 		return err
-	}
-
-	plainAuthorizer, err := authorizer.unseal(e.userCryptor)
-	if err != nil {
-		return err
-	}
-	if !plainAuthorizer.containsGroups(groupIDs...) {
-		return errors.New("User not authorized")
 	}
 
 	plainUser, err := user.unseal(e.userCryptor)
@@ -225,12 +262,52 @@ func (e *Encryptonize) RemoveUserFromGroups(authorizer *SealedUser, user *Sealed
 	return nil
 }
 
-// NewGroup creates a group with the specified scopes in the authStorage
-func (e *Encryptonize) NewGroup(scopes ScopeType) (SealedGroup, error) {
-	return (&Group{scopes}).seal(e.groupCryptor)
+////////////////////////////////////////////////////////
+//                       Group                        //
+////////////////////////////////////////////////////////
+
+func (e *Encryptonize) NewGroup(user *SealedUser, data []byte) (SealedGroup, error) {
+	group, err := (&Group{data}).seal(e.groupCryptor)
+	if err != nil {
+		return SealedGroup{}, err
+	}
+
+	plainUser, err := user.unseal(e.userCryptor)
+	if err != nil {
+		return SealedGroup{}, err
+	}
+	plainUser.addGroups(group.ID)
+
+	*user, err = plainUser.seal(user.ID, e.userCryptor)
+	if err != nil {
+		return SealedGroup{}, err
+	}
+
+	return group, nil
 }
 
-func (e *Encryptonize) authorize(authorizer *SealedUser, access *SealedAccess) (Access, error) {
+func (e *Encryptonize) GetGroupData(authorizer *SealedUser, group SealedGroup) ([]byte, error) {
+	plainGroup, err := group.unseal(e.groupCryptor)
+	if err != nil {
+		return nil, err
+	}
+
+	plainAuthorizer, err := authorizer.unseal(e.userCryptor)
+	if err != nil {
+		return nil, err
+	}
+	if !plainAuthorizer.containsGroups(group.ID) {
+		return nil, errors.New("User not authorized")
+	}
+
+	return plainGroup.Data, nil
+}
+
+////////////////////////////////////////////////////////
+//                      Utility                       //
+////////////////////////////////////////////////////////
+
+func (e *Encryptonize) authorizeAccess(authorizer *SealedUser, access *SealedAccess) (Access, error) {
 	plainAccess, err := access.unseal(e.accessCryptor)
 	if err != nil {
 		return Access{}, err
@@ -241,12 +318,29 @@ func (e *Encryptonize) authorize(authorizer *SealedUser, access *SealedAccess) (
 		return Access{}, err
 	}
 
-	for _, id := range plainAuthorizer.getGroups() {
+	for id := range plainAuthorizer.getGroups() {
 		if plainAccess.containsGroups(id) {
 			return plainAccess, nil
 		}
 	}
 	return Access{}, errors.New("User not authorized")
+}
+
+func (e *Encryptonize) authorizeGroups(authorizer *SealedUser, groups ...*SealedGroup) ([]uuid.UUID, error) {
+	groupIDs, err := e.verifyGroups(groups...)
+	if err != nil {
+		return nil, err
+	}
+
+	plainAuthorizer, err := authorizer.unseal(e.userCryptor)
+	if err != nil {
+		return nil, err
+	}
+	if !plainAuthorizer.containsGroups(groupIDs...) {
+		return nil, errors.New("User not authorized")
+	}
+
+	return groupIDs, nil
 }
 
 func (e *Encryptonize) verifyGroups(groups ...*SealedGroup) ([]uuid.UUID, error) {

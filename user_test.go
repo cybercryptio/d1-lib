@@ -38,7 +38,7 @@ func TestGetGroupIDs(t *testing.T) {
 	}
 
 	uuids := user.getGroups()
-	if len(uuids) == 0 || groupID != uuids[0] {
+	if _, ok := uuids[groupID]; len(uuids) == 0 || !ok {
 		t.Error("Expected getGroups to return a group ID")
 	}
 }
@@ -163,7 +163,7 @@ func TestUserVerifyCiphertext(t *testing.T) {
 	if !sealed.verify(&cryptor) {
 		t.Fatal("Verification failed")
 	}
-	sealed.ciphertext[0] = sealed.ciphertext[0] ^ 1
+	sealed.Ciphertext[0] = sealed.Ciphertext[0] ^ 1
 	if sealed.verify(&cryptor) {
 		t.Fatal("Verification should have failed")
 	}

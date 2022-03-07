@@ -27,8 +27,8 @@ type User struct {
 
 type SealedUser struct {
 	ID         uuid.UUID
-	ciphertext []byte
-	wrappedKey []byte
+	Ciphertext []byte
+	WrappedKey []byte
 }
 
 func newUser(groups ...uuid.UUID) (User, string, error) {
@@ -80,17 +80,13 @@ func (u *User) containsGroups(ids ...uuid.UUID) bool {
 	return true
 }
 
-func (u *User) getGroups() []uuid.UUID {
-	ids := make([]uuid.UUID, 0, len(u.Groups))
-	for id := range u.Groups {
-		ids = append(ids, id)
-	}
-	return ids
+func (u *User) getGroups() map[uuid.UUID]struct{} {
+	return u.Groups
 }
 
 func (u *SealedUser) unseal(cryptor crypto.CryptorInterface) (User, error) {
 	user := User{}
-	if err := cryptor.Decrypt(&user, u.ID.Bytes(), u.wrappedKey, u.ciphertext); err != nil {
+	if err := cryptor.Decrypt(&user, u.ID.Bytes(), u.WrappedKey, u.Ciphertext); err != nil {
 		return User{}, err
 	}
 	return user, nil
