@@ -20,17 +20,29 @@ import (
 	"encryptonize/crypto"
 )
 
+// Object contains plaintext data provided to Encryptonize for encryption.
 type Object struct {
-	Plaintext      []byte
+	// Sensitive plaintext data that will be encrypted.
+	Plaintext []byte
+
+	// Associated data that will not be encrypted but will be authenticated.
 	AssociatedData []byte
 }
 
+// SealedObject contains encrypted and authenticated data.
 type SealedObject struct {
-	Ciphertext     []byte
+	// The encrypted ciphertext.
+	Ciphertext []byte
+
+	// Associated data in plaintext. This data is authenticated upon decryption, and can be used as
+	// metadata about the ciphertext.
 	AssociatedData []byte
-	ID             uuid.UUID
+
+	// A unique ID which identifies the object. The ID is authenticated upon decryption.
+	ID uuid.UUID
 }
 
+// seal encrypts the object and returns the wrapped encryption key and the sealed object.
 func (o *Object) seal(id uuid.UUID, cryptor crypto.CryptorInterface) ([]byte, SealedObject, error) {
 	associatedData := make([]byte, 0, uuid.Size+len(o.AssociatedData))
 	associatedData = append(associatedData, id.Bytes()...)
@@ -41,9 +53,16 @@ func (o *Object) seal(id uuid.UUID, cryptor crypto.CryptorInterface) ([]byte, Se
 		return nil, SealedObject{}, err
 	}
 
-	return wrappedKey, SealedObject{ciphertext, o.AssociatedData, id}, nil
+	sealed := SealedObject{
+		Ciphertext:     ciphertext,
+		AssociatedData: o.AssociatedData,
+		ID:             id,
+	}
+
+	return wrappedKey, sealed, nil
 }
 
+// unseal uses the wrapped key to decrypt the sealed object.
 func (o *SealedObject) unseal(wrappedKey []byte, cryptor crypto.CryptorInterface) (Object, error) {
 	associatedData := make([]byte, 0, uuid.Size+len(o.AssociatedData))
 	associatedData = append(associatedData, o.ID.Bytes()...)
@@ -55,9 +74,15 @@ func (o *SealedObject) unseal(wrappedKey []byte, cryptor crypto.CryptorInterface
 		return Object{}, err
 	}
 
-	return Object{plaintext, o.AssociatedData}, nil
+	object := Object{
+		Plaintext:      plaintext,
+		AssociatedData: o.AssociatedData,
+	}
+
+	return object, nil
 }
 
+// verify uses the wrapped key to check the integrity of the sealed object.
 func (o *SealedObject) verify(wrappedKey []byte, cryptor crypto.CryptorInterface) bool {
 	_, err := o.unseal(wrappedKey, cryptor)
 	return err == nil

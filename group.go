@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package encryptonize
 
 import (
@@ -19,21 +20,27 @@ import (
 	"encryptonize/crypto"
 )
 
+// group contains data about an Encryptonize group. Note: All fields need to exported in order for
+// gob to serialize them.
 type group struct {
-	// Note: All fields need to exported in order for gob to serialize them.
 	Data []byte
 }
 
+// SealedGroup is an encrypted structure which contains data about an Encryptonize group.
 type SealedGroup struct {
-	ID         uuid.UUID
+	// The unique ID of the group.
+	ID uuid.UUID
+
 	Ciphertext []byte
 	WrappedKey []byte
 }
 
+// newGroup creates a new group which contains the provided data.
 func newGroup(data []byte) group {
 	return group{data}
 }
 
+// seal encrypts the group.
 func (g *group) seal(cryptor crypto.CryptorInterface) (SealedGroup, error) {
 	id, err := uuid.NewV4()
 	if err != nil {
@@ -48,6 +55,7 @@ func (g *group) seal(cryptor crypto.CryptorInterface) (SealedGroup, error) {
 	return SealedGroup{id, ciphertext, wrappedKey}, nil
 }
 
+// unseal decrypts the sealed group.
 func (g *SealedGroup) unseal(cryptor crypto.CryptorInterface) (group, error) {
 	plainGroup := group{}
 	if err := cryptor.Decrypt(&plainGroup, g.ID.Bytes(), g.WrappedKey, g.Ciphertext); err != nil {
@@ -56,6 +64,7 @@ func (g *SealedGroup) unseal(cryptor crypto.CryptorInterface) (group, error) {
 	return plainGroup, nil
 }
 
+// verify checks the integrity of the sealed group.
 func (g *SealedGroup) verify(cryptor crypto.CryptorInterface) bool {
 	_, err := g.unseal(cryptor)
 	return err == nil

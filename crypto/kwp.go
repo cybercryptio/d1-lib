@@ -35,6 +35,7 @@
 // The upper bound for the key size is somewhat arbitrary. Setting an upper
 // bound is motivated by the analysis in section A.4 of NIST SP 800 38f:
 // forgery of long messages is simpler than forgery of short messages.
+
 package crypto
 
 import (

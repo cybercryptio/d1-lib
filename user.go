@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package encryptonize
 
 import (
@@ -19,18 +20,27 @@ import (
 	"encryptonize/crypto"
 )
 
+// user contains data about an Encryptonize user. Note: All fields need to be exported in order for
+// gob to serialize them.
 type user struct {
-	// Note: All fields need to exported in order for gob to serialize them.
+	// Salt and password hash for the user's password.
 	SaltAndHash []byte
-	Groups      map[uuid.UUID]struct{}
+
+	// A list a groups the user is a member of.
+	Groups map[uuid.UUID]struct{}
 }
 
+// SealedUser is an encrypted structure which contains data about an Encryptonize user.
 type SealedUser struct {
-	ID         uuid.UUID
+	// The unique ID of the user.
+	ID uuid.UUID
+
 	Ciphertext []byte
 	WrappedKey []byte
 }
 
+// newUser creates a new user with a random password. All the provided groups are added to the
+// user's group list.
 func newUser(groups ...uuid.UUID) (user, string, error) {
 	pwdHasher := crypto.NewPasswordHasher()
 	pwd, saltAndHash, err := pwdHasher.GeneratePassword()
@@ -51,6 +61,7 @@ func newUser(groups ...uuid.UUID) (user, string, error) {
 	return user, pwd, nil
 }
 
+// seal encrypts the user.
 func (u *user) seal(id uuid.UUID, cryptor crypto.CryptorInterface) (SealedUser, error) {
 	wrappedKey, ciphertext, err := cryptor.Encrypt(u, id.Bytes())
 	if err != nil {
@@ -59,18 +70,22 @@ func (u *user) seal(id uuid.UUID, cryptor crypto.CryptorInterface) (SealedUser, 
 	return SealedUser{id, ciphertext, wrappedKey}, nil
 }
 
+// addGroups appends the provided group IDs to the user's group list.
 func (u *user) addGroups(ids ...uuid.UUID) {
 	for _, id := range ids {
 		u.Groups[id] = struct{}{}
 	}
 }
 
+// removeGroups removes the provided group IDs from the user's group list.
 func (u *user) removeGroups(ids ...uuid.UUID) {
 	for _, id := range ids {
 		delete(u.Groups, id)
 	}
 }
 
+// containsGroups returns true if all provided group IDs are contained in the user's group list, and
+// false otherwise.
 func (u *user) containsGroups(ids ...uuid.UUID) bool {
 	for _, id := range ids {
 		if _, exists := u.Groups[id]; !exists {
@@ -80,10 +95,12 @@ func (u *user) containsGroups(ids ...uuid.UUID) bool {
 	return true
 }
 
+// getGroups returns the set of group IDs contained in the user's group list.
 func (u *user) getGroups() map[uuid.UUID]struct{} {
 	return u.Groups
 }
 
+// unseal decrypts the sealed user.
 func (u *SealedUser) unseal(cryptor crypto.CryptorInterface) (user, error) {
 	plainUser := user{}
 	if err := cryptor.Decrypt(&plainUser, u.ID.Bytes(), u.WrappedKey, u.Ciphertext); err != nil {
@@ -92,6 +109,7 @@ func (u *SealedUser) unseal(cryptor crypto.CryptorInterface) (user, error) {
 	return plainUser, nil
 }
 
+// verify checks the integrity of the sealed user.
 func (u *SealedUser) verify(cryptor crypto.CryptorInterface) bool {
 	_, err := u.unseal(cryptor)
 	return err == nil
