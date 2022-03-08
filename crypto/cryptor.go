@@ -16,9 +16,13 @@ package crypto
 import (
 	"bytes"
 	"encoding/gob"
+	"fmt"
 )
 
 const encryptionKeyLength = 32
+const wrapperKeyLength = 32
+
+var errInvalidKeyLength = fmt.Errorf("invalid key length, accepted key length is %d bytes", wrapperKeyLength)
 
 // Cryptor implements the CryptorInterface.
 type Cryptor struct {
@@ -29,6 +33,10 @@ type Cryptor struct {
 
 // NewAESCryptor creates a Cryptor which uses AES-256 in GCM mode.
 func NewAESCryptor(KEK []byte) (Cryptor, error) {
+	if len(KEK) != wrapperKeyLength {
+		return Cryptor{}, errInvalidKeyLength
+	}
+
 	keyWrapper, err := NewKWP(KEK)
 	if err != nil {
 		return Cryptor{}, err
