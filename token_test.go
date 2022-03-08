@@ -30,7 +30,7 @@ func TestTokenSeal(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	token := NewToken([]byte("plaintext"), time.Minute)
+	token := newToken([]byte("plaintext"), time.Minute)
 	sealed, err := token.seal(&cryptor)
 	if err != nil {
 		t.Fatal(err)
@@ -52,7 +52,7 @@ func TestTokenVerifyCiphertext(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	token := NewToken([]byte("plaintext"), time.Minute)
+	token := newToken([]byte("plaintext"), time.Minute)
 	sealed, err := token.seal(&cryptor)
 	if err != nil {
 		t.Fatal(err)
@@ -74,7 +74,7 @@ func TestTokenVerifyExpiry(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	token := NewToken([]byte("plaintext"), time.Minute)
+	token := newToken([]byte("plaintext"), time.Minute)
 	sealed, err := token.seal(&cryptor)
 	if err != nil {
 		t.Fatal(err)
@@ -96,7 +96,7 @@ func TestTokenExpired(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	token := NewToken([]byte("plaintext"), -time.Minute)
+	token := newToken([]byte("plaintext"), -time.Minute)
 	sealed, err := token.seal(&cryptor)
 	if err != nil {
 		t.Fatal(err)

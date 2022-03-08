@@ -19,7 +19,7 @@ import (
 	"encryptonize/crypto"
 )
 
-type Group struct {
+type group struct {
 	// Note: All fields need to exported in order for gob to serialize them.
 	Data []byte
 }
@@ -30,7 +30,11 @@ type SealedGroup struct {
 	WrappedKey []byte
 }
 
-func (g *Group) seal(cryptor crypto.CryptorInterface) (SealedGroup, error) {
+func newGroup(data []byte) group {
+	return group{data}
+}
+
+func (g *group) seal(cryptor crypto.CryptorInterface) (SealedGroup, error) {
 	id, err := uuid.NewV4()
 	if err != nil {
 		return SealedGroup{}, err
@@ -44,12 +48,12 @@ func (g *Group) seal(cryptor crypto.CryptorInterface) (SealedGroup, error) {
 	return SealedGroup{id, ciphertext, wrappedKey}, nil
 }
 
-func (g *SealedGroup) unseal(cryptor crypto.CryptorInterface) (Group, error) {
-	group := Group{}
-	if err := cryptor.Decrypt(&group, g.ID.Bytes(), g.WrappedKey, g.Ciphertext); err != nil {
-		return Group{}, err
+func (g *SealedGroup) unseal(cryptor crypto.CryptorInterface) (group, error) {
+	plainGroup := group{}
+	if err := cryptor.Decrypt(&plainGroup, g.ID.Bytes(), g.WrappedKey, g.Ciphertext); err != nil {
+		return group{}, err
 	}
-	return group, nil
+	return plainGroup, nil
 }
 
 func (g *SealedGroup) verify(cryptor crypto.CryptorInterface) bool {

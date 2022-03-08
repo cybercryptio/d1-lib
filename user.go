@@ -19,7 +19,7 @@ import (
 	"encryptonize/crypto"
 )
 
-type User struct {
+type user struct {
 	// Note: All fields need to exported in order for gob to serialize them.
 	SaltAndHash []byte
 	Groups      map[uuid.UUID]struct{}
@@ -31,11 +31,11 @@ type SealedUser struct {
 	WrappedKey []byte
 }
 
-func newUser(groups ...uuid.UUID) (User, string, error) {
+func newUser(groups ...uuid.UUID) (user, string, error) {
 	pwdHasher := crypto.NewPasswordHasher()
 	pwd, saltAndHash, err := pwdHasher.GeneratePassword()
 	if err != nil {
-		return User{}, "", err
+		return user{}, "", err
 	}
 
 	groupMap := make(map[uuid.UUID]struct{})
@@ -43,7 +43,7 @@ func newUser(groups ...uuid.UUID) (User, string, error) {
 		groupMap[g] = struct{}{}
 	}
 
-	user := User{
+	user := user{
 		SaltAndHash: saltAndHash,
 		Groups:      groupMap,
 	}
@@ -51,7 +51,7 @@ func newUser(groups ...uuid.UUID) (User, string, error) {
 	return user, pwd, nil
 }
 
-func (u *User) seal(id uuid.UUID, cryptor crypto.CryptorInterface) (SealedUser, error) {
+func (u *user) seal(id uuid.UUID, cryptor crypto.CryptorInterface) (SealedUser, error) {
 	wrappedKey, ciphertext, err := cryptor.Encrypt(u, id.Bytes())
 	if err != nil {
 		return SealedUser{}, err
@@ -59,19 +59,19 @@ func (u *User) seal(id uuid.UUID, cryptor crypto.CryptorInterface) (SealedUser, 
 	return SealedUser{id, ciphertext, wrappedKey}, nil
 }
 
-func (u *User) addGroups(ids ...uuid.UUID) {
+func (u *user) addGroups(ids ...uuid.UUID) {
 	for _, id := range ids {
 		u.Groups[id] = struct{}{}
 	}
 }
 
-func (u *User) removeGroups(ids ...uuid.UUID) {
+func (u *user) removeGroups(ids ...uuid.UUID) {
 	for _, id := range ids {
 		delete(u.Groups, id)
 	}
 }
 
-func (u *User) containsGroups(ids ...uuid.UUID) bool {
+func (u *user) containsGroups(ids ...uuid.UUID) bool {
 	for _, id := range ids {
 		if _, exists := u.Groups[id]; !exists {
 			return false
@@ -80,16 +80,16 @@ func (u *User) containsGroups(ids ...uuid.UUID) bool {
 	return true
 }
 
-func (u *User) getGroups() map[uuid.UUID]struct{} {
+func (u *user) getGroups() map[uuid.UUID]struct{} {
 	return u.Groups
 }
 
-func (u *SealedUser) unseal(cryptor crypto.CryptorInterface) (User, error) {
-	user := User{}
-	if err := cryptor.Decrypt(&user, u.ID.Bytes(), u.WrappedKey, u.Ciphertext); err != nil {
-		return User{}, err
+func (u *SealedUser) unseal(cryptor crypto.CryptorInterface) (user, error) {
+	plainUser := user{}
+	if err := cryptor.Decrypt(&plainUser, u.ID.Bytes(), u.WrappedKey, u.Ciphertext); err != nil {
+		return user{}, err
 	}
-	return user, nil
+	return plainUser, nil
 }
 
 func (u *SealedUser) verify(cryptor crypto.CryptorInterface) bool {

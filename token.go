@@ -26,7 +26,7 @@ import (
 
 const TokenValidity = time.Hour
 
-type Token struct {
+type token struct {
 	Plaintext  []byte
 	ExpiryTime time.Time
 }
@@ -37,12 +37,12 @@ type SealedToken struct {
 	ExpiryTime time.Time
 }
 
-func NewToken(plaintext []byte, validityPeriod time.Duration) Token {
+func newToken(plaintext []byte, validityPeriod time.Duration) token {
 	expiryTime := time.Now().Add(validityPeriod)
-	return Token{plaintext, expiryTime}
+	return token{plaintext, expiryTime}
 }
 
-func (t *Token) seal(cryptor crypto.CryptorInterface) (SealedToken, error) {
+func (t *token) seal(cryptor crypto.CryptorInterface) (SealedToken, error) {
 	associatedData, err := t.ExpiryTime.GobEncode()
 	if err != nil {
 		return SealedToken{}, err
@@ -56,23 +56,23 @@ func (t *Token) seal(cryptor crypto.CryptorInterface) (SealedToken, error) {
 	return SealedToken{ciphertext, wrappedKey, t.ExpiryTime}, nil
 }
 
-func (t *SealedToken) unseal(cryptor crypto.CryptorInterface) (Token, error) {
+func (t *SealedToken) unseal(cryptor crypto.CryptorInterface) (token, error) {
 	associatedData, err := t.ExpiryTime.GobEncode()
 	if err != nil {
-		return Token{}, err
+		return token{}, err
 	}
 
 	plaintext := []byte{}
 	err = cryptor.Decrypt(&plaintext, associatedData, t.WrappedKey, t.Ciphertext)
 	if err != nil {
-		return Token{}, err
+		return token{}, err
 	}
 
 	if t.ExpiryTime.Before(time.Now()) {
-		return Token{}, errors.New("Token expired")
+		return token{}, errors.New("Token expired")
 	}
 
-	return Token{plaintext, t.ExpiryTime}, nil
+	return token{plaintext, t.ExpiryTime}, nil
 }
 
 func (t *SealedToken) verify(cryptor crypto.CryptorInterface) bool {

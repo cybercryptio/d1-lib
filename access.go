@@ -19,7 +19,7 @@ import (
 	"encryptonize/crypto"
 )
 
-type Access struct {
+type access struct {
 	// Note: All fields need to exported in order for gob to serialize them.
 	Groups     map[uuid.UUID]struct{}
 	WrappedOEK []byte
@@ -31,14 +31,14 @@ type SealedAccess struct {
 	WrappedKey []byte
 }
 
-func newAccess(wrappedOEK []byte) Access {
-	return Access{
+func newAccess(wrappedOEK []byte) access {
+	return access{
 		Groups:     map[uuid.UUID]struct{}{},
 		WrappedOEK: wrappedOEK,
 	}
 }
 
-func (a *Access) seal(id uuid.UUID, cryptor crypto.CryptorInterface) (SealedAccess, error) {
+func (a *access) seal(id uuid.UUID, cryptor crypto.CryptorInterface) (SealedAccess, error) {
 	wrappedKey, ciphertext, err := cryptor.Encrypt(a, id.Bytes())
 	if err != nil {
 		return SealedAccess{}, err
@@ -46,19 +46,19 @@ func (a *Access) seal(id uuid.UUID, cryptor crypto.CryptorInterface) (SealedAcce
 	return SealedAccess{id, ciphertext, wrappedKey}, nil
 }
 
-func (a *Access) addGroups(ids ...uuid.UUID) {
+func (a *access) addGroups(ids ...uuid.UUID) {
 	for _, id := range ids {
 		a.Groups[id] = struct{}{}
 	}
 }
 
-func (a *Access) removeGroups(ids ...uuid.UUID) {
+func (a *access) removeGroups(ids ...uuid.UUID) {
 	for _, id := range ids {
 		delete(a.Groups, id)
 	}
 }
 
-func (a *Access) containsGroups(ids ...uuid.UUID) bool {
+func (a *access) containsGroups(ids ...uuid.UUID) bool {
 	for _, id := range ids {
 		if _, exists := a.Groups[id]; !exists {
 			return false
@@ -67,16 +67,16 @@ func (a *Access) containsGroups(ids ...uuid.UUID) bool {
 	return true
 }
 
-func (a *Access) getGroups() map[uuid.UUID]struct{} {
+func (a *access) getGroups() map[uuid.UUID]struct{} {
 	return a.Groups
 }
 
-func (a *SealedAccess) unseal(cryptor crypto.CryptorInterface) (Access, error) {
-	access := Access{}
-	if err := cryptor.Decrypt(&access, a.ID.Bytes(), a.WrappedKey, a.Ciphertext); err != nil {
-		return Access{}, err
+func (a *SealedAccess) unseal(cryptor crypto.CryptorInterface) (access, error) {
+	plainAccess := access{}
+	if err := cryptor.Decrypt(&plainAccess, a.ID.Bytes(), a.WrappedKey, a.Ciphertext); err != nil {
+		return access{}, err
 	}
-	return access, nil
+	return plainAccess, nil
 }
 
 func (a *SealedAccess) verify(cryptor crypto.CryptorInterface) bool {
