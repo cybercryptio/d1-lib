@@ -87,6 +87,8 @@ func (t *SealedToken) unseal(cryptor crypto.CryptorInterface) (token, error) {
 		return token{}, err
 	}
 
+	// Note that we check the expiry time *after* it has been authenticated through decryption.
+	// This is to avoid a DoS type attack where the adversary manipulates the expiry time.
 	if t.ExpiryTime.Before(time.Now()) {
 		return token{}, errors.New("Token expired")
 	}
@@ -100,6 +102,8 @@ func (t *SealedToken) verify(cryptor crypto.CryptorInterface) bool {
 	if err != nil {
 		return false
 	}
+	// Note that we check the expiry time *after* it has been authenticated through decryption.
+	// This is to avoid a DoS type attack where the adversary manipulates the expiry time.
 	return t.ExpiryTime.After(time.Now())
 }
 

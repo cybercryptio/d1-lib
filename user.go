@@ -26,7 +26,7 @@ type user struct {
 	// Salt and password hash for the user's password.
 	SaltAndHash []byte
 
-	// A list a groups the user is a member of.
+	// A list of groups the user is a member of.
 	Groups map[uuid.UUID]struct{}
 }
 

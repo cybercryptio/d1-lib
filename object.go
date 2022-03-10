@@ -31,7 +31,7 @@ type Object struct {
 
 // SealedObject contains encrypted and authenticated data.
 type SealedObject struct {
-	// The encrypted ciphertext.
+	// The encrypted contents of the object.
 	Ciphertext []byte
 
 	// Associated data in plaintext. This data is authenticated upon decryption, and can be used as
@@ -74,12 +74,10 @@ func (o *SealedObject) unseal(wrappedKey []byte, cryptor crypto.CryptorInterface
 		return Object{}, err
 	}
 
-	object := Object{
+	return Object{
 		Plaintext:      plaintext,
 		AssociatedData: o.AssociatedData,
-	}
-
-	return object, nil
+	}, nil
 }
 
 // verify uses the wrapped key to check the integrity of the sealed object.

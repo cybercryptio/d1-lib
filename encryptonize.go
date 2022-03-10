@@ -31,9 +31,8 @@ var ErrNotAuthenticated = errors.New("user not authenticated")
 // Error returned if a user tries to access data they are not authorized for.
 var ErrNotAuthorized = errors.New("user not authorized")
 
-// Config is the central place for configuring the behavior of an Encryptonize instance. Most
-// importantly, it contains the master key material used by Encryptonize. All keys must be 32 bytes.
-type Config struct {
+// Keys contains the master key material used by Encryptonize. All keys must be 32 bytes.
+type Keys struct {
 	// Key Encryption Key used for wrapping randomly generated encryption keys.
 	KEK []byte
 
@@ -57,24 +56,24 @@ type Encryptonize struct {
 }
 
 // New creates a new instance of Encryptonize which uses the given configuration.
-func New(config Config) (Encryptonize, error) {
-	objectCryptor, err := crypto.NewAESCryptor(config.KEK)
+func New(keys Keys) (Encryptonize, error) {
+	objectCryptor, err := crypto.NewAESCryptor(keys.KEK)
 	if err != nil {
 		return Encryptonize{}, err
 	}
-	accessCryptor, err := crypto.NewAESCryptor(config.AEK)
+	accessCryptor, err := crypto.NewAESCryptor(keys.AEK)
 	if err != nil {
 		return Encryptonize{}, err
 	}
-	tokenCryptor, err := crypto.NewAESCryptor(config.TEK)
+	tokenCryptor, err := crypto.NewAESCryptor(keys.TEK)
 	if err != nil {
 		return Encryptonize{}, err
 	}
-	userCryptor, err := crypto.NewAESCryptor(config.UEK)
+	userCryptor, err := crypto.NewAESCryptor(keys.UEK)
 	if err != nil {
 		return Encryptonize{}, err
 	}
-	groupCryptor, err := crypto.NewAESCryptor(config.GEK)
+	groupCryptor, err := crypto.NewAESCryptor(keys.GEK)
 	if err != nil {
 		return Encryptonize{}, err
 	}
@@ -162,7 +161,7 @@ func (e *Encryptonize) Decrypt(authorizer *SealedUser, object *SealedObject, acc
 ////////////////////////////////////////////////////////
 
 // CreateToken encapsulates the provided plaintext data in an opaque, self contained token with an
-// expiry time given by TokenExpiry.
+// expiry time given by TokenValidity.
 func (e *Encryptonize) CreateToken(plaintext []byte) (SealedToken, error) {
 	token := newToken(plaintext, TokenValidity)
 	return token.seal(e.tokenCryptor)
