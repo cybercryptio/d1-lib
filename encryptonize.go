@@ -250,14 +250,19 @@ func (e *Encryptonize) AuthorizeUser(user *SealedUser, access *SealedAccess) err
 // and returned to the caller.
 //
 // The sealed user and group are not sensitive date. The generated password is sensitive data.
-func (e *Encryptonize) NewUser(data []byte, groups ...uuid.UUID) (SealedUser, SealedGroup, string, error) {
+func (e *Encryptonize) NewUser(data []byte, groups ...*SealedGroup) (SealedUser, SealedGroup, string, error) {
 	group := newGroup(data)
 	sealedGroup, err := (&group).seal(e.groupCryptor)
 	if err != nil {
 		return SealedUser{}, SealedGroup{}, "", err
 	}
 
-	user, pwd, err := newUser(append(groups, sealedGroup.ID)...)
+	groupIDs, err := e.verifyGroups(groups...)
+	if err != nil {
+		return SealedUser{}, SealedGroup{}, "", err
+	}
+
+	user, pwd, err := newUser(append(groupIDs, sealedGroup.ID)...)
 	if err != nil {
 		return SealedUser{}, SealedGroup{}, "", err
 	}
