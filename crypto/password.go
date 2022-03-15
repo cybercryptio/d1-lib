@@ -27,7 +27,7 @@ const saltLength = 8
 const hashLength = 32
 const iterationCount = 10000
 
-// PasswordHasher implements PasswordHasherInterface using bpkdf2.
+// PasswordHasher implements PasswordHasherInterface using pbkdf2.
 type PasswordHasher struct {
 	random RandomInterface
 }
