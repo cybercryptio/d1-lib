@@ -251,13 +251,13 @@ func (e *Encryptonize) AuthorizeUser(user *SealedUser, access *SealedAccess) err
 //
 // The sealed user and group are not sensitive date. The generated password is sensitive data.
 func (e *Encryptonize) NewUser(data []byte, groups ...*SealedGroup) (SealedUser, SealedGroup, string, error) {
-	group := newGroup(data)
-	sealedGroup, err := (&group).seal(e.groupCryptor)
+	groupIDs, err := e.verifyGroups(groups...)
 	if err != nil {
 		return SealedUser{}, SealedGroup{}, "", err
 	}
-
-	groupIDs, err := e.verifyGroups(groups...)
+	
+	group := newGroup(data)
+	sealedGroup, err := (&group).seal(e.groupCryptor)
 	if err != nil {
 		return SealedUser{}, SealedGroup{}, "", err
 	}
