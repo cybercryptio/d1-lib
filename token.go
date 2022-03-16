@@ -76,6 +76,13 @@ func (t *token) seal(cryptor crypto.CryptorInterface) (SealedToken, error) {
 
 // unseal decrypts the sealed token.
 func (t *SealedToken) unseal(cryptor crypto.CryptorInterface) (token, error) {
+	// Note that we check the expiry time *before* it has been authenticated through decryption. In
+	// general we should never trust unauthenticated data, but if this value has been manipulated, the
+	// decrypt call below will anyway fail.
+	if t.ExpiryTime.Before(time.Now()) {
+		return token{}, errors.New("Token expired")
+	}
+
 	associatedData, err := t.ExpiryTime.GobEncode()
 	if err != nil {
 		return token{}, err
@@ -87,24 +94,15 @@ func (t *SealedToken) unseal(cryptor crypto.CryptorInterface) (token, error) {
 		return token{}, err
 	}
 
-	// Note that we check the expiry time *after* it has been authenticated through decryption.
-	// This is to avoid a DoS type attack where the adversary manipulates the expiry time.
-	if t.ExpiryTime.Before(time.Now()) {
-		return token{}, errors.New("Token expired")
-	}
-
 	return token{plaintext, t.ExpiryTime}, nil
 }
 
 // verify checks the integrity of the sealed token.
 func (t *SealedToken) verify(cryptor crypto.CryptorInterface) bool {
-	_, err := t.unseal(cryptor)
-	if err != nil {
+	if _, err := t.unseal(cryptor); err != nil {
 		return false
 	}
-	// Note that we check the expiry time *after* it has been authenticated through decryption.
-	// This is to avoid a DoS type attack where the adversary manipulates the expiry time.
-	return t.ExpiryTime.After(time.Now())
+	return true
 }
 
 // String serializes the sealed token into a raw base 64 URL encoded format.
