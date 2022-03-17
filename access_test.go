@@ -119,9 +119,7 @@ func TestAccessSeal(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(access, unsealed) {
-		t.Fatal("Unsealed object not equal to original")
-	}
+	common.FailIfNotEqual(access, unsealed, t)
 }
 
 func TestAccessVerifyCiphertext(t *testing.T) {
