@@ -15,8 +15,8 @@
 package encryptonize
 
 import (
-	"testing"
 	"reflect"
+	"testing"
 )
 
 func newTestEncryptonize(t *testing.T) Encryptonize {
@@ -47,6 +47,7 @@ func TestEncryptDecrypt(t *testing.T) {
 		Plaintext:      []byte("plaintext"),
 		AssociatedData: []byte("associated_data"),
 	}
+
 	object, access, err := enc.Encrypt(&user, &plainObject)
 	if err != nil {
 		t.Fatal(err)
@@ -56,7 +57,6 @@ func TestEncryptDecrypt(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
 	if !reflect.DeepEqual(plainObject, decrypted) {
 		t.Fatal("Decrypted object not equal to original")
 	}
@@ -71,23 +71,23 @@ func TestEncryptUnauthorizedUser(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Make user unauthorized by changing its first 5 ciphertext bytes to 0 
+	// Make user unauthorized by changing its first 5 ciphertext bytes to 0
 	copy(user.Ciphertext[:5], make([]byte, 5))
 
 	plainObject := Object{
-		Plaintext:		[]byte("plaintext"),
-		AssociatedData:	[]byte("associated_data"),
+		Plaintext:      []byte("plaintext"),
+		AssociatedData: []byte("associated_data"),
 	}
 
 	object, access, err := enc.Encrypt(&user, &plainObject)
 	if err == nil {
 		t.Fatal("Unauthorized user able to encrypt")
 	}
-	if object.Ciphertext != nil {
-		t.Fatal("Invalid object contains ciphertext")
+	if !reflect.DeepEqual(object, SealedObject{}) {
+		t.Fatal("Encryption failed, but returned sealed object anyway")
 	}
-	if access.Ciphertext != nil {
-		t.Fatal("Invalid access contains ciphertext")
+	if !reflect.DeepEqual(access, SealedAccess{}) {
+		t.Fatal("Encryption failed, but returned sealed access anyway")
 	}
 }
 
@@ -101,8 +101,8 @@ func TestDecryptUnauthorizedUser(t *testing.T) {
 	}
 
 	plainObject := Object{
-		Plaintext:		[]byte("plaintext"),
-		AssociatedData:	[]byte("associated_data"),
+		Plaintext:      []byte("plaintext"),
+		AssociatedData: []byte("associated_data"),
 	}
 
 	object, access, err := enc.Encrypt(&user, &plainObject)
@@ -110,12 +110,15 @@ func TestDecryptUnauthorizedUser(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Make user unauthorized by changing its first 5 ciphertext bytes to 0 
+	// Make user unauthorized by changing its first 5 ciphertext bytes to 0
 	copy(user.Ciphertext[:5], make([]byte, 5))
 
-	decryptedObject, err := enc.Decrypt(&user, &object, &access)
-	if err == nil || decryptedObject.Plaintext != nil {
+	decrypted, err := enc.Decrypt(&user, &object, &access)
+	if err == nil {
 		t.Fatal("Unauthorized user able to decrypt")
+	}
+	if reflect.DeepEqual(decrypted, plainObject) {
+		t.Fatal("Decryption failed, but returned plain object anyway")
 	}
 }
 
@@ -129,8 +132,8 @@ func TestUpdate(t *testing.T) {
 	}
 
 	plainObject := Object{
-		Plaintext:		[]byte("plaintext"),
-		AssociatedData:	[]byte("associated_data"),
+		Plaintext:      []byte("plaintext"),
+		AssociatedData: []byte("associated_data"),
 	}
 
 	_, access, err := enc.Encrypt(&user, &plainObject)
@@ -139,8 +142,8 @@ func TestUpdate(t *testing.T) {
 	}
 
 	plainObjectUpdated := Object{
-		Plaintext:		[]byte("plaintext_updated"),
-		AssociatedData:	[]byte("associated_data_updated"),
+		Plaintext:      []byte("plaintext_updated"),
+		AssociatedData: []byte("associated_data_updated"),
 	}
 
 	objectUpdated, err := enc.Update(&user, &plainObjectUpdated, &access)
@@ -152,7 +155,6 @@ func TestUpdate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
 	if !reflect.DeepEqual(plainObjectUpdated, decrypted) {
 		t.Fatal("Updated and decrypted object not equal to updated plain object")
 	}
@@ -168,8 +170,8 @@ func TestUpdateUnauthorizedUser(t *testing.T) {
 	}
 
 	plainObject := Object{
-		Plaintext:		[]byte("plaintext"),
-		AssociatedData:	[]byte("associated_data"),
+		Plaintext:      []byte("plaintext"),
+		AssociatedData: []byte("associated_data"),
 	}
 
 	_, access, err := enc.Encrypt(&user, &plainObject)
@@ -178,15 +180,19 @@ func TestUpdateUnauthorizedUser(t *testing.T) {
 	}
 
 	plainObjectUpdated := Object{
-		Plaintext:		[]byte("plaintext_updated"),
-		AssociatedData:	[]byte("associated_data_updated"),
+		Plaintext:      []byte("plaintext_updated"),
+		AssociatedData: []byte("associated_data_updated"),
 	}
 
-	// Make user unauthorized by changing its first 5 ciphertext bytes to 0 
+	// Make user unauthorized by changing its first 5 ciphertext bytes to 0
 	copy(user.Ciphertext[:5], make([]byte, 5))
 
-	if _, err = enc.Update(&user, &plainObjectUpdated, &access); err == nil {
+	objectUpdated, err := enc.Update(&user, &plainObjectUpdated, &access)
+	if err == nil {
 		t.Fatal("Unauthorized user able to update")
+	}
+	if !reflect.DeepEqual(objectUpdated, SealedObject{}) {
+		t.Fatal("Update failed, but returned updated object anyway")
 	}
 }
 
@@ -203,52 +209,40 @@ func TestPlainObject(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	t.Run("Plaintext=nil", func(t *testing.T) {
-		plainObject := Object{
-			Plaintext:		nil,
-			AssociatedData:	[]byte("associated_data"),
-		}
+	type testData struct {
+		description string
+		data        Object
+	}
 
-		if _, _, err = enc.Encrypt(&user, &plainObject); err != nil {
-			t.Fatal(err)
-		}
-	})
-	t.Run("AssociatedData=nil", func(t *testing.T) {
-		plainObject := Object{
-			Plaintext:		[]byte("plaintext"),
-			AssociatedData:	nil,
-		}
+	tests := []testData{
+		testData{
+			description: "Plaintext=nil",
+			data:        Object{Plaintext: nil, AssociatedData: []byte("associated_data")},
+		},
+		testData{
+			description: "AssociatedData=nil",
+			data:        Object{Plaintext: []byte("plaintext"), AssociatedData: nil},
+		},
+		testData{
+			description: "Plaintext=nil AssociatedData=nil",
+			data:        Object{Plaintext: nil, AssociatedData: nil},
+		},
+		testData{
+			description: "Plaintext!=nil AssociatedData!=nil",
+			data:        Object{Plaintext: []byte("plaintext"), AssociatedData: []byte("associated_data")},
+		},
+	}
 
-		if _, _, err = enc.Encrypt(&user, &plainObject); err != nil {
-			t.Fatal(err)
-		}
-	})
-	t.Run("Plaintext=nil AssociatedData=nil", func(t *testing.T) {
-		plainObject := Object{
-			Plaintext:		nil,
-			AssociatedData:	nil,
-		}
-
-		if _, _, err = enc.Encrypt(&user, &plainObject); err != nil {
-			t.Fatal(err)
-		}
-	})
-	t.Run("Plaintext!=nil AssociatedData!=nil", func(t *testing.T) {
-		plainObject := Object{
-			Plaintext:		[]byte("plaintext"),
-			AssociatedData:	[]byte("associated_data"),
-		}
-
-		if _, _, err = enc.Encrypt(&user, &plainObject); err != nil {
-			t.Fatal(err)
-		}
-	})
+	for _, test := range tests {
+		t.Run(test.description, func(t *testing.T) {
+			if _, _, err = enc.Encrypt(&user, &test.data); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
 }
 
-// Scenario:
-// 1) A token is created.
-// 2) It is verified that the token contents is correctly derived.
-// 3) It is verified that if the token ciphertext is changed, then contents cannot be derived anymore. 
+// It is verified that token contents can be derived correctly.
 func TestToken(t *testing.T) {
 	enc := newTestEncryptonize(t)
 
@@ -263,21 +257,35 @@ func TestToken(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
 	if !reflect.DeepEqual(plaintext, contents) {
 		t.Fatal("Token contents not equal to original")
 	}
+}
 
-	// Change the first 5 token ciphertext bytes to 0 and verify that contents cannot be derived.
+// It is verified that contents cannot be derived from an invalid token.
+func TestInvalidToken(t *testing.T) {
+	enc := newTestEncryptonize(t)
+
+	plaintext := []byte("plaintext")
+
+	token, err := enc.CreateToken(plaintext)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Make token invalid by changing its first 5 ciphertext bytes.
 	copy(token.Ciphertext[:5], make([]byte, 5))
 
-	contents, err = enc.GetTokenContents(&token)
+	contents, err := enc.GetTokenContents(&token)
 	if err == nil {
-		t.Fatal("Contents can be derived from wrong token")
+		t.Fatal("Contents can be derived from invalid token")
+	}
+	if contents != nil {
+		t.Fatal("GetTokenContents failed, but returned contents anyway")
 	}
 }
 
-// Scenario: 
+// Scenario:
 // 1) Two users are created, user1 and user2.
 // 2) user1 encrypts an object.
 // 3) It is verified that only user1 who is part of the access object is able to call GetAccessGroups.
@@ -308,29 +316,88 @@ func TestGetAccessGroups(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := accessGroups[user1.ID]; !ok {
-		t.Fatal("User's own group not added to access object encrypted by user")
-	}
 
-	if _, err = enc.GetAccessGroups(&user2, &access); err == nil {
+	accessGroups, err = enc.GetAccessGroups(&user2, &access)
+	if err == nil {
 		t.Fatal("Unauthorized user able to get group IDs contained in access object")
+	}
+	if accessGroups != nil {
+		t.Fatal("GetAccessGroups failed, but returned data anyway")
 	}
 }
 
-// Scenario:
-// 1) Two users are created, user1 and user2.
-// 2) user1 encrypts an object.
-// 3) It is verified that the group with same ID as user1 can be added and removed from the access object.
-// 4) It is verified that only user1 who is part of the access object is able to add and remove the group.
+// It is verified that a user can encrypt an object and add/remove a group to/from the access object.
 func TestAddRemoveGroupsFromAccess(t *testing.T) {
 	enc := newTestEncryptonize(t)
 
-	user1, group, _, err := enc.NewUser(nil)
+	user, _, _, err := enc.NewUser(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	group, err := enc.NewGroup(&user, []byte("group_data"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	plainObject := Object{
+		Plaintext:      []byte("plaintext"),
+		AssociatedData: []byte("associated_data"),
+	}
+
+	_, access, err := enc.Encrypt(&user, &plainObject)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err = enc.AddGroupsToAccess(&user, &access, &group); err != nil {
+		t.Fatal(err)
+	}
+
+	accessGroups, err := enc.GetAccessGroups(&user, &access)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := accessGroups[group.ID]; !ok {
+		t.Fatal("Group not correctly added to access object")
+	}
+
+	if err = enc.RemoveGroupsFromAccess(&user, &access, &group); err != nil {
+		t.Fatal(err)
+	}
+
+	accessGroups, err = enc.GetAccessGroups(&user, &access)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := accessGroups[group.ID]; ok {
+		t.Fatal("Group not correctly removed from access object")
+	}
+
+	//unsealed, err := access.unseal(enc.accessCryptor)
+	//if err != nil {
+	//	t.Fatal(err)
+	//}
+	//if _, ok := unsealed.Groups[group.ID]; ok {
+	//	t.Fatal("Group not correctly removed from access")
+	//}
+}
+
+// It is verified that a user cannot add/remove groups to/from an access object without being part of the access object.
+func TestAddRemoveGroupsFromAccessUnauthorized(t *testing.T) {
+	enc := newTestEncryptonize(t)
+
+	user1, _, _, err := enc.NewUser(nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	user2, _, _, err := enc.NewUser(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	group, err := enc.NewGroup(&user1, []byte("group_data"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -353,26 +420,58 @@ func TestAddRemoveGroupsFromAccess(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	accessGroups, err := enc.GetAccessGroups(&user1, &access)
+	if err = enc.RemoveGroupsFromAccess(&user2, &access, &group); err == nil {
+		t.Fatal("Unauthorized user able to remove groups from access")
+	}
+}
+
+// It is verified that a user can add/remove groups to/from an access object without being member of the groups,
+// as long as the user is part of the access object.
+func TestAddRemoveGroupsFromAccessAuthorized(t *testing.T) {
+	enc := newTestEncryptonize(t)
+
+	user1, _, _, err := enc.NewUser(nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if _, ok := accessGroups[group.ID]; !ok {
-		t.Fatal("Group not correctly added to access")
-	}
-
-	if err = enc.RemoveGroupsFromAccess(&user2, &access, &group); err == nil {
-		t.Fatal("Unauthorized user able to remove groups from access")
-	}
-
-	if err = enc.RemoveGroupsFromAccess(&user1, &access, &group); err != nil {
+	_, group2, _, err := enc.NewUser(nil)
+	if err != nil {
 		t.Fatal(err)
 	}
 
-	// Verify that the group has been removed from access by verifying that user1 is not part of access object anymore.
-	if _, err = enc.GetAccessGroups(&user1, &access); err == nil {
-		t.Fatal("User able to get access groups without being part of access object")
+	plainObject := Object{
+		Plaintext:      []byte("plaintext"),
+		AssociatedData: []byte("associated_data"),
+	}
+
+	_, access, err := enc.Encrypt(&user1, &plainObject)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err = enc.AddGroupsToAccess(&user1, &access, &group2); err != nil {
+		t.Fatal(err)
+	}
+
+	accessGroups, err := enc.GetAccessGroups(&user1, &access)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := accessGroups[group2.ID]; !ok {
+		t.Fatal("User not able to add groups to access object. User is not member of all groups, but is part of access object.")
+	}
+
+	if err = enc.RemoveGroupsFromAccess(&user1, &access, &group2); err != nil {
+		t.Fatal(err)
+	}
+
+	accessGroups, err = enc.GetAccessGroups(&user1, &access)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := accessGroups[group2.ID]; ok {
+		t.Fatal("User not able to remove groups from access object. User is not member of all groups, but is part of access object.")
 	}
 }
 
@@ -395,8 +494,8 @@ func TestAuthorizeUser(t *testing.T) {
 	}
 
 	plainObject := Object{
-		Plaintext:		[]byte("plaintext"),
-		AssociatedData:	[]byte("associated_data"),
+		Plaintext:      []byte("plaintext"),
+		AssociatedData: []byte("associated_data"),
 	}
 
 	_, access, err := enc.Encrypt(&user1, &plainObject)
@@ -409,23 +508,23 @@ func TestAuthorizeUser(t *testing.T) {
 	}
 
 	if err = enc.AuthorizeUser(&user2, &access); err == nil {
-		t.Fatal("Unauthorized user able to be authorized")
+		t.Fatal("Unauthorized user is authorized anyway")
 	}
 
-	// Make user1 unauthorized by changing its first 5 ciphertext bytes to 0 
+	// Make user1 unauthorized by changing its first 5 ciphertext bytes to 0
 	copy(user1.Ciphertext[:5], make([]byte, 5))
 
 	if err = enc.AuthorizeUser(&user1, &access); err == nil {
-		t.Fatal("Unauthorized user able to be authorized")
+		t.Fatal("Unauthorized user is authorized anyway")
 	}
 }
 
-// Scenario: 
+// Scenario:
 // 1) user1 is created.
 // 2) user1 creates two additional groups, group1 and group2.
-// 3) group2 is broken by changing some of its ciphertext.
-// 4) It is verified that user2 can be created and added to its own group and group1 simultaneously.
-// 5) It is verified that a third user cannot be created and added to its own group and group2 simultaneously (because of step 3) ).
+// 3) group2 is made invalid by changing some of its ciphertext.
+// 4) It is verified that a user can be created and added to its own group and group1 simultaneously.
+// 5) It is verified that a user cannot be created and added to its own group and group2 simultaneously (because of step 3) ).
 func TestNewUser(t *testing.T) {
 	enc := newTestEncryptonize(t)
 
@@ -450,38 +549,37 @@ func TestNewUser(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, _, _, err = enc.NewUser([]byte("data"), &group2); err == nil {
+	user2, _, _, err := enc.NewUser([]byte("data"), &group2)
+	if err == nil {
 		t.Fatal("User added to invalid group")
+	}
+	if !reflect.DeepEqual(user2, SealedUser{}) {
+		t.Fatal("NewUser failed, but returned data anyway")
 	}
 }
 
-// It is tested that GetUserGroups returns all the groups that the user is a member of.
+// It is verified that GetUserGroups returns all the groups that the user is a member of.
 func TestGetUserGroups(t *testing.T) {
 	enc := newTestEncryptonize(t)
 
-	user1, _, _, err := enc.NewUser(nil)
+	_, group1, _, err := enc.NewUser(nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	group, err := enc.NewGroup(&user1, []byte("group_data"))
+	user, group2, _, err := enc.NewUser([]byte("data"), &group1)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	user2, _, _, err := enc.NewUser([]byte("data"), &group)
+	userGroups, err := enc.GetUserGroups(&user)
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	userGroups, err := enc.GetUserGroups(&user2)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, ok := userGroups[user2.ID]; !ok {
+	if _, ok := userGroups[group1.ID]; !ok {
 		t.Fatal("GetUserGroups does not return all groups that the user is member of")
 	}
-	if _, ok := userGroups[group.ID]; !ok {
+	if _, ok := userGroups[group2.ID]; !ok {
 		t.Fatal("GetUserGroups does not return all groups that the user is member of")
 	}
 }
@@ -489,7 +587,7 @@ func TestGetUserGroups(t *testing.T) {
 // It is verified that both empty and non-empty group data is accepted when provided through NewUser.
 func TestGroupDataNewUser(t *testing.T) {
 	enc := newTestEncryptonize(t)
-	
+
 	user1, group1, _, err := enc.NewUser(nil)
 	if err != nil {
 		t.Fatal(err)
@@ -500,12 +598,12 @@ func TestGroupDataNewUser(t *testing.T) {
 		t.Fatal(err)
 	}
 	if data != nil {
-		t.Fatal("GetGroupData returns wrong group data")
+		t.Fatal("GetGroupData returns wrong group data when provided through NewUser.")
 	}
-	
-	groupData := "group_data"
-	
-	user2, group2, _, err := enc.NewUser([]byte(groupData))
+
+	groupData := []byte("group_data")
+
+	user2, group2, _, err := enc.NewUser(groupData)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -514,8 +612,8 @@ func TestGroupDataNewUser(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(string(data), groupData) {
-		t.Fatal("GetGroupData returns wrong group data")
+	if !reflect.DeepEqual(data, groupData) {
+		t.Fatal("GetGroupData returns wrong group data when provided through NewUser.")
 	}
 }
 
@@ -538,12 +636,12 @@ func TestGroupDataNewGroup(t *testing.T) {
 		t.Fatal(err)
 	}
 	if data != nil {
-		t.Fatal("GetGroupData returns wrong group data")
+		t.Fatal("GetGroupData returns wrong group data when provided through NewGroup.")
 	}
 
-	groupData := "group_data"
+	groupData := []byte("group_data")
 
-	group2, err := enc.NewGroup(&user, []byte(groupData)) 
+	group2, err := enc.NewGroup(&user, groupData)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -552,12 +650,12 @@ func TestGroupDataNewGroup(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(string(data), groupData) {
-		t.Fatal("GetGroupData returns wrong group data")
+	if !reflect.DeepEqual(data, groupData) {
+		t.Fatal("GetGroupData returns wrong group data when provided through NewGroup.")
 	}
 }
 
-// Scenario: 
+// Scenario:
 // 1) Two users are created, user1 and user2.
 // 2) It is verified that only user1 is authenticated with user1's password.
 // 3) It is verified that a user is not authenticated with a mistyped password.
@@ -594,17 +692,52 @@ func TestAuthenticateUser(t *testing.T) {
 	}
 }
 
-// Scenario: 
-// 1) Three users are created, user1, user2, and user3.
-// 2) user1 creates a group.
-// 3) It is verified that user1 is able to add and remove user2 from the group.
-// 4) It is verified that user3 who is not a member of the group is not able to add and remove user2 from the group.
-func TestAddRemoveUserFromGroups(t *testing.T) {
+// It is verified that a user can add/remove another user to/from groups that he is member of himself.
+func TestAddRemoveUserFromGroupsAuthorized(t *testing.T) {
+	enc := newTestEncryptonize(t)
+
+	user1, group, _, err := enc.NewUser(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	user2, _, _, err := enc.NewUser(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err = enc.AddUserToGroups(&user1, &user2, &group); err != nil {
+		t.Fatal(err)
+	}
+
+	userGroups, err := enc.GetUserGroups(&user2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := userGroups[group.ID]; !ok {
+		t.Fatal("User not correctly added to group")
+	}
+
+	if err = enc.RemoveUserFromGroups(&user1, &user2, &group); err != nil {
+		t.Fatal(err)
+	}
+
+	userGroups, err = enc.GetUserGroups(&user2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := userGroups[group.ID]; ok {
+		t.Fatal("User not correctly removed from group")
+	}
+}
+
+// It is verified that a user cannot add/remove another user to/from groups that he is not member of himself.
+func TestAddRemoveUserFromGroupsUnauthorized(t *testing.T) {
 	enc := newTestEncryptonize(t)
 
 	numUsers := 3
 	users := make([]SealedUser, 0, numUsers)
-	for i := 0 ; i < numUsers ; i++ {
+	for i := 0; i < numUsers; i++ {
 		newUser, _, _, err := enc.NewUser(nil)
 		if err != nil {
 			t.Fatal(err)
@@ -612,7 +745,7 @@ func TestAddRemoveUserFromGroups(t *testing.T) {
 		users = append(users, newUser)
 	}
 
-	group, err := enc.NewGroup(&users[0], []byte("data"))
+	group, err := enc.NewGroup(&users[0], nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -625,34 +758,12 @@ func TestAddRemoveUserFromGroups(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	userGroups, err := enc.GetUserGroups(&users[1])
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if _, ok := userGroups[group.ID]; !ok {
-		t.Fatal("User not correctly added to group")
-	}
-
 	if err = enc.RemoveUserFromGroups(&users[2], &users[1], &group); err == nil {
 		t.Fatal("User able to remove another user from groups without being member itself")
 	}
-	
-	if err = enc.RemoveUserFromGroups(&users[0], &users[1], &group); err != nil {
-		t.Fatal(err)
-	}
-
-	userGroups, err = enc.GetUserGroups(&users[1])
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if _, ok := userGroups[group.ID]; ok {
-		t.Fatal("User not correctly removed from group")
-	}
 }
 
-// Scenario: 
+// Scenario:
 // 1) Two users are created, user1 and user2.
 // 2) user1 creates a group.
 // 3) It is verified that only user1 who is a member of the group is able to call GetGroupData.
@@ -678,8 +789,12 @@ func TestGetGroupData(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err = enc.GetGroupData(&user2, &group); err == nil {
+	groupData, err := enc.GetGroupData(&user2, &group)
+	if err == nil {
 		t.Fatal("User able to get group data without being member itself")
+	}
+	if groupData != nil {
+		t.Fatal("GetGroupData failed, but returned data anyway")
 	}
 }
 
@@ -697,15 +812,6 @@ func TestRemoveAllUsers(t *testing.T) {
 
 	if err = enc.RemoveUserFromGroups(&user1, &user1, &group); err != nil {
 		t.Fatal(err)
-	}
-
-	userGroups, err := enc.GetUserGroups(&user1)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if _, ok := userGroups[group.ID]; ok {
-		t.Fatal("User not correctly removed from group")
 	}
 
 	user2, _, _, err := enc.NewUser(nil)
@@ -781,9 +887,8 @@ func TestMultipleGroups(t *testing.T) {
 // Scenario:
 // 1) A user is created.
 // 2) The user encrypts an object.
-// 3) The user adds its own group to the access object.
-// 4) The user removes its own group from the access object.
-// 4) It is verified that the user is no longer part of the access object even though it was created by the user itself.
+// 3) The user removes its own group from the access object.
+// 4) It is verified that the user is no longer part of the access object even though he created it.
 func TestRemoveAccess(t *testing.T) {
 	enc := newTestEncryptonize(t)
 
@@ -802,24 +907,173 @@ func TestRemoveAccess(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err = enc.AddGroupsToAccess(&user, &access, &group); err != nil {
-		t.Fatal(err)
-	}
-
 	if err = enc.RemoveUserFromGroups(&user, &user, &group); err != nil {
 		t.Fatal(err)
 	}
 
-	userGroups, err := enc.GetUserGroups(&user)
+	if err = enc.AuthorizeUser(&user, &access); err == nil {
+		t.Fatal("Unauthorized user is authorized anyway")
+	}
+}
+
+// user1 creates an object, adds user2, and it is verified that user2 is able to decrypt the object.
+func TestSharingObjectPart1(t *testing.T) {
+	enc := newTestEncryptonize(t)
+
+	user1, group, _, err := enc.NewUser(nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if _, ok := userGroups[group.ID]; ok {
-		t.Fatal("User not correctly removed from group")
+	plainObject := Object{
+		Plaintext:      []byte("plaintext"),
+		AssociatedData: []byte("associated_data"),
 	}
 
-	if err = enc.AuthorizeUser(&user, &access); err == nil {
-		t.Fatal("Unauthorized user able to be authorized")
+	object, access, err := enc.Encrypt(&user1, &plainObject)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	user2, _, _, err := enc.NewUser(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err = enc.AddUserToGroups(&user1, &user2, &group); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err = enc.Decrypt(&user2, &object, &access); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// user1 creates an object and adds user2. User2 removes user1, and it is verified that user1 is not able to decrypt the object.
+func TestSharingObjectPart2(t *testing.T) {
+	enc := newTestEncryptonize(t)
+
+	user1, group, _, err := enc.NewUser(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	plainObject := Object{
+		Plaintext:      []byte("plaintext"),
+		AssociatedData: []byte("associated_data"),
+	}
+
+	object, access, err := enc.Encrypt(&user1, &plainObject)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	user2, _, _, err := enc.NewUser(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err = enc.AddUserToGroups(&user1, &user2, &group); err != nil {
+		t.Fatal(err)
+	}
+
+	if err = enc.RemoveUserFromGroups(&user2, &user1, &group); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err = enc.Decrypt(&user1, &object, &access); err == nil {
+		t.Fatal("Unauthorized user able to decrypt")
+	}
+}
+
+// User1 creates an object, adds user2, user2 adds user3, and it is verified that user3 is able to decrypt the object.
+func TestSharingObjectPart3(t *testing.T) {
+	enc := newTestEncryptonize(t)
+
+	user1, group, _, err := enc.NewUser(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	plainObject := Object{
+		Plaintext:      []byte("plaintext"),
+		AssociatedData: []byte("associated_data"),
+	}
+
+	object, access, err := enc.Encrypt(&user1, &plainObject)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	user2, _, _, err := enc.NewUser(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err = enc.AddUserToGroups(&user1, &user2, &group); err != nil {
+		t.Fatal(err)
+	}
+
+	user3, _, _, err := enc.NewUser(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err = enc.AddUserToGroups(&user2, &user3, &group); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err = enc.Decrypt(&user3, &object, &access); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// Scenario:
+// 1) Five users are created.
+// 2) user1 creates a group and adds all users to it.
+// 3) user1 encrypts an object and adds the group to the access object.
+// 4) It is verified that all five users are able to decrypt the object.
+func TestSharingObjectPart4(t *testing.T) {
+	enc := newTestEncryptonize(t)
+
+	numUsers := 5
+	users := make([]SealedUser, 0, numUsers)
+	for i := 0; i < numUsers; i++ {
+		newUser, _, _, err := enc.NewUser(nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		users = append(users, newUser)
+	}
+
+	group, err := enc.NewGroup(&users[0], []byte("data"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for i := 1; i < numUsers; i++ {
+		if err = enc.AddUserToGroups(&users[0], &users[i], &group); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	plainObject := Object{
+		Plaintext:      []byte("plaintext"),
+		AssociatedData: []byte("associated_data"),
+	}
+
+	object, access, err := enc.Encrypt(&users[0], &plainObject)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err = enc.AddGroupsToAccess(&users[0], &access, &group); err != nil {
+		t.Fatal(err)
+	}
+
+	for i := 0; i < numUsers; i++ {
+		if _, err = enc.Decrypt(&users[i], &object, &access); err != nil {
+			t.Fatal(err)
+		}
 	}
 }
