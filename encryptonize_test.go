@@ -1051,7 +1051,7 @@ func TestSharingObjectPart4(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	for i := 1; i < numUsers; i++ {
+	for i, _ := range users {
 		if err = enc.AddUserToGroups(&users[0], &users[i], &group); err != nil {
 			t.Fatal(err)
 		}
@@ -1071,8 +1071,8 @@ func TestSharingObjectPart4(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	for i := 0; i < numUsers; i++ {
-		if _, err = enc.Decrypt(&users[i], &object, &access); err != nil {
+	for _, user := range users {
+		if _, err = enc.Decrypt(&user, &object, &access); err != nil {
 			t.Fatal(err)
 		}
 	}
