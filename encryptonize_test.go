@@ -373,14 +373,6 @@ func TestAddRemoveGroupsFromAccess(t *testing.T) {
 	if _, ok := accessGroups[group.ID]; ok {
 		t.Fatal("Group not correctly removed from access object")
 	}
-
-	//unsealed, err := access.unseal(enc.accessCryptor)
-	//if err != nil {
-	//	t.Fatal(err)
-	//}
-	//if _, ok := unsealed.Groups[group.ID]; ok {
-	//	t.Fatal("Group not correctly removed from access")
-	//}
 }
 
 // It is verified that a user cannot add/remove groups to/from an access object without being part of the access object.
@@ -472,6 +464,74 @@ func TestAddRemoveGroupsFromAccessAuthorized(t *testing.T) {
 	}
 	if _, ok := accessGroups[group2.ID]; ok {
 		t.Fatal("User not able to remove groups from access object. User is not member of all groups, but is part of access object.")
+	}
+}
+
+// It is verified that it is not possible to add invalid groups to access.
+func TestAddInvalidGroupsToAccess(t *testing.T) {
+	enc := newTestEncryptonize(t)
+
+	user, _, _, err := enc.NewUser(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	group, err := enc.NewGroup(&user, []byte("group_data"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	plainObject := Object{
+		Plaintext:      []byte("plaintext"),
+		AssociatedData: []byte("associated_data"),
+	}
+
+	_, access, err := enc.Encrypt(&user, &plainObject)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Make group invalid by changing its ciphertext
+	copy(group.Ciphertext[:5], make([]byte, 5))
+
+	if err = enc.AddGroupsToAccess(&user, &access, &group); err == nil {
+		t.Fatal("User able to add invalid groups to access")
+	}
+}
+
+// It is verified that it is not possible to remove invalid groups from access.
+func TestRemoveInvalidGroupsFromAccess(t *testing.T) {
+	enc := newTestEncryptonize(t)
+
+	user, _, _, err := enc.NewUser(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	group, err := enc.NewGroup(&user, []byte("group_data"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	plainObject := Object{
+		Plaintext:      []byte("plaintext"),
+		AssociatedData: []byte("associated_data"),
+	}
+
+	_, access, err := enc.Encrypt(&user, &plainObject)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err = enc.AddGroupsToAccess(&user, &access, &group); err != nil {
+		t.Fatal(err)
+	}
+
+	// Make group invalid by changing its ciphertext
+	copy(group.Ciphertext[:5], make([]byte, 5))
+
+	if err = enc.RemoveGroupsFromAccess(&user, &access, &group); err == nil {
+		t.Fatal("User able to remove invalid groups from access")
 	}
 }
 
@@ -584,6 +644,27 @@ func TestGetUserGroups(t *testing.T) {
 	}
 }
 
+// It is verified that it is not possible to get user groups from invalid user.
+func TestGetUserGroupsInvalidUser(t *testing.T) {
+	enc := newTestEncryptonize(t)
+
+	user, _, _, err := enc.NewUser(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Make user invalid by changing its ciphertext
+	copy(user.Ciphertext[:5], make([]byte, 5))
+
+	userGroups, err := enc.GetUserGroups(&user)
+	if err == nil {
+		t.Fatal("User able to get user groups of invalid user")
+	}
+	if userGroups != nil {
+		t.Fatal("GetUserGroups failed, but returned data anyway")
+	}
+}
+
 // It is verified that both empty and non-empty group data is accepted when provided through NewUser.
 func TestGroupDataNewUser(t *testing.T) {
 	enc := newTestEncryptonize(t)
@@ -692,6 +773,23 @@ func TestAuthenticateUser(t *testing.T) {
 	}
 }
 
+// It is verified that it is not possible to authenticate an invalid user.
+func TestAuthenticateInvalidUser(t *testing.T) {
+	enc := newTestEncryptonize(t)
+
+	user, _, pwd, err := enc.NewUser(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Make user invalid by changing its ciphertext
+	copy(user.Ciphertext[:5], make([]byte, 5))
+
+	if err = enc.AuthenticateUser(&user, pwd); err == nil {
+		t.Fatal("Invalid user authenticated")
+	}
+}
+
 // It is verified that a user can add/remove another user to/from groups that he is member of himself.
 func TestAddRemoveUserFromGroupsAuthorized(t *testing.T) {
 	enc := newTestEncryptonize(t)
@@ -763,6 +861,64 @@ func TestAddRemoveUserFromGroupsUnauthorized(t *testing.T) {
 	}
 }
 
+// It is verified that it is not possible to add an invalid user to a group
+func TestAddInvalidUserToGroups(t *testing.T) {
+	enc := newTestEncryptonize(t)
+
+	user1, _, _, err := enc.NewUser(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	user2, _, _, err := enc.NewUser(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	group, err := enc.NewGroup(&user1, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Make user2 invalid by changing its ciphertext
+	copy(user2.Ciphertext[:5], make([]byte, 5))
+
+	if err = enc.AddUserToGroups(&user1, &user2, &group); err == nil {
+		t.Fatal("User able to add an invalid user to group")
+	}
+}
+
+// It is verified that it is not possible to remove an invalid user from a group
+func TestRemoveInvalidUserFromGroups(t *testing.T) {
+	enc := newTestEncryptonize(t)
+
+	user1, _, _, err := enc.NewUser(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	user2, _, _, err := enc.NewUser(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	group, err := enc.NewGroup(&user1, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err = enc.AddUserToGroups(&user1, &user2, &group); err != nil {
+		t.Fatal(err)
+	}
+
+	// Make user2 invalid by changing its ciphertext
+	copy(user2.Ciphertext[:5], make([]byte, 5))
+
+	if err = enc.RemoveUserFromGroups(&user1, &user2, &group); err == nil {
+		t.Fatal("User able to remove an invalid user from group")
+	}
+}
+
 // Scenario:
 // 1) Two users are created, user1 and user2.
 // 2) user1 creates a group.
@@ -791,10 +947,73 @@ func TestGetGroupData(t *testing.T) {
 
 	groupData, err := enc.GetGroupData(&user2, &group)
 	if err == nil {
-		t.Fatal("User able to get group data without being member itself")
+		t.Fatal("User able to get group data without being member")
 	}
 	if groupData != nil {
 		t.Fatal("GetGroupData failed, but returned data anyway")
+	}
+}
+
+// It is verified that it is not possible to get any group data from an invalid group.
+func TestGetGroupDataInvalidGroup(t *testing.T) {
+	enc := newTestEncryptonize(t)
+
+	user, group, _, err := enc.NewUser(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Make group invalid by changing its ciphertext
+	copy(group.Ciphertext[:5], make([]byte, 5))
+
+	groupData, err := enc.GetGroupData(&user, &group)
+	if err == nil {
+		t.Fatal("User able to get group data from invalid group")
+	}
+	if groupData != nil {
+		t.Fatal("GetGroupData failed, but returned data anyway")
+	}
+}
+
+// It is verified that an invalid user cannot get group data.
+func TestGetGroupDataInvalidUser(t *testing.T) {
+	enc := newTestEncryptonize(t)
+
+	user, group, _, err := enc.NewUser(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Make user invalid by changing its ciphertext
+	copy(user.Ciphertext[:5], make([]byte, 5))
+
+	groupData, err := enc.GetGroupData(&user, &group)
+	if err == nil {
+		t.Fatal("Invalid user able to get group data")
+	}
+	if groupData != nil {
+		t.Fatal("GetGroupData failed, but returned data anyway")
+	}
+}
+
+// It is verified that an invalid user cannot create a new group.
+func TestNewGroupInvalidUser(t *testing.T) {
+	enc := newTestEncryptonize(t)
+
+	user, _, _, err := enc.NewUser(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Make user invalid by changing its ciphertext
+	copy(user.Ciphertext[:5], make([]byte, 5))
+
+	group, err := enc.NewGroup(&user, []byte("group_data"))
+	if err == nil {
+		t.Fatal("Invalid user able to create a new group")
+	}
+	if !reflect.DeepEqual(group, SealedGroup{}) {
+		t.Fatal("NewGroup failed, but returned sealed group anyway")
 	}
 }
 
