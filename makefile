@@ -28,7 +28,7 @@ lint: ## Lint the codebase
 	gofmt -l -w .
 
 	echo "[*] tidying up"
-	go mod tidy
+	go mod tidy -v
 
 	echo "[*] running linter"
 	golangci-lint run
