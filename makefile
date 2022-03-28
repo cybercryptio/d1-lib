@@ -30,4 +30,4 @@ lint: ## Lint the codebase
 ##### Test targets #####
 .PHONY: tests
 tests: ## Run tests
-	go test -count=1
+	go test -count=1 ./...
