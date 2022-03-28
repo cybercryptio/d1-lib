@@ -23,13 +23,8 @@ build: ## Build the Encryptonize library
 
 .PHONY: lint
 lint: ## Lint the codebase
-	echo "[*] formatting code"
 	gofmt -l -w .
-
-	echo "[*] tidying up"
 	go mod tidy
-
-	echo "[*] running linter"
 	golangci-lint run
 
 ##### Test targets #####
