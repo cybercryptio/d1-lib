@@ -16,9 +16,24 @@
 help:  ## Display this help
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make <target> \033[36m\033[0m\n\nTargets:\n"} /^[a-zA-Z0-9_-]+:.*?##/ { printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
 
-
+##### Build targets #####
+.PHONY: build
+build: ## Build the Encryptonize library
+	go get -v ./...
+	go build -v .
 
 .PHONY: lint
-lint: build  ## Lint the codebase
-	../encryptonize-service/scripts/lint.sh
+lint: ## Lint the codebase
+	echo "[*] formatting code"
+	gofmt -l -w .
 
+	echo "[*] tidying up"
+	go mod tidy
+
+	echo "[*] running linter"
+	golangci-lint run
+
+##### Test targets #####
+.PHONY: tests
+tests: ## Run tests
+	go test -count=1
