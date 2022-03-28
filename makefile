@@ -19,7 +19,6 @@ help:  ## Display this help
 ##### Build targets #####
 .PHONY: build
 build: ## Build the Encryptonize library
-	go get -v ./...
 	go build -v .
 
 .PHONY: lint
