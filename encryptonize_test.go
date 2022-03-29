@@ -312,12 +312,12 @@ func TestGetAccessGroups(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	accessGroups, err := enc.GetAccessGroups(&user1, &access)
+	_, err = enc.GetAccessGroups(&user1, &access)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	accessGroups, err = enc.GetAccessGroups(&user2, &access)
+	accessGroups, err := enc.GetAccessGroups(&user2, &access)
 	if err == nil {
 		t.Fatal("Unauthorized user able to get group IDs contained in access object")
 	}
@@ -1270,7 +1270,7 @@ func TestSharingObjectPart4(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	for i, _ := range users {
+	for i := 1; i < len(users); i++ {
 		if err = enc.AddUserToGroups(&users[0], &users[i], &group); err != nil {
 			t.Fatal(err)
 		}
@@ -1290,8 +1290,8 @@ func TestSharingObjectPart4(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	for _, user := range users {
-		if _, err = enc.Decrypt(&user, &object, &access); err != nil {
+	for i := range users {
+		if _, err = enc.Decrypt(&users[i], &object, &access); err != nil {
 			t.Fatal(err)
 		}
 	}
