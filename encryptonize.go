@@ -34,19 +34,19 @@ var ErrNotAuthorized = errors.New("user not authorized")
 // Keys contains the master key material used by Encryptonize. All keys must be 32 bytes.
 type Keys struct {
 	// Key Encryption Key used for wrapping randomly generated encryption keys.
-	KEK []byte
+	KEK []byte `koanf:"kek"`
 
 	// Access Encryption Key used for encrypting access objects.
-	AEK []byte
+	AEK []byte `koanf:"aek"`
 
 	// Token Encryption Key used for encrypting tokens.
-	TEK []byte
+	TEK []byte `koanf:"tek"`
 
 	// User Encryption Key used for encrypting user data.
-	UEK []byte
+	UEK []byte `koanf:"uek"`
 
 	// Group Encryption Key used for encrypting group data.
-	GEK []byte
+	GEK []byte `koanf:"gek"`
 }
 
 // Encryptonize is the entry point to the library. All main functionality is exposed through methods
@@ -255,7 +255,7 @@ func (e *Encryptonize) NewUser(data []byte, groups ...*SealedGroup) (SealedUser,
 	if err != nil {
 		return SealedUser{}, SealedGroup{}, "", err
 	}
-	
+
 	group := newGroup(data)
 	sealedGroup, err := (&group).seal(e.groupCryptor)
 	if err != nil {
