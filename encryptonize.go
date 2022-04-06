@@ -249,7 +249,7 @@ func (e *Encryptonize) AuthorizeUser(user *SealedUser, access *SealedAccess) err
 // user is added to any additional groups provided. A randomly generated password is also created
 // and returned to the caller.
 //
-// The sealed user and group are not sensitive date. The generated password is sensitive data.
+// The sealed user and group are not sensitive data. The generated password is sensitive data.
 func (e *Encryptonize) NewUser(data []byte, groups ...*SealedGroup) (SealedUser, SealedGroup, string, error) {
 	groupIDs, err := e.verifyGroups(groups...)
 	if err != nil {
@@ -294,10 +294,33 @@ func (e *Encryptonize) AuthenticateUser(user *SealedUser, password string) error
 	if err != nil {
 		return err
 	}
-	if !crypto.NewPasswordHasher().Compare(password, plainUser.SaltAndHash) {
-		return ErrNotAuthenticated
+	if err := plainUser.authenticate(password); err != nil {
+		return err
 	}
 	return nil
+}
+
+// ChangeUserPassword authenticates the provided sealed user with the given password and generates a new password for the user.
+// It returns the new sealed user and the generated password.
+//
+// The old sealed user must be disposed of.
+func (e *Encryptonize) ChangeUserPassword(user *SealedUser, oldPassword string) (SealedUser, string, error) {
+	plainUser, err := user.unseal(e.userCryptor)
+	if err != nil {
+		return SealedUser{}, "", err
+	}
+
+	newPwd, err := plainUser.changePassword(oldPassword)
+	if err != nil {
+		return SealedUser{}, "", err
+	}
+
+	newUser, err := plainUser.seal(user.ID, e.userCryptor)
+	if err != nil {
+		return SealedUser{}, "", err
+	}
+
+	return newUser, newPwd, nil
 }
 
 // AddUserToGroups adds the user to the provided groups. The authorizing user must be a member of
