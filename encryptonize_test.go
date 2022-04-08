@@ -800,16 +800,16 @@ func TestChangeUserPassword(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	newUser, newPwd, err := enc.ChangeUserPassword(&user, pwd)
+	newPwd, err := enc.ChangeUserPassword(&user, pwd)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if err := enc.AuthenticateUser(&newUser, newPwd); err != nil {
+	if err := enc.AuthenticateUser(&user, newPwd); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := enc.AuthenticateUser(&newUser, pwd); err == nil {
+	if err := enc.AuthenticateUser(&user, pwd); err == nil {
 		t.Fatal("User should not be able to authenticate with his old password after it was changed")
 	}
 }

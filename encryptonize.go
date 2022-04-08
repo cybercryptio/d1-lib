@@ -301,26 +301,26 @@ func (e *Encryptonize) AuthenticateUser(user *SealedUser, password string) error
 }
 
 // ChangeUserPassword authenticates the provided sealed user with the given password and generates a new password for the user.
-// It returns the new sealed user and the generated password.
+// It modifies the user object in place and returns the generated password.
 //
-// The old sealed user must be disposed of.
-func (e *Encryptonize) ChangeUserPassword(user *SealedUser, oldPassword string) (SealedUser, string, error) {
+// Any copies of the old sealed user must be disposed of.
+func (e *Encryptonize) ChangeUserPassword(user *SealedUser, oldPassword string) (string, error) {
 	plainUser, err := user.unseal(e.userCryptor)
 	if err != nil {
-		return SealedUser{}, "", err
+		return "", err
 	}
 
 	newPwd, err := plainUser.changePassword(oldPassword)
 	if err != nil {
-		return SealedUser{}, "", err
+		return "", err
 	}
 
-	newUser, err := plainUser.seal(user.ID, e.userCryptor)
+	*user, err = plainUser.seal(user.ID, e.userCryptor)
 	if err != nil {
-		return SealedUser{}, "", err
+		return "", err
 	}
 
-	return newUser, newPwd, nil
+	return newPwd, nil
 }
 
 // AddUserToGroups adds the user to the provided groups. The authorizing user must be a member of
