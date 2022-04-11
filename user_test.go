@@ -195,3 +195,68 @@ func TestUserVerifyID(t *testing.T) {
 		t.Fatal("Verification should have failed")
 	}
 }
+
+func TestUserAuth(t *testing.T) {
+	user, pwd, err := newUser()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := user.authenticate(pwd); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestUserAuthWrongPwd(t *testing.T) {
+	user, _, err := newUser()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := user.authenticate("wrong password"); err == nil {
+		t.Fatal("User authentication with a wrong password should fail")
+	}
+}
+
+func TestChangePwd(t *testing.T) {
+	user, pwd, err := newUser()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	newPwd, err := user.changePassword(pwd)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := user.authenticate(newPwd); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestChangePwdWrongPwd(t *testing.T) {
+	user, _, err := newUser()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := user.changePassword("wrong password"); err == nil {
+		t.Fatal("User must provide his correct password in order to change it")
+	}
+}
+
+func TestChangePwdAuthWithOldPwd(t *testing.T) {
+	user, pwd, err := newUser()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = user.changePassword(pwd)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := user.authenticate(pwd); err == nil {
+		t.Fatal("User authentication with old password after password change should fail")
+	}
+}

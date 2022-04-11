@@ -790,6 +790,30 @@ func TestAuthenticateInvalidUser(t *testing.T) {
 	}
 }
 
+// Verify that after a password change, the new user can be authenticated with the new password and
+// can no longer be authenticated with the old one.
+func TestChangeUserPassword(t *testing.T) {
+	enc := newTestEncryptonize(t)
+
+	user, _, pwd, err := enc.NewUser(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	newPwd, err := enc.ChangeUserPassword(&user, pwd)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := enc.AuthenticateUser(&user, newPwd); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := enc.AuthenticateUser(&user, pwd); err == nil {
+		t.Fatal("User should not be able to authenticate with his old password after it was changed")
+	}
+}
+
 // It is verified that a user can add/remove another user to/from groups that he is member of himself.
 func TestAddRemoveUserFromGroupsAuthorized(t *testing.T) {
 	enc := newTestEncryptonize(t)

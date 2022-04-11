@@ -39,11 +39,12 @@ type SealedUser struct {
 	WrappedKey []byte
 }
 
+var defaultPwdHasher = crypto.NewPasswordHasher()
+
 // newUser creates a new user with a random password. All the provided groups are added to the
 // user's group list.
 func newUser(groups ...uuid.UUID) (user, string, error) {
-	pwdHasher := crypto.NewPasswordHasher()
-	pwd, saltAndHash, err := pwdHasher.GeneratePassword()
+	pwd, saltAndHash, err := defaultPwdHasher.GeneratePassword()
 	if err != nil {
 		return user{}, "", err
 	}
@@ -59,6 +60,31 @@ func newUser(groups ...uuid.UUID) (user, string, error) {
 	}
 
 	return user, pwd, nil
+}
+
+// authenticate authenticates the calling user with the provided password.
+func (u *user) authenticate(password string) error {
+	if !defaultPwdHasher.Compare(password, u.SaltAndHash) {
+		return ErrNotAuthenticated
+	}
+	return nil
+}
+
+// changePassword authenticates the calling user with the provided password and generates a new
+// password for the user. It updates the calling user in place and returns the new password.
+func (u *user) changePassword(oldPassword string) (string, error) {
+	if err := u.authenticate(oldPassword); err != nil {
+		return "", err
+	}
+
+	newPwd, newSaltAndHash, err := defaultPwdHasher.GeneratePassword()
+	if err != nil {
+		return "", err
+	}
+
+	u.SaltAndHash = newSaltAndHash
+
+	return newPwd, nil
 }
 
 // seal encrypts the user.
