@@ -41,12 +41,7 @@ func newGroup(data []byte) group {
 }
 
 // seal encrypts the group.
-func (g *group) seal(cryptor crypto.CryptorInterface) (SealedGroup, error) {
-	id, err := uuid.NewV4()
-	if err != nil {
-		return SealedGroup{}, err
-	}
-
+func (g *group) seal(id uuid.UUID, cryptor crypto.CryptorInterface) (SealedGroup, error) {
 	wrappedKey, ciphertext, err := cryptor.Encrypt(g, id.Bytes())
 	if err != nil {
 		return SealedGroup{}, err
