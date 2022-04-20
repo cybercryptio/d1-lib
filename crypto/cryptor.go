@@ -20,10 +20,10 @@ import (
 	"fmt"
 )
 
-const encryptionKeyLength = 32
-const wrapperKeyLength = 32
+const EncryptionKeyLength = 32
+const WrapperKeyLength = 32
 
-var errInvalidKeyLength = fmt.Errorf("invalid key length, accepted key length is %d bytes", wrapperKeyLength)
+var ErrInvalidKeyLength = fmt.Errorf("invalid key length, accepted key length is %d bytes", WrapperKeyLength)
 
 // Cryptor implements the CryptorInterface.
 type Cryptor struct {
@@ -34,8 +34,8 @@ type Cryptor struct {
 
 // NewAESCryptor creates a Cryptor which uses AES-256 in GCM mode.
 func NewAESCryptor(KEK []byte) (Cryptor, error) {
-	if len(KEK) != wrapperKeyLength {
-		return Cryptor{}, errInvalidKeyLength
+	if len(KEK) != WrapperKeyLength {
+		return Cryptor{}, ErrInvalidKeyLength
 	}
 
 	keyWrapper, err := NewKWP(KEK)
@@ -63,7 +63,7 @@ func (c *Cryptor) Encrypt(plaintext, data interface{}) ([]byte, []byte, error) {
 		return nil, nil, err
 	}
 
-	key, err := c.random.GetBytes(encryptionKeyLength)
+	key, err := c.random.GetBytes(EncryptionKeyLength)
 	if err != nil {
 		return nil, nil, err
 	}
