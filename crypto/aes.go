@@ -22,7 +22,7 @@ import (
 
 // AES256GCM implements AEADInterface.
 type AES256GCM struct {
-	random RandomInterface
+	Random RandomInterface
 }
 
 const keyLength = 32
@@ -36,7 +36,7 @@ func (a *AES256GCM) Encrypt(plaintext, aad, key []byte) ([]byte, error) {
 	}
 
 	ciphertext := append(plaintext, make([]byte, Overhead)...) // make sure we also have space
-	nonce, err := a.random.GetBytes(nonceLength)
+	nonce, err := a.Random.GetBytes(nonceLength)
 	if err != nil {
 		return nil, err
 	}

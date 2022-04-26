@@ -23,12 +23,12 @@ import (
 // authorizeAccess checks whether the authorizing user is allowed to access the provided access
 // object. If so, the unsealed access object is returned.
 func (e *Encryptonize) authorizeAccess(authorizer *SealedUser, sealedAccess *SealedAccess) (access, error) {
-	plainAccess, err := sealedAccess.unseal(e.accessCryptor)
+	plainAccess, err := sealedAccess.unseal(e.AccessCryptor)
 	if err != nil {
 		return access{}, err
 	}
 
-	plainAuthorizer, err := authorizer.unseal(e.userCryptor)
+	plainAuthorizer, err := authorizer.unseal(e.UserCryptor)
 	if err != nil {
 		return access{}, err
 	}
@@ -49,7 +49,7 @@ func (e *Encryptonize) authorizeGroups(authorizer *SealedUser, groups ...*Sealed
 		return nil, err
 	}
 
-	plainAuthorizer, err := authorizer.unseal(e.userCryptor)
+	plainAuthorizer, err := authorizer.unseal(e.UserCryptor)
 	if err != nil {
 		return nil, err
 	}
@@ -65,7 +65,7 @@ func (e *Encryptonize) authorizeGroups(authorizer *SealedUser, groups ...*Sealed
 func (e *Encryptonize) verifyGroups(groups ...*SealedGroup) ([]uuid.UUID, error) {
 	groupIDs := make([]uuid.UUID, 0, len(groups))
 	for _, group := range groups {
-		if !group.verify(e.groupCryptor) {
+		if !group.verify(e.GroupCryptor) {
 			return nil, errors.New("Invalid group")
 		}
 		groupIDs = append(groupIDs, group.ID)
