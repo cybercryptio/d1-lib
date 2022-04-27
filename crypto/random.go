@@ -33,14 +33,14 @@ func (r *NativeRandom) GetBytes(n uint) ([]byte, error) {
 
 // MockRandom is a mock implementation of RandomInterface for testing.
 type MockRandom struct {
-	bytes []byte
+	Bytes []byte
 }
 
 func (r *MockRandom) GetBytes(n uint) ([]byte, error) {
-	if int(n) > len(r.bytes) {
+	if int(n) > len(r.Bytes) {
 		return nil, errors.New("No more random bytes")
 	}
 	var out []byte
-	out, r.bytes = r.bytes[:n], r.bytes[n:]
+	out, r.Bytes = r.Bytes[:n], r.Bytes[n:]
 	return out, nil
 }
