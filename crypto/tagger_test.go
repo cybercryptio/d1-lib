@@ -15,50 +15,49 @@ package crypto
 
 import (
 	"bytes"
-	"fmt"
 	"testing"
 )
 
-func TestMacor(t *testing.T) {
-	macor, err := NewKMAC256Macor()
-	if err != nil {
-		t.Fatalf("NewKMAC256Macor failed: %v", err)
-	}
-
-	customizationString1, err := rand.GetBytes(uint(1))
-	if err != nil {
-		t.Fatalf("Random failed: %v", err)
-	}
-
-	customizationString2, err := rand.GetBytes(uint(2))
-	if err != nil {
-		t.Fatalf("Random failed: %v", err)
-	}
-
+func TestTagger(t *testing.T) {
 	rand := &NativeRandom{}
 	key, err := rand.GetBytes(32)
 	if err != nil {
 		t.Fatalf("Random failed: %v", err)
 	}
 
-	mac1, err := macor.MAC(key, 32, customizationString1)
+	tagger, err := NewKMAC256Tagger(key)
 	if err != nil {
-		t.Fatalf("MAC failed: %v", err)
+		t.Fatalf("NewKMAC256Tagger failed: %v", err)
 	}
 
-	mac2, err := macor.MAC(key, 32, customizationString2)
+	data1, err := rand.GetBytes(uint(1))
 	if err != nil {
-		t.Fatalf("MAC failed: %v", err)
+		t.Fatalf("Random failed: %v", err)
 	}
 
-	mac3, err := macor.MAC(key, 32, customizationString1)
+	data2, err := rand.GetBytes(uint(2))
 	if err != nil {
-		t.Fatalf("MAC failed: %v", err)
+		t.Fatalf("Random failed: %v", err)
+	}
+
+	mac1, err := tagger.Tag(data1)
+	if err != nil {
+		t.Fatalf("Tag failed: %v", err)
+	}
+
+	mac2, err := tagger.Tag(data2)
+	if err != nil {
+		t.Fatalf("Tag failed: %v", err)
+	}
+
+	mac3, err := tagger.Tag(data1)
+	if err != nil {
+		t.Fatalf("Tag failed: %v", err)
 	}
 	if bytes.Equal(mac1, mac2) {
-		t.Fatal("Macor returns identical output from instances with different customization string, but same key and tag size")
+		t.Fatal("Tagger returns identical output from instances with different data")
 	}
 	if !bytes.Equal(mac1, mac3) {
-		t.Fatal("Macor returns different output from instances with same input")
+		t.Fatal("Tagger returns different output from instances with identical input")
 	}
 }

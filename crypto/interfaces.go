@@ -26,10 +26,10 @@ type CryptorInterface interface {
 	Decrypt(plaintext, data interface{}, wrappedKey, ciphertext []byte) (err error)
 }
 
-// MacorInterface provides an API to create a MAC.
-type MacorInterface interface {
-	// MAC creates a MAC from a key, tag size, and optional customization string.
-	MAC(key []byte, tagSize int, customizationString interface{}) (mac []byte, err error)
+// TaggerInterface provides an API to create a tag, i.e. a piece of information used for authenticating data.
+type TaggerInterface interface {
+	// Tag creates a tag of data.
+	Tag(data interface{}) (mac []byte, err error)
 }
 
 // KeyWrapperInterface provides an API to wrap/unwrap key material.

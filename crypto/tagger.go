@@ -19,23 +19,26 @@ import (
 	"encoding/gob"
 )
 
-// Macor implements the MacorInterface
-type Macor struct {
+const tagSize = 32
+
+// Tagger implements the TaggerInterface
+type Tagger struct {
+	Key []byte
 }
 
-// NewKMAC256Macor creates a Macor which uses KMAC256.
-func NewKMAC256Macor() (Macor, error) {
-	return Macor{}, nil
+// NewKMAC256Tagger creates a Tagger which uses KMAC256.
+func NewKMAC256Tagger(key []byte) (Tagger, error) {
+	return Tagger{Key: key}, nil
 }
 
-func (m *Macor) MAC(key []byte, tagSize int, customizationString interface{}) ([]byte, error) {
-	var customizationStringBuffer bytes.Buffer
-	enc := gob.NewEncoder(&customizationStringBuffer)
-	if err := enc.Encode(customizationString); err != nil {
+func (t *Tagger) Tag(data interface{}) ([]byte, error) {
+	var dataBuffer bytes.Buffer
+	enc := gob.NewEncoder(&dataBuffer)
+	if err := enc.Encode(data); err != nil {
 		return nil, err
 	}
 
-	mac := NewKMAC256(key, tagSize, customizationStringBuffer.Bytes())
+	mac := NewKMAC256(t.Key, tagSize, dataBuffer.Bytes())
 	macSum := mac.Sum(nil)
 
 	return macSum, nil
