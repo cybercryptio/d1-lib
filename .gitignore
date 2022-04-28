@@ -30,3 +30,5 @@ snyk_report.html
 *.out
 coverage-*.html
 coverage.html
+
+.vscode
