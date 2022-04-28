@@ -26,6 +26,12 @@ type CryptorInterface interface {
 	Decrypt(plaintext, data interface{}, wrappedKey, ciphertext []byte) (err error)
 }
 
+// TaggerInterface provides an API to create a cryptographic tag, i.e. a piece of information used for authenticating data.
+type TaggerInterface interface {
+	// Tag creates a cryptographic tag of data.
+	Tag(data interface{}) (mac []byte, err error)
+}
+
 // KeyWrapperInterface provides an API to wrap/unwrap key material.
 type KeyWrapperInterface interface {
 	// Wrap wraps the provided key material.
