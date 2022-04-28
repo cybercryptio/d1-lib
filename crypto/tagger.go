@@ -19,8 +19,8 @@ import (
 	"encoding/gob"
 )
 
-const TagSize = 32
-const KeyLength = 32
+const TagLength = 32
+const TaggingKeyLength = 32
 
 // Tagger implements the TaggerInterface
 type Tagger struct {
