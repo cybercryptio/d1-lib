@@ -30,34 +30,46 @@ func TestTagger(t *testing.T) {
 		t.Fatalf("NewKMAC256Tagger failed: %v", err)
 	}
 
-	data1, err := rand.GetBytes(uint(1))
+	data1, err := rand.GetBytes(1)
 	if err != nil {
 		t.Fatalf("Random failed: %v", err)
 	}
 
-	data2, err := rand.GetBytes(uint(2))
+	data2, err := rand.GetBytes(2)
 	if err != nil {
 		t.Fatalf("Random failed: %v", err)
 	}
 
-	mac1, err := tagger.Tag(data1)
+	tag1, err := tagger.Tag(data1)
 	if err != nil {
 		t.Fatalf("Tag failed: %v", err)
 	}
 
-	mac2, err := tagger.Tag(data2)
+	tag2, err := tagger.Tag(data2)
 	if err != nil {
 		t.Fatalf("Tag failed: %v", err)
 	}
 
-	mac3, err := tagger.Tag(data1)
+	tag3, err := tagger.Tag(data1)
 	if err != nil {
 		t.Fatalf("Tag failed: %v", err)
 	}
-	if bytes.Equal(mac1, mac2) {
+	if bytes.Equal(tag1, tag2) {
 		t.Fatal("Tagger returns identical output from instances with different data")
 	}
-	if !bytes.Equal(mac1, mac3) {
-		t.Fatal("Tagger returns different output from instances with identical input")
+	if !bytes.Equal(tag1, tag3) {
+		t.Fatal("Tagger returns different output from instances with identical data")
+	}
+}
+
+func TestTaggerInvalidKeyLength(t *testing.T) {
+	rand := &NativeRandom{}
+	key, err := rand.GetBytes(31)
+	if err != nil {
+		t.Fatalf("Random failed: %v", err)
+	}
+
+	if _, err = NewKMAC256Tagger(key); err == nil {
+		t.Fatal("Invalid key length accepted")
 	}
 }

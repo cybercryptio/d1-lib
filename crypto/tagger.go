@@ -19,7 +19,8 @@ import (
 	"encoding/gob"
 )
 
-const tagSize = 32
+const TagSize = 32
+const KeyLength = 32
 
 // Tagger implements the TaggerInterface
 type Tagger struct {
@@ -28,6 +29,10 @@ type Tagger struct {
 
 // NewKMAC256Tagger creates a Tagger which uses KMAC256.
 func NewKMAC256Tagger(key []byte) (Tagger, error) {
+	if len(key) != KeyLength {
+		return Tagger{}, ErrInvalidKeyLength
+	}
+
 	return Tagger{Key: key}, nil
 }
 
@@ -38,7 +43,7 @@ func (t *Tagger) Tag(data interface{}) ([]byte, error) {
 		return nil, err
 	}
 
-	mac := NewKMAC256(t.Key, tagSize, dataBuffer.Bytes())
+	mac := NewKMAC256(t.Key, TagSize, dataBuffer.Bytes())
 	macSum := mac.Sum(nil)
 
 	return macSum, nil
