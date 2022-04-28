@@ -29,7 +29,7 @@ type Tagger struct {
 
 // NewKMAC256Tagger creates a Tagger which uses KMAC256.
 func NewKMAC256Tagger(key []byte) (Tagger, error) {
-	if len(key) != KeyLength {
+	if len(key) != TaggingKeyLength {
 		return Tagger{}, ErrInvalidKeyLength
 	}
 
@@ -43,7 +43,7 @@ func (t *Tagger) Tag(data interface{}) ([]byte, error) {
 		return nil, err
 	}
 
-	mac := NewKMAC256(t.Key, TagSize, dataBuffer.Bytes())
+	mac := NewKMAC256(t.Key, TagLength, dataBuffer.Bytes())
 	macSum := mac.Sum(nil)
 
 	return macSum, nil
