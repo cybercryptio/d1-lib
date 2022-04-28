@@ -28,7 +28,7 @@ type CryptorInterface interface {
 
 // TaggerInterface provides an API to create a tag, i.e. a piece of information used for authenticating data.
 type TaggerInterface interface {
-	// Tag creates a tag of data.
+	// Tag creates a cryptographic tag of data.
 	Tag(data interface{}) (mac []byte, err error)
 }
 
