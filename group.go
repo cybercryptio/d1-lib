@@ -17,7 +17,7 @@ package encryptonize
 import (
 	"github.com/gofrs/uuid"
 
-	"encryptonize/crypto"
+	"github.com/cyber-crypt-com/encryptonize-lib/crypto"
 )
 
 // group contains data about an Encryptonize group. Note: All fields need to exported in order for

@@ -17,7 +17,7 @@ package encryptonize
 import (
 	"github.com/gofrs/uuid"
 
-	"encryptonize/crypto"
+	"github.com/cyber-crypt-com/encryptonize-lib/crypto"
 )
 
 // Object contains plaintext data provided to Encryptonize for encryption.

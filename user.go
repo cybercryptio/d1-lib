@@ -17,7 +17,7 @@ package encryptonize
 import (
 	"github.com/gofrs/uuid"
 
-	"encryptonize/crypto"
+	"github.com/cyber-crypt-com/encryptonize-lib/crypto"
 )
 
 // user contains data about an Encryptonize user. Note: All fields need to be exported in order for

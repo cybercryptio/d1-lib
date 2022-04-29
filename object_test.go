@@ -20,7 +20,7 @@ import (
 
 	"github.com/gofrs/uuid"
 
-	"encryptonize/crypto"
+	"github.com/cyber-crypt-com/encryptonize-lib/crypto"
 )
 
 var id = uuid.FromStringOrNil("10000000-0000-0000-0000-000000000000")

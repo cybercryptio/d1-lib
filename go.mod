@@ -1,4 +1,4 @@
-module encryptonize
+module github.com/cyber-crypt-com/encryptonize-lib
 
 go 1.17
 

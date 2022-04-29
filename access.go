@@ -17,7 +17,7 @@ package encryptonize
 import (
 	"github.com/gofrs/uuid"
 
-	"encryptonize/crypto"
+	"github.com/cyber-crypt-com/encryptonize-lib/crypto"
 )
 
 // access is used to manage access to encrypted objects. Note: All member fields need to be exported
