@@ -1,0 +1,47 @@
+### Description
+
+- (Context the reviewer might need to know)
+- (What changes does this PR introduce)
+- (How were these changes implemented)
+- (What part of the diff is a good starting point)
+- (How to test these changes)
+- (Areas where extra attention/feedback is appreciated)
+
+### Relevant Issues/PRs
+
+Closes #xxx
+PR #xxx
+
+### Type(s) of Change (Split the PR if you check many)
+
+- [ ] Added user feature
+- [ ] Added technical feature
+- [ ] Added tests
+- [ ] Refactor
+- [ ] Bugfix
+- [ ] Updated documentation
+- [ ] Kubernetes changes
+- [ ] CI/CD workflow changes
+
+### Testing Checklist
+
+- [ ] I have added/updated unit tests for functional changes.
+- [ ] I have added/updated integration tests for changes that affect dependent systems.
+- [ ] I have added/updated end-to-end tests for feature changes.
+
+### General Checklist
+
+- [ ] I have pulled in the latest changes from master.
+- [ ] I have run `make lint`.
+- [ ] I have successfully run `make tests`.
+- [ ] I have updated relevant CI/CD workflows.
+- [ ] I have updated relevant Kubernetes manifests/scripts.
+- [ ] I have updated/added relevant (internal and external) documentation (readme, doc comments, etc).
+- [ ] I have updated the dependency map to reflect my changes.
+- [ ] I have added the license to new source code files.
+- [ ] I have spent some time looking over the full diff before creating this PR.
+
+### Technical Debt
+
+(Please create new issues if there is technical debt - otherwise delete this section)
+Issue #xxx
