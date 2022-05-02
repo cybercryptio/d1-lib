@@ -39,9 +39,8 @@ var ErrInvalidMasterKeyLength = fmt.Errorf("invalid key length, accepted key len
 
 // NewSearchable creates an Index which is used to manage keyword/ID pairs.
 func NewSearchable() Index {
-	mapping := make(map[string]SealedID)
-
-	return Index{mapping: mapping}
+	return Index{mapping: make(map[string]SealedID)
+}
 }
 
 // Add is used to add a keyword/ID pair to the Index.
