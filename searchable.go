@@ -39,9 +39,7 @@ type SealedID struct {
 
 // NewIndex creates an Index which is used to manage keyword/ID pairs.
 func NewIndex() Index {
-	mapping := make(map[string]SealedID)
-
-	return Index{mapping: mapping}
+	return Index{mapping: make(map[string]SealedID)
 }
 
 // Add is used to add a keyword/ID pair to the Index.
@@ -51,7 +49,7 @@ func (i *Index) Add(key []byte, keyword, id string) error {
 	}
 
 	// Create two keys, k1 and k2, one for tagger and one for cryptor.
-	k1 := crypto.KMACKDF(crypto.TaggerKeyLength, key, []byte("mac"), []byte(keyword))
+	k1 := crypto.KMACKDF(crypto.TaggerKeyLength, key, []byte("label"), []byte(keyword))
 	k2 := crypto.KMACKDF(crypto.EncryptionKeyLength, key, []byte("id"), []byte(keyword))
 
 	tagger, err := crypto.NewKMAC256Tagger(k1)
@@ -74,7 +72,7 @@ func (i *Index) Add(key []byte, keyword, id string) error {
 		return err
 	}
 
-	// Encrypt id and turn it into a SealedID.
+	// Encrypt id and wrap it into SealedID.
 	wrappedKey, encryptedID, err := cryptor.Encrypt(&id, "")
 	if err != nil {
 		return err
@@ -94,7 +92,7 @@ func (i *Index) Search(key []byte, keyword string) ([]string, error) {
 	}
 
 	// Create two keys, k1 and k2, one for tagger and one for cryptor.
-	k1 := crypto.KMACKDF(crypto.TaggerKeyLength, key, []byte("mac"), []byte(keyword))
+	k1 := crypto.KMACKDF(crypto.TaggerKeyLength, key, []byte("label"), []byte(keyword))
 	k2 := crypto.KMACKDF(crypto.EncryptionKeyLength, key, []byte("id"), []byte(keyword))
 
 	tagger, err := crypto.NewKMAC256Tagger(k1)
@@ -117,16 +115,16 @@ func (i *Index) Search(key []byte, keyword string) ([]string, error) {
 			return nil, err
 		}
 
-		if encryptedID, ok := i.mapping[base64.StdEncoding.EncodeToString(label)]; !ok {
+		encryptedID, ok := i.mapping[base64.StdEncoding.EncodeToString(label)]
+		if !ok {
 			break
-		} else {
-			var plaintext string
-			err := cryptor.Decrypt(&plaintext, "", encryptedID.wrappedKey, encryptedID.ciphertext)
-			if err != nil {
-				return nil, err
-			}
-			decryptedIDs = append(decryptedIDs, string(plaintext))
 		}
+
+		var plaintext string
+		if err := cryptor.Decrypt(&plaintext, "", encryptedID.wrappedKey, encryptedID.ciphertext); err != nil {
+			return nil, err
+		}
+		decryptedIDs = append(decryptedIDs, string(plaintext))
 	}
 
 	return decryptedIDs, nil
@@ -138,7 +136,7 @@ func (i *Index) count(key []byte, keyword string) (uint64, error) {
 	}
 
 	// Create key k1 used for tagger.
-	k1 := crypto.KMACKDF(crypto.TaggerKeyLength, key, []byte("mac"), []byte(keyword))
+	k1 := crypto.KMACKDF(crypto.TaggerKeyLength, key, []byte("label"), []byte(keyword))
 
 	tagger, err := crypto.NewKMAC256Tagger(k1)
 	if err != nil {
@@ -155,8 +153,7 @@ func (i *Index) count(key []byte, keyword string) (uint64, error) {
 		}
 
 		if _, ok := i.mapping[base64.StdEncoding.EncodeToString(label)]; !ok {
-			count = uint64(j)
-			break
+			return uint64(j)
 		}
 	}
 

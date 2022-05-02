@@ -31,16 +31,12 @@ func TestAdd(t *testing.T) {
 	searchable := NewIndex()
 
 	rand := &crypto.NativeRandom{}
-	masterKey, err := rand.GetBytes(32)
-	if err != nil {
-		t.Fatalf("Random failed: %v", err)
-	}
+	masterKey, _ := rand.GetBytes(32)
 
 	keyword := "first keyword"
 	id := "first id"
 
-	err = searchable.Add(masterKey, keyword, id)
-	if err != nil {
+	if err := searchable.Add(masterKey, keyword, id); err != nil {
 		t.Fatal(err)
 	}
 	if len(searchable.mapping) != 1 {
