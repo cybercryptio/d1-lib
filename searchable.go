@@ -144,8 +144,7 @@ func (i *Index) count(key []byte, keyword string) (uint64, error) {
 		}
 
 		if _, ok := i.mapping[base64.StdEncoding.EncodeToString(label)]; !ok {
-			count = uint64(j)
-			break
+			return uint64(j)
 		}
 	}
 
