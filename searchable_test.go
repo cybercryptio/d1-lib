@@ -21,14 +21,14 @@ import (
 )
 
 func TestNewSearchable(t *testing.T) {
-	searchable := NewSearchable()
+	searchable := NewIndex()
 	if len(searchable.mapping) != 0 {
 		t.Fatal("Index non-empty at initialization.")
 	}
 }
 
 func TestAdd(t *testing.T) {
-	searchable := NewSearchable()
+	searchable := NewIndex()
 
 	rand := &crypto.NativeRandom{}
 	masterKey, err := rand.GetBytes(32)
@@ -49,7 +49,7 @@ func TestAdd(t *testing.T) {
 }
 
 func TestAddMultiple(t *testing.T) {
-	searchable := NewSearchable()
+	searchable := NewIndex()
 
 	rand := &crypto.NativeRandom{}
 	masterKey, err := rand.GetBytes(32)
@@ -74,7 +74,7 @@ func TestAddMultiple(t *testing.T) {
 }
 
 func TestSearch(t *testing.T) {
-	searchable := NewSearchable()
+	searchable := NewIndex()
 
 	rand := &crypto.NativeRandom{}
 	masterKey, err := rand.GetBytes(32)
@@ -102,7 +102,7 @@ func TestSearch(t *testing.T) {
 }
 
 func TestSearchWrongMasterkey(t *testing.T) {
-	searchable := NewSearchable()
+	searchable := NewIndex()
 
 	rand := &crypto.NativeRandom{}
 	masterKey1, err := rand.GetBytes(32)
@@ -132,7 +132,7 @@ func TestSearchWrongMasterkey(t *testing.T) {
 }
 
 func TestSearchWrongKeyword(t *testing.T) {
-	searchable := NewSearchable()
+	searchable := NewIndex()
 
 	rand := &crypto.NativeRandom{}
 	masterKey, err := rand.GetBytes(32)
@@ -169,7 +169,7 @@ func TestSearchWrongKeyword(t *testing.T) {
 }
 
 func TestCount(t *testing.T) {
-	searchable := NewSearchable()
+	searchable := NewIndex()
 
 	rand := &crypto.NativeRandom{}
 	masterKey, err := rand.GetBytes(32)
@@ -209,7 +209,7 @@ func TestCount(t *testing.T) {
 }
 
 func TestCountWrongMasterkey(t *testing.T) {
-	searchable := NewSearchable()
+	searchable := NewIndex()
 
 	rand := &crypto.NativeRandom{}
 	masterKey1, err := rand.GetBytes(32)
@@ -239,7 +239,7 @@ func TestCountWrongMasterkey(t *testing.T) {
 }
 
 func TestCountWrongKeyword(t *testing.T) {
-	searchable := NewSearchable()
+	searchable := NewIndex()
 
 	rand := &crypto.NativeRandom{}
 	masterKey, err := rand.GetBytes(32)

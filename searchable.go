@@ -22,6 +22,10 @@ import (
 	"github.com/cyber-crypt-com/encryptonize-lib/crypto"
 )
 
+const MasterKeyLength = 32
+
+var ErrInvalidMasterKeyLength = fmt.Errorf("invalid key length, accepted key length is %d bytes", MasterKeyLength)
+
 // Index contains a mapping from string label to SealedID.
 type Index struct {
 	mapping map[string]SealedID
@@ -33,12 +37,8 @@ type SealedID struct {
 	wrappedKey []byte
 }
 
-const MasterKeyLength = 32
-
-var ErrInvalidMasterKeyLength = fmt.Errorf("invalid key length, accepted key length is %d bytes", MasterKeyLength)
-
-// NewSearchable creates an Index which is used to manage keyword/ID pairs.
-func NewSearchable() Index {
+// NewIndex creates an Index which is used to manage keyword/ID pairs.
+func NewIndex() Index {
 	mapping := make(map[string]SealedID)
 
 	return Index{mapping: mapping}
@@ -50,6 +50,7 @@ func (i *Index) Add(key []byte, keyword, id string) error {
 		return ErrInvalidMasterKeyLength
 	}
 
+	// Create two keys, k1 and k2, one for tagger and one for cryptor.
 	k1 := crypto.KMACKDF(crypto.TaggerKeyLength, key, []byte("mac"), []byte(keyword))
 	k2 := crypto.KMACKDF(crypto.EncryptionKeyLength, key, []byte("id"), []byte(keyword))
 
@@ -62,6 +63,8 @@ func (i *Index) Add(key []byte, keyword, id string) error {
 		return err
 	}
 
+	// Compute label based on count which is equal to the number of keyword/ID pairs
+	// in which the keyword already exists.
 	count, err := i.count(key, keyword)
 	if err != nil {
 		return err
@@ -71,12 +74,14 @@ func (i *Index) Add(key []byte, keyword, id string) error {
 		return err
 	}
 
-	wrappedKey, encryptedID, err := cryptor.Encrypt([]byte(id), "")
+	// Encrypt id and turn it into a SealedID.
+	wrappedKey, encryptedID, err := cryptor.Encrypt(&id, "")
 	if err != nil {
 		return err
 	}
 	sealedID := SealedID{ciphertext: encryptedID, wrappedKey: wrappedKey}
 
+	// Add label/SealedID pair to Index.
 	i.mapping[base64.StdEncoding.EncodeToString(label)] = sealedID
 
 	return nil
@@ -88,6 +93,7 @@ func (i *Index) Search(key []byte, keyword string) ([]string, error) {
 		return nil, ErrInvalidMasterKeyLength
 	}
 
+	// Create two keys, k1 and k2, one for tagger and one for cryptor.
 	k1 := crypto.KMACKDF(crypto.TaggerKeyLength, key, []byte("mac"), []byte(keyword))
 	k2 := crypto.KMACKDF(crypto.EncryptionKeyLength, key, []byte("id"), []byte(keyword))
 
@@ -102,6 +108,9 @@ func (i *Index) Search(key []byte, keyword string) ([]string, error) {
 
 	decryptedIDs := []string{}
 
+	// For each value of count (starting at 0), check whether the corresponding keyword label
+	// exists in Index. As long as the keyword label exists, decrypt the corresponding ID
+	// and append it to decryptedIDs.
 	for count := 0; ; count++ {
 		label, err := tagger.Tag(uint64Encode(uint64(count)))
 		if err != nil {
@@ -111,7 +120,7 @@ func (i *Index) Search(key []byte, keyword string) ([]string, error) {
 		if encryptedID, ok := i.mapping[base64.StdEncoding.EncodeToString(label)]; !ok {
 			break
 		} else {
-			var plaintext []byte
+			var plaintext string
 			err := cryptor.Decrypt(&plaintext, "", encryptedID.wrappedKey, encryptedID.ciphertext)
 			if err != nil {
 				return nil, err
@@ -128,6 +137,7 @@ func (i *Index) count(key []byte, keyword string) (uint64, error) {
 		return 0, ErrInvalidMasterKeyLength
 	}
 
+	// Create key k1 used for tagger.
 	k1 := crypto.KMACKDF(crypto.TaggerKeyLength, key, []byte("mac"), []byte(keyword))
 
 	tagger, err := crypto.NewKMAC256Tagger(k1)
@@ -135,8 +145,9 @@ func (i *Index) count(key []byte, keyword string) (uint64, error) {
 		return 0, err
 	}
 
+	// For each value of count (starting at 0), check whether the corresponding keyword label
+	// exists in Index. As long as the keyword label exists, increment count.
 	var count uint64
-
 	for j := 0; ; j++ {
 		label, err := tagger.Tag(uint64Encode(uint64(j)))
 		if err != nil {
