@@ -36,8 +36,7 @@ func TestAdd(t *testing.T) {
 	keyword := "first keyword"
 	id := "first id"
 
-	err = searchable.Add(masterKey, keyword, id)
-	if err != nil {
+	if err := searchable.Add(masterKey, keyword, id); err != nil {
 		t.Fatal(err)
 	}
 	if len(searchable.mapping) != 1 {
