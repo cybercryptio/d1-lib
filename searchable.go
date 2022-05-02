@@ -107,16 +107,17 @@ func (i *Index) Search(key []byte, keyword string) ([]string, error) {
 			return nil, err
 		}
 
-		if encryptedID, ok := i.mapping[base64.StdEncoding.EncodeToString(label)]; !ok {
+		encryptedID, ok := i.mapping[base64.StdEncoding.EncodeToString(label)]
+		if !ok {
 			break
-		} else {
-			var plaintext []byte
-			err := cryptor.Decrypt(&plaintext, "", encryptedID.wrappedKey, encryptedID.ciphertext)
-			if err != nil {
-				return nil, err
-			}
-			decryptedIDs = append(decryptedIDs, string(plaintext))
 		}
+
+		var plaintext []byte
+		err := cryptor.Decrypt(&plaintext, "", encryptedID.wrappedKey, encryptedID.ciphertext)
+		if err != nil {
+			return nil, err
+		}
+		decryptedIDs = append(decryptedIDs, string(plaintext))
 	}
 
 	return decryptedIDs, nil
