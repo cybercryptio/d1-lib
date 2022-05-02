@@ -49,7 +49,7 @@ func (i *Index) Add(key []byte, keyword, id string) error {
 		return ErrInvalidMasterKeyLength
 	}
 
-	k1 := crypto.KMACKDF(crypto.TaggerKeyLength, key, []byte("mac"), []byte(keyword))
+	k1 := crypto.KMACKDF(crypto.TaggerKeyLength, key, []byte("label"), []byte(keyword))
 	k2 := crypto.KMACKDF(crypto.EncryptionKeyLength, key, []byte("id"), []byte(keyword))
 
 	tagger, err := crypto.NewKMAC256Tagger(k1)
