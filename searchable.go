@@ -19,7 +19,7 @@ import (
 	"encoding/binary"
 	"fmt"
 
-	"encryptonize/crypto"
+	"github.com/cyber-crypt-com/encryptonize-lib/crypto"
 )
 
 // Index contains a mapping from string label to SealedID.

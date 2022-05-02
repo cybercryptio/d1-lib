@@ -17,7 +17,7 @@ import (
 	"reflect"
 	"testing"
 
-	"encryptonize/crypto"
+	"github.com/cyber-crypt-com/encryptonize-lib/crypto"
 )
 
 func TestNewSearchable(t *testing.T) {
