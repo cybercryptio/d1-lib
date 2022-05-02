@@ -20,15 +20,15 @@ import (
 	"github.com/cyber-crypt-com/encryptonize-lib/crypto"
 )
 
-func TestNewSearchable(t *testing.T) {
-	searchable := NewIndex()
-	if len(searchable.mapping) != 0 {
+func TestNewSearchIndex(t *testing.T) {
+	index := NewIndex()
+	if len(index.mapping) != 0 {
 		t.Fatal("Index non-empty at initialization.")
 	}
 }
 
 func TestAdd(t *testing.T) {
-	searchable := NewIndex()
+	index := NewIndex()
 
 	rand := &crypto.NativeRandom{}
 	masterKey, _ := rand.GetBytes(32)
@@ -36,58 +36,68 @@ func TestAdd(t *testing.T) {
 	keyword := "first keyword"
 	id := "first id"
 
-	if err := searchable.Add(masterKey, keyword, id); err != nil {
+	if err := index.Add(masterKey, keyword, id); err != nil {
 		t.Fatal(err)
 	}
-	if len(searchable.mapping) != 1 {
+	if len(index.mapping) != 1 {
 		t.Fatal("Keyword/id pair not correctly added to mapping")
 	}
 }
 
 func TestAddMultiple(t *testing.T) {
-	searchable := NewIndex()
+	index := NewIndex()
 
 	rand := &crypto.NativeRandom{}
-	masterKey, err := rand.GetBytes(32)
-	if err != nil {
-		t.Fatalf("Random failed: %v", err)
-	}
+	masterKey, _ := rand.GetBytes(32)
 
 	keywords := [2]string{"first keyword", "second keyword"}
 	ids := [2]string{"first id", "second id"}
 
 	for i := 0; i < len(keywords); i++ {
 		for j := 0; j < len(ids); j++ {
-			err = searchable.Add(masterKey, keywords[i], ids[j])
-			if err != nil {
+			if err := index.Add(masterKey, keywords[i], ids[j]); err != nil {
 				t.Fatal(err)
 			}
 		}
 	}
-	if len(searchable.mapping) != len(keywords)*len(ids) {
+	if len(index.mapping) != len(keywords)*len(ids) {
 		t.Fatal("Multiple keyword/id pairs not correctly added to mapping")
 	}
 }
 
-func TestSearch(t *testing.T) {
-	searchable := NewIndex()
+func TestAddInvalidMasterkey(t *testing.T) {
+	index := NewIndex()
 
 	rand := &crypto.NativeRandom{}
-	masterKey, err := rand.GetBytes(32)
-	if err != nil {
-		t.Fatalf("Random failed: %v", err)
+	masterKeyShort, _ := rand.GetBytes(31)
+	masterKeyLong, _ := rand.GetBytes(33)
+
+	keyword := "first keyword"
+	id := "first id"
+
+	if err := index.Add(masterKeyShort, keyword, id); err == nil {
+		t.Fatal(ErrInvalidMasterKeyLength)
 	}
+	if err := index.Add(masterKeyLong, keyword, id); err == nil {
+		t.Fatal(ErrInvalidMasterKeyLength)
+	}
+}
+
+func TestSearch(t *testing.T) {
+	index := NewIndex()
+
+	rand := &crypto.NativeRandom{}
+	masterKey, _ := rand.GetBytes(32)
 
 	keyword := "first keyword"
 	ids := []string{"id1", "id2", "id3", "id4", "id5"}
 
 	for i := 0; i < len(ids); i++ {
-		err = searchable.Add(masterKey, keyword, ids[i])
-		if err != nil {
+		if err := index.Add(masterKey, keyword, ids[i]); err != nil {
 			t.Fatal(err)
 		}
 
-		IDs, err := searchable.Search(masterKey, keyword)
+		IDs, err := index.Search(masterKey, keyword)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -98,27 +108,20 @@ func TestSearch(t *testing.T) {
 }
 
 func TestSearchWrongMasterkey(t *testing.T) {
-	searchable := NewIndex()
+	index := NewIndex()
 
 	rand := &crypto.NativeRandom{}
-	masterKey1, err := rand.GetBytes(32)
-	if err != nil {
-		t.Fatalf("Random failed: %v", err)
-	}
-	masterKey2, err := rand.GetBytes(32)
-	if err != nil {
-		t.Fatalf("Random failed: %v", err)
-	}
+	masterKey1, _ := rand.GetBytes(32)
+	masterKey2, _ := rand.GetBytes(32)
 
 	keyword := "first keyword"
 	id := "first id"
 
-	err = searchable.Add(masterKey1, keyword, id)
-	if err != nil {
+	if err := index.Add(masterKey1, keyword, id); err != nil {
 		t.Fatal(err)
 	}
 
-	IDs, err := searchable.Search(masterKey2, keyword)
+	IDs, err := index.Search(masterKey2, keyword)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -128,26 +131,22 @@ func TestSearchWrongMasterkey(t *testing.T) {
 }
 
 func TestSearchWrongKeyword(t *testing.T) {
-	searchable := NewIndex()
+	index := NewIndex()
 
 	rand := &crypto.NativeRandom{}
-	masterKey, err := rand.GetBytes(32)
-	if err != nil {
-		t.Fatalf("Random failed: %v", err)
-	}
+	masterKey, _ := rand.GetBytes(32)
 
 	keyword := "first keyword"
 	id := "first id"
 
-	err = searchable.Add(masterKey, keyword, id)
-	if err != nil {
+	if err := index.Add(masterKey, keyword, id); err != nil {
 		t.Fatal(err)
 	}
 
 	keywordShort := "first keywor"
 	keywordLong := "first keywordd"
 
-	IDs, err := searchable.Search(masterKey, keywordShort)
+	IDs, err := index.Search(masterKey, keywordShort)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -155,7 +154,7 @@ func TestSearchWrongKeyword(t *testing.T) {
 		t.Fatal("Search returned decrypted IDs when given wrong keyword")
 	}
 
-	IDs, err = searchable.Search(masterKey, keywordLong)
+	IDs, err = index.Search(masterKey, keywordLong)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -165,19 +164,16 @@ func TestSearchWrongKeyword(t *testing.T) {
 }
 
 func TestCount(t *testing.T) {
-	searchable := NewIndex()
+	index := NewIndex()
 
 	rand := &crypto.NativeRandom{}
-	masterKey, err := rand.GetBytes(32)
-	if err != nil {
-		t.Fatalf("Random failed: %v", err)
-	}
+	masterKey, _ := rand.GetBytes(32)
 
 	keywords := [3]string{"keyword1", "keyword2", "keyword3"}
 	ids := [5]string{"id1", "id2", "id3", "id4", "id5"}
 
 	for i := 0; i < len(keywords); i++ {
-		count, err := searchable.count(masterKey, keywords[i])
+		count, err := index.count(masterKey, keywords[i])
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -188,12 +184,11 @@ func TestCount(t *testing.T) {
 
 	for i := 0; i < len(keywords); i++ {
 		for j := 0; j < len(ids); j++ {
-			err = searchable.Add(masterKey, keywords[i], ids[j])
-			if err != nil {
+			if err := index.Add(masterKey, keywords[i], ids[j]); err != nil {
 				t.Fatal(err)
 			}
 
-			count, err := searchable.count(masterKey, keywords[i])
+			count, err := index.count(masterKey, keywords[i])
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -205,27 +200,20 @@ func TestCount(t *testing.T) {
 }
 
 func TestCountWrongMasterkey(t *testing.T) {
-	searchable := NewIndex()
+	index := NewIndex()
 
 	rand := &crypto.NativeRandom{}
-	masterKey1, err := rand.GetBytes(32)
-	if err != nil {
-		t.Fatalf("Random failed: %v", err)
-	}
-	masterKey2, err := rand.GetBytes(32)
-	if err != nil {
-		t.Fatalf("Random failed: %v", err)
-	}
+	masterKey1, _ := rand.GetBytes(32)
+	masterKey2, _ := rand.GetBytes(32)
 
 	keyword := "first keyword"
 	id := "first id"
 
-	err = searchable.Add(masterKey1, keyword, id)
-	if err != nil {
+	if err := index.Add(masterKey1, keyword, id); err != nil {
 		t.Fatal(err)
 	}
 
-	count, err := searchable.count(masterKey2, keyword)
+	count, err := index.count(masterKey2, keyword)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -235,26 +223,22 @@ func TestCountWrongMasterkey(t *testing.T) {
 }
 
 func TestCountWrongKeyword(t *testing.T) {
-	searchable := NewIndex()
+	index := NewIndex()
 
 	rand := &crypto.NativeRandom{}
-	masterKey, err := rand.GetBytes(32)
-	if err != nil {
-		t.Fatalf("Random failed: %v", err)
-	}
+	masterKey, _ := rand.GetBytes(32)
 
 	keyword := "first keyword"
 	id := "first id"
 
-	err = searchable.Add(masterKey, keyword, id)
-	if err != nil {
+	if err := index.Add(masterKey, keyword, id); err != nil {
 		t.Fatal(err)
 	}
 
 	keywordShort := "first keywor"
 	keywordLong := "first keywordd"
 
-	count, err := searchable.count(masterKey, keywordShort)
+	count, err := index.count(masterKey, keywordShort)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -262,7 +246,7 @@ func TestCountWrongKeyword(t *testing.T) {
 		t.Fatal("Count returned wrong count when given wrong keyword.")
 	}
 
-	count, err = searchable.count(masterKey, keywordLong)
+	count, err = index.count(masterKey, keywordLong)
 	if err != nil {
 		t.Fatal(err)
 	}

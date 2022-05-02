@@ -39,7 +39,7 @@ type SealedID struct {
 
 // NewIndex creates an Index which is used to manage keyword/ID pairs.
 func NewIndex() Index {
-	return Index{mapping: make(map[string]SealedID)
+	return Index{mapping: make(map[string]SealedID)}
 }
 
 // Add is used to add a keyword/ID pair to the Index.
@@ -124,7 +124,7 @@ func (i *Index) Search(key []byte, keyword string) ([]string, error) {
 		if err := cryptor.Decrypt(&plaintext, "", encryptedID.wrappedKey, encryptedID.ciphertext); err != nil {
 			return nil, err
 		}
-		decryptedIDs = append(decryptedIDs, string(plaintext))
+		decryptedIDs = append(decryptedIDs, plaintext)
 	}
 
 	return decryptedIDs, nil
@@ -145,19 +145,16 @@ func (i *Index) count(key []byte, keyword string) (uint64, error) {
 
 	// For each value of count (starting at 0), check whether the corresponding keyword label
 	// exists in Index. As long as the keyword label exists, increment count.
-	var count uint64
-	for j := 0; ; j++ {
-		label, err := tagger.Tag(uint64Encode(uint64(j)))
+	for count := 0; ; count++ {
+		label, err := tagger.Tag(uint64Encode(uint64(count)))
 		if err != nil {
 			return 0, err
 		}
 
 		if _, ok := i.mapping[base64.StdEncoding.EncodeToString(label)]; !ok {
-			return uint64(j)
+			return uint64(count), nil
 		}
 	}
-
-	return count, nil
 }
 
 func uint64Encode(i uint64) []byte {
