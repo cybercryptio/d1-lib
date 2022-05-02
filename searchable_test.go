@@ -31,10 +31,7 @@ func TestAdd(t *testing.T) {
 	searchable := NewSearchable()
 
 	rand := &crypto.NativeRandom{}
-	masterKey, err := rand.GetBytes(32)
-	if err != nil {
-		t.Fatalf("Random failed: %v", err)
-	}
+	masterKey, _ := rand.GetBytes(32)
 
 	keyword := "first keyword"
 	id := "first id"
