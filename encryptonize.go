@@ -47,12 +47,16 @@ type Keys struct {
 
 	// Group Encryption Key used for encrypting group data.
 	GEK []byte `koanf:"gek"`
+
+	// Index Encryption Key used for searchable encryption.
+	IEK []byte `koanf:"iek"`
 }
 
 // Encryptonize is the entry point to the library. All main functionality is exposed through methods
 // on this struct.
 type Encryptonize struct {
 	ObjectCryptor, AccessCryptor, TokenCryptor, UserCryptor, GroupCryptor crypto.CryptorInterface
+	IndexKey                                                              []byte
 }
 
 // New creates a new instance of Encryptonize which uses the given configuration.
@@ -77,8 +81,8 @@ func New(keys Keys) (Encryptonize, error) {
 	if err != nil {
 		return Encryptonize{}, err
 	}
-
-	return Encryptonize{&objectCryptor, &accessCryptor, &tokenCryptor, &userCryptor, &groupCryptor}, nil
+	indexKey := keys.IEK
+	return Encryptonize{&objectCryptor, &accessCryptor, &tokenCryptor, &userCryptor, &groupCryptor, indexKey}, nil
 }
 
 ////////////////////////////////////////////////////////
@@ -429,4 +433,28 @@ func (e *Encryptonize) GetGroupData(authorizer *SealedUser, group *SealedGroup) 
 	}
 
 	return plainGroup.Data, nil
+}
+
+////////////////////////////////////////////////////////
+//                       Index                        //
+////////////////////////////////////////////////////////
+
+// Add adds the keyword/id pair to Index i.
+func (e *Encryptonize) Add(keyword, id string, i *Index) error {
+	if err := i.Add(e.IndexKey, keyword, id); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// Given a keyword, Search returns all decrypted ids (contained in Index i)
+// that the keyword is contained in.
+func (e *Encryptonize) Search(keyword string, i *Index) ([]string, error) {
+	decryptedIDs, err := i.Search(e.IndexKey, keyword)
+	if err != nil {
+		return nil, err
+	}
+
+	return decryptedIDs, nil
 }

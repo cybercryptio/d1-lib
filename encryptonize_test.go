@@ -26,6 +26,7 @@ func newTestEncryptonize(t *testing.T) Encryptonize {
 		TEK: []byte{2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2},
 		UEK: []byte{3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3},
 		GEK: []byte{4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4},
+		IEK: []byte{5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5},
 	}
 	encryptonize, err := New(keys)
 	if err != nil {
@@ -1317,6 +1318,52 @@ func TestSharingObjectPart4(t *testing.T) {
 	for i := range users {
 		if _, err = enc.Decrypt(&users[i], &object, &access); err != nil {
 			t.Fatal(err)
+		}
+	}
+}
+
+func TestAddToIndex(t *testing.T) {
+	enc := newTestEncryptonize(t)
+
+	index := NewIndex()
+
+	keywords := [5]string{"keyword1", "keyword2", "keyword3", "keyword4", "keyword5"}
+	ids := [5]string{"id1", "id2", "id3", "id4", "id5"}
+
+	for k := 0; k < len(keywords); k++ {
+		for i := 0; i < len(ids); i++ {
+			if err := enc.Add(keywords[k], ids[i], &index); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+
+	if len(index.mapping) != len(keywords)*len(ids) {
+		t.Fatal("Keyword/ID pairs not correctly added.")
+	}
+}
+
+func TestSearchInIndex(t *testing.T) {
+	enc := newTestEncryptonize(t)
+
+	index := NewIndex()
+
+	keywords := [5]string{"keyword1", "keyword2", "keyword3", "keyword4", "keyword5"}
+	ids := [5]string{"id1", "id2", "id3", "id4", "id5"}
+
+	for k := 0; k < len(keywords); k++ {
+		for i := 0; i < len(ids); i++ {
+			if err := enc.Add(keywords[k], ids[i], &index); err != nil {
+				t.Fatal(err)
+			}
+
+			IDs, err := enc.Search(keywords[k], &index)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(IDs[:i], ids[:i]) {
+				t.Fatal("Search returned wrong decrypted IDs.")
+			}
 		}
 	}
 }
