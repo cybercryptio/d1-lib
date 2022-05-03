@@ -20,7 +20,7 @@ import (
 )
 
 const TagLength = 32
-const TaggingKeyLength = 32
+const TaggerKeyLength = 32
 
 // Tagger implements the TaggerInterface
 type Tagger struct {
@@ -29,7 +29,7 @@ type Tagger struct {
 
 // NewKMAC256Tagger creates a Tagger which uses KMAC256.
 func NewKMAC256Tagger(key []byte) (Tagger, error) {
-	if len(key) != TaggingKeyLength {
+	if len(key) != TaggerKeyLength {
 		return Tagger{}, ErrInvalidKeyLength
 	}
 
