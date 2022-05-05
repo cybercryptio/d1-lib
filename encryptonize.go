@@ -439,9 +439,17 @@ func (e *Encryptonize) GetGroupData(authorizer *SealedUser, group *SealedGroup) 
 //                       Index                        //
 ////////////////////////////////////////////////////////
 
+// NewIndex creates an instance of index which is a building block of searchable encryption.
+// An index contains a mapping from a label to a sealedID. A label is based on a keyword, and
+// a sealedID is based on the occurrence of that keyword in a specific ID (e.g. a document).
+// Hence, index makes it possible to manage which keywords are contained in which IDs.
+func (e *Encryptonize) NewIndex() index {
+	return newIndex()
+}
+
 // Add adds the keyword/id pair to Index i.
-func (e *Encryptonize) Add(keyword, id string, i *Index) error {
-	if err := i.Add(e.IndexKey, keyword, id); err != nil {
+func (e *Encryptonize) Add(keyword, id string, i *index) error {
+	if err := i.add(e.IndexKey, keyword, id); err != nil {
 		return err
 	}
 
@@ -450,8 +458,8 @@ func (e *Encryptonize) Add(keyword, id string, i *Index) error {
 
 // Given a keyword, Search returns all decrypted ids (contained in Index i)
 // that the keyword is contained in.
-func (e *Encryptonize) Search(keyword string, i *Index) ([]string, error) {
-	decryptedIDs, err := i.Search(e.IndexKey, keyword)
+func (e *Encryptonize) Search(keyword string, i *index) ([]string, error) {
+	decryptedIDs, err := i.search(e.IndexKey, keyword)
 	if err != nil {
 		return nil, err
 	}

@@ -1325,7 +1325,7 @@ func TestSharingObjectPart4(t *testing.T) {
 func TestAddToIndex(t *testing.T) {
 	enc := newTestEncryptonize(t)
 
-	index := NewIndex()
+	index := enc.NewIndex()
 
 	keywords := [5]string{"keyword1", "keyword2", "keyword3", "keyword4", "keyword5"}
 	ids := [5]string{"id1", "id2", "id3", "id4", "id5"}
@@ -1346,7 +1346,7 @@ func TestAddToIndex(t *testing.T) {
 func TestSearchInIndex(t *testing.T) {
 	enc := newTestEncryptonize(t)
 
-	index := NewIndex()
+	index := enc.NewIndex()
 
 	keywords := [5]string{"keyword1", "keyword2", "keyword3", "keyword4", "keyword5"}
 	ids := [5]string{"id1", "id2", "id3", "id4", "id5"}
