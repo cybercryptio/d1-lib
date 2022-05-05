@@ -439,7 +439,7 @@ func (e *Encryptonize) GetGroupData(authorizer *SealedUser, group *SealedGroup) 
 ////////////////////////////////////////////////////////
 
 // NewIndex creates an instance of index which is a building block of searchable encryption.
-// An index contains a mapping from a label to a sealedID. A label is based on a keyword, and
+// An index contains a mapping from labels to sealedIDs. A label is based on a keyword, and
 // a sealedID is based on the occurrence of that keyword in a specific ID (e.g. a document).
 // Hence, index makes it possible to manage which keywords are contained in which IDs.
 func (e *Encryptonize) NewIndex() index {
