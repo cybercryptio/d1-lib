@@ -81,8 +81,7 @@ func New(keys Keys) (Encryptonize, error) {
 	if err != nil {
 		return Encryptonize{}, err
 	}
-	indexKey := keys.IEK
-	return Encryptonize{&objectCryptor, &accessCryptor, &tokenCryptor, &userCryptor, &groupCryptor, indexKey}, nil
+	return Encryptonize{&objectCryptor, &accessCryptor, &tokenCryptor, &userCryptor, &groupCryptor, keys.IEK}, nil
 }
 
 ////////////////////////////////////////////////////////
