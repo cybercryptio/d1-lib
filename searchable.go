@@ -27,23 +27,23 @@ const MasterKeyLength = 32
 var ErrInvalidMasterKeyLength = fmt.Errorf("invalid key length, accepted key length is %d bytes", MasterKeyLength)
 
 // Index contains a mapping from string label to SealedID.
-type Index struct {
-	mapping map[string]SealedID
+type index struct {
+	mapping map[string]sealedID
 }
 
 // SealedID is an encrypted structure which defines an occurrence of a specific keyword in a specific ID.
-type SealedID struct {
+type sealedID struct {
 	ciphertext []byte
 	wrappedKey []byte
 }
 
 // NewIndex creates an Index which is used to manage keyword/ID pairs.
-func NewIndex() Index {
-	return Index{mapping: make(map[string]SealedID)}
+func newIndex() index {
+	return index{mapping: make(map[string]sealedID)}
 }
 
 // Add is used to add a keyword/ID pair to the Index.
-func (i *Index) Add(key []byte, keyword, id string) error {
+func (i *index) add(key []byte, keyword, id string) error {
 	if len(key) != MasterKeyLength {
 		return ErrInvalidMasterKeyLength
 	}
@@ -77,7 +77,7 @@ func (i *Index) Add(key []byte, keyword, id string) error {
 	if err != nil {
 		return err
 	}
-	sealedID := SealedID{ciphertext: encryptedID, wrappedKey: wrappedKey}
+	sealedID := sealedID{ciphertext: encryptedID, wrappedKey: wrappedKey}
 
 	// Add label/SealedID pair to Index.
 	i.mapping[base64.StdEncoding.EncodeToString(label)] = sealedID
@@ -86,7 +86,7 @@ func (i *Index) Add(key []byte, keyword, id string) error {
 }
 
 // Given a keyword, Search returns all decrypted ID's that the keyword is contained in.
-func (i *Index) Search(key []byte, keyword string) ([]string, error) {
+func (i *index) search(key []byte, keyword string) ([]string, error) {
 	if len(key) != MasterKeyLength {
 		return nil, ErrInvalidMasterKeyLength
 	}
@@ -130,7 +130,7 @@ func (i *Index) Search(key []byte, keyword string) ([]string, error) {
 	return decryptedIDs, nil
 }
 
-func (i *Index) count(key []byte, keyword string) (uint64, error) {
+func (i *index) count(key []byte, keyword string) (uint64, error) {
 	if len(key) != MasterKeyLength {
 		return 0, ErrInvalidMasterKeyLength
 	}

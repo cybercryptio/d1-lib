@@ -47,12 +47,16 @@ type Keys struct {
 
 	// Group Encryption Key used for encrypting group data.
 	GEK []byte `koanf:"gek"`
+
+	// Index Encryption Key used for searchable encryption.
+	IEK []byte `koanf:"iek"`
 }
 
 // Encryptonize is the entry point to the library. All main functionality is exposed through methods
 // on this struct.
 type Encryptonize struct {
 	ObjectCryptor, AccessCryptor, TokenCryptor, UserCryptor, GroupCryptor crypto.CryptorInterface
+	IndexKey                                                              []byte
 }
 
 // New creates a new instance of Encryptonize which uses the given configuration.
@@ -77,8 +81,7 @@ func New(keys Keys) (Encryptonize, error) {
 	if err != nil {
 		return Encryptonize{}, err
 	}
-
-	return Encryptonize{&objectCryptor, &accessCryptor, &tokenCryptor, &userCryptor, &groupCryptor}, nil
+	return Encryptonize{&objectCryptor, &accessCryptor, &tokenCryptor, &userCryptor, &groupCryptor, keys.IEK}, nil
 }
 
 ////////////////////////////////////////////////////////
@@ -429,4 +432,33 @@ func (e *Encryptonize) GetGroupData(authorizer *SealedUser, group *SealedGroup) 
 	}
 
 	return plainGroup.Data, nil
+}
+
+////////////////////////////////////////////////////////
+//                       Index                        //
+////////////////////////////////////////////////////////
+
+// NewIndex creates a new index that can be used to map keywords to IDs (e.g. documents). This
+// means that the index can be used to keep track of which keywords are contained in which IDs.
+func (e *Encryptonize) NewIndex() index {
+	return newIndex()
+}
+
+// Add adds the keyword/ID pair to index i.
+func (e *Encryptonize) Add(keyword, id string, i *index) error {
+	if err := i.add(e.IndexKey, keyword, id); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// Search finds all IDs that contain the given keyword and returns them in plaintext.
+func (e *Encryptonize) Search(keyword string, i *index) ([]string, error) {
+	decryptedIDs, err := i.search(e.IndexKey, keyword)
+	if err != nil {
+		return nil, err
+	}
+
+	return decryptedIDs, nil
 }
