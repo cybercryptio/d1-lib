@@ -92,6 +92,9 @@ func New(keys Keys) (Encryptonize, error) {
 // object that controls access to that data. The calling user is automatically added to the access
 // object. To grant other users access, see AddGroupsToAccess and AddUserToGroups.
 //
+// For all practical purposes, the size of the ciphertext in the SealedObject is len(plaintext) + 48
+// bytes.
+//
 // The sealed object and the sealed access object are not sensitive data.
 func (e *Encryptonize) Encrypt(user *SealedUser, object *Object) (SealedObject, SealedAccess, error) {
 	if !user.verify(e.UserCryptor) {
