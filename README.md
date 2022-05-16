@@ -10,8 +10,8 @@ The Encryptonize&reg; library provides cryptographic functions for data encrypti
     - binary data can be encrypted/decrypted using the standardized AES256-GCM algorithm
     - the Ciphertext and Associated Data can be securely stored in untrusted locations as the recovery of the plaintext is computationally infeasible without the Encryption Key, and any changes to the Ciphertext or Associated Data will be detected during the decryption process
 - **Key Wrapping with Padding Authenticated Encryption (KWP-AE)**
-    - each data object is encrypted with a random 256-bit key which is then wrapped with the configured Wrapping Key using the standardized KWP-AE algorithm
-    - wrapped keys can be securely stored in untrusted locations as the recovery of the plaintext key is computationally infeasible without the Wrapping Key, and any changes to the Wrapped Key will be detected during the unwrapping process
+    - each object is encrypted with a random 256-bit key which is then wrapped with the configured Wrapping Key using the standardized KWP-AE algorithm
+    - wrapped keys can be securely stored in untrusted locations (alongside the encrypted objects) as the recovery of the plaintext key is computationally infeasible without the Wrapping Key, and any changes to the Wrapped Key will be detected during the unwrapping process
 - **Role-Based Access Control (RBAC)**
     - access to encrypted objects can be restricted to specific groups of users with associated role data
 - **User Authentication**
@@ -28,13 +28,13 @@ To use the library in your Go project, you first need to install it by running t
 go get -u github.com/cyber-crypt-com/encryptonize-lib@latest
 ```
 
-Then, you can access the Encryptonize&reg; library functions by importing the library in our application code:
+Then, you can access the Encryptonize&reg; library functions by importing the library in your application code:
 ```
 import github.com/cyber-crypt-com/encryptonize-lib
 ```
 
 ## Usage
-TODO: Link to examples in godoc
+For examples on how to use the Encryptonize&reg; library [see our Examples section in the documentation](https://pkg.go.dev/github.com/cyber-crypt-com/encryptonize-lib#example-package-BasicEncryptDecrypt).
 
 ## Security
-TODO: link to security architecture
+For more details about the security guarantees offered by the Encryptonize&reg; library [see our Security Architecture Documentation]().
