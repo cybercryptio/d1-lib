@@ -51,7 +51,9 @@ func Example_basicEncryptDecrypt() {
 		AssociatedData: []byte("AssociatedData"),
 	}
 
-	// Encrypt the object and get the corresponding encrypted access object. The access object is required for decryption as its ciphertext contains the wrapped object encryption key and the IDs of the users that are allowed to decrypt the corresponding object. By default, only the default group of the user who encrypted the object is allowed to decrypt the object.
+	// Encrypt the object and get the corresponding encrypted access object. The access object is required for decryption as its ciphertext contains
+	// the wrapped object encryption key and the IDs of the users that are allowed to decrypt the corresponding object. By default, only the default
+	// group of the user who encrypted the object is allowed to decrypt the object.
 	encryptedObject, encryptedAccess, err := ectnz.Encrypt(&ectnzUser, &binaryObject)
 	if err != nil {
 		log.Fatalf("Error encrypting object: %v", err)
@@ -64,6 +66,7 @@ func Example_basicEncryptDecrypt() {
 	}
 
 	fmt.Printf("Decrypted object plaintext: %s\nDecrypted object associated data: %s\n", decryptedObject.Plaintext, decryptedObject.AssociatedData)
+
 	// Output:
 	// Decrypted object plaintext: Plaintext
 	// Decrypted object associated data: AssociatedData

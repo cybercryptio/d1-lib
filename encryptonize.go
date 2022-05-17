@@ -252,7 +252,8 @@ func (e *Encryptonize) AuthorizeUser(user *SealedUser, access *SealedAccess) err
 // user is added to any additional groups provided. A randomly generated password is also created
 // and returned to the caller.
 //
-// The sealed user and group are not sensitive data. The generated password is sensitive data.
+// The SealedUser object acts as credentials for decryption so it should only be accessed by
+// authenticated users.
 func (e *Encryptonize) NewUser(data []byte, groups ...*SealedGroup) (SealedUser, SealedGroup, string, error) {
 	id, err := uuid.NewV4()
 	if err != nil {
