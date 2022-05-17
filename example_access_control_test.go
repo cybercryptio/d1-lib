@@ -22,7 +22,7 @@ import (
 )
 
 // The UserData struct models the data of a user. It contains both private data that should be kept confidential and public data that can be shared
-// with other users.
+// with other users, being protected cryptographically.
 type UserData struct {
 	private PrivateUserData
 	public  PublicUserData
