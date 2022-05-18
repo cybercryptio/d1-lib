@@ -40,7 +40,7 @@ func Example_basicEncryptDecrypt() {
 	}
 
 	// Create a basic user.
-	ectnzUser, _, _, err := ectnz.NewUser(nil)
+	user, _, _, err := ectnz.NewUser(nil)
 	if err != nil {
 		log.Fatalf("Error creating Encryptonize user: %v", err)
 	}
@@ -54,13 +54,13 @@ func Example_basicEncryptDecrypt() {
 	// Encrypt the object and get the corresponding encrypted access object. The access object is required for decryption as its ciphertext contains
 	// the wrapped object encryption key and the IDs of the users that are allowed to decrypt the corresponding object. By default, only the default
 	// group of the user who encrypted the object is allowed to decrypt the object.
-	encryptedObject, encryptedAccess, err := ectnz.Encrypt(&ectnzUser, &binaryObject)
+	encryptedObject, encryptedAccess, err := ectnz.Encrypt(&user, &binaryObject)
 	if err != nil {
 		log.Fatalf("Error encrypting object: %v", err)
 	}
 
 	// Decrypt the object with the corresponding access using the given user as the authorizer.
-	decryptedObject, err := ectnz.Decrypt(&ectnzUser, &encryptedObject, &encryptedAccess)
+	decryptedObject, err := ectnz.Decrypt(&user, &encryptedObject, &encryptedAccess)
 	if err != nil {
 		log.Fatalf("Error decrypting object: %v", err)
 	}

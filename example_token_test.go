@@ -22,16 +22,19 @@ import (
 )
 
 func ExampleEncryptonize_CreateToken() {
+	// Instantiate the Encryptonize® library with the given keys.
 	ectnz, err := encryptonize.New(keys)
 	if err != nil {
 		log.Fatalf("Error instantiating Encryptonize: %v", err)
 	}
 
+	// Create a token with encrypted contents and default expiry time.
 	token, err := ectnz.CreateToken([]byte("token contents"))
 	if err != nil {
 		log.Fatalf("Error creating token: %v", err)
 	}
 
+	// Validate the token and fetch its decrypted contents. This call will fail if the token has expired or has been tampered with.
 	tokenContents, err := ectnz.GetTokenContents(&token)
 	if err != nil {
 		log.Fatalf("Invalid token: %v", err)
