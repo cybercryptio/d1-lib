@@ -220,19 +220,19 @@ func TestPlainObject(t *testing.T) {
 	}
 
 	tests := []testData{
-		testData{
+		{
 			description: "Plaintext=nil",
 			data:        data.Object{Plaintext: nil, AssociatedData: []byte("associated_data")},
 		},
-		testData{
+		{
 			description: "AssociatedData=nil",
 			data:        data.Object{Plaintext: []byte("plaintext"), AssociatedData: nil},
 		},
-		testData{
+		{
 			description: "Plaintext=nil AssociatedData=nil",
 			data:        data.Object{Plaintext: nil, AssociatedData: nil},
 		},
-		testData{
+		{
 			description: "Plaintext!=nil AssociatedData!=nil",
 			data:        data.Object{Plaintext: []byte("plaintext"), AssociatedData: []byte("associated_data")},
 		},
