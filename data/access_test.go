@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package encryptonize
+package data
 
 import (
 	"testing"
@@ -32,65 +32,65 @@ var accessGroups = []uuid.UUID{
 
 func TestAccessGetGroupIDs(t *testing.T) {
 	groupID := uuid.Must(uuid.NewV4())
-	access := newAccess(nil)
-	access.addGroups(groupID)
+	access := NewAccess(nil)
+	access.AddGroups(groupID)
 
-	uuids := access.getGroups()
+	uuids := access.GetGroups()
 	if _, ok := uuids[groupID]; len(uuids) == 0 || !ok {
 		t.Error("Expected getGroups to return a group ID")
 	}
 }
 
 func TestAccessGetZeroGroupIDs(t *testing.T) {
-	access := newAccess(nil)
-	uuids := access.getGroups()
+	access := NewAccess(nil)
+	uuids := access.GetGroups()
 	if len(uuids) != 0 {
 		t.Error("getGroups should have returned empty array")
 	}
 }
 
 func TestAccessContainsGroup(t *testing.T) {
-	access := newAccess(nil)
-	access.addGroups(accessGroups...)
+	access := NewAccess(nil)
+	access.AddGroups(accessGroups...)
 
-	if !access.containsGroups(accessGroups...) {
+	if !access.ContainsGroups(accessGroups...) {
 		t.Error("ContainsGroup returned false")
 	}
 
-	if access.containsGroups(uuid.Must(uuid.NewV4())) {
+	if access.ContainsGroups(uuid.Must(uuid.NewV4())) {
 		t.Error("ContainsGroup returned true")
 	}
 }
 
 func TestAccessAdd(t *testing.T) {
-	access := newAccess(nil)
+	access := NewAccess(nil)
 
 	for i := 0; i < 256; i++ {
 		g := uuid.Must(uuid.NewV4())
-		access.addGroups(g)
-		if !access.containsGroups(g) {
+		access.AddGroups(g)
+		if !access.ContainsGroups(g) {
 			t.Error("AddGroup failed")
 		}
 	}
 }
 
 func TestAccessAddDuplicate(t *testing.T) {
-	access := newAccess(nil)
+	access := NewAccess(nil)
 	g := uuid.Must(uuid.NewV4())
-	access.addGroups(g)
-	access.addGroups(g)
-	if !access.containsGroups(g) {
+	access.AddGroups(g)
+	access.AddGroups(g)
+	if !access.ContainsGroups(g) {
 		t.Error("calling AddGroup twice with same ID failed")
 	}
 }
 
 func TestAccessRemoveGroup(t *testing.T) {
-	access := newAccess(nil)
-	access.addGroups(accessGroups...)
+	access := NewAccess(nil)
+	access.AddGroups(accessGroups...)
 
 	for _, g := range accessGroups {
-		access.removeGroups(g)
-		if access.containsGroups(g) {
+		access.RemoveGroups(g)
+		if access.ContainsGroups(g) {
 			t.Error("RemoveGroup failed")
 		}
 	}
@@ -103,11 +103,11 @@ func TestAccessSeal(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	access := newAccess(nil)
-	access.addGroups(accessGroups...)
+	access := NewAccess(nil)
+	access.AddGroups(accessGroups...)
 
 	id := uuid.Must(uuid.NewV4())
-	sealed, err := access.seal(id, &cryptor)
+	sealed, err := access.Seal(id, &cryptor)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -115,7 +115,7 @@ func TestAccessSeal(t *testing.T) {
 		t.Fatalf("Wrong ID: %s != %s", sealed.ID, id)
 	}
 
-	unsealed, err := sealed.unseal(&cryptor)
+	unsealed, err := sealed.Unseal(&cryptor)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -131,11 +131,11 @@ func TestAccessVerifyCiphertext(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	access := newAccess(nil)
-	access.addGroups(accessGroups...)
+	access := NewAccess(nil)
+	access.AddGroups(accessGroups...)
 
 	id := uuid.Must(uuid.NewV4())
-	sealed, err := access.seal(id, &cryptor)
+	sealed, err := access.Seal(id, &cryptor)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -156,11 +156,11 @@ func TestAccessVerifyID(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	access := newAccess(nil)
-	access.addGroups(accessGroups...)
+	access := NewAccess(nil)
+	access.AddGroups(accessGroups...)
 
 	id := uuid.Must(uuid.NewV4())
-	sealed, err := access.seal(id, &cryptor)
+	sealed, err := access.Seal(id, &cryptor)
 	if err != nil {
 		t.Fatal(err)
 	}

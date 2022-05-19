@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package encryptonize
+package data
 
 import (
 	"github.com/gofrs/uuid"
@@ -42,8 +42,8 @@ type SealedObject struct {
 	ID uuid.UUID
 }
 
-// seal encrypts the object and returns the wrapped encryption key and the sealed object.
-func (o *Object) seal(id uuid.UUID, cryptor crypto.CryptorInterface) ([]byte, SealedObject, error) {
+// Seal encrypts the object and returns the wrapped encryption key and the sealed object.
+func (o *Object) Seal(id uuid.UUID, cryptor crypto.CryptorInterface) ([]byte, SealedObject, error) {
 	associatedData := make([]byte, 0, uuid.Size+len(o.AssociatedData))
 	associatedData = append(associatedData, id.Bytes()...)
 	associatedData = append(associatedData, o.AssociatedData...)
@@ -62,8 +62,8 @@ func (o *Object) seal(id uuid.UUID, cryptor crypto.CryptorInterface) ([]byte, Se
 	return wrappedKey, sealed, nil
 }
 
-// unseal uses the wrapped key to decrypt the sealed object.
-func (o *SealedObject) unseal(wrappedKey []byte, cryptor crypto.CryptorInterface) (Object, error) {
+// Unseal uses the wrapped key to decrypt the sealed object.
+func (o *SealedObject) Unseal(wrappedKey []byte, cryptor crypto.CryptorInterface) (Object, error) {
 	associatedData := make([]byte, 0, uuid.Size+len(o.AssociatedData))
 	associatedData = append(associatedData, o.ID.Bytes()...)
 	associatedData = append(associatedData, o.AssociatedData...)
@@ -82,6 +82,6 @@ func (o *SealedObject) unseal(wrappedKey []byte, cryptor crypto.CryptorInterface
 
 // verify uses the wrapped key to check the integrity of the sealed object.
 func (o *SealedObject) verify(wrappedKey []byte, cryptor crypto.CryptorInterface) bool {
-	_, err := o.unseal(wrappedKey, cryptor)
+	_, err := o.Unseal(wrappedKey, cryptor)
 	return err == nil
 }

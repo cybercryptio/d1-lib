@@ -15,8 +15,11 @@
 package encryptonize
 
 import (
-	"reflect"
 	"testing"
+
+	"reflect"
+
+	"github.com/cyber-crypt-com/encryptonize-lib/data"
 )
 
 func newTestEncryptonize(t *testing.T) Encryptonize {
@@ -44,7 +47,7 @@ func TestEncryptDecrypt(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	plainObject := Object{
+	plainObject := data.Object{
 		Plaintext:      []byte("plaintext"),
 		AssociatedData: []byte("associated_data"),
 	}
@@ -75,7 +78,7 @@ func TestEncryptUnauthorizedUser(t *testing.T) {
 	// Make user unauthorized by changing its first 5 ciphertext bytes to 0
 	copy(user.Ciphertext[:5], make([]byte, 5))
 
-	plainObject := Object{
+	plainObject := data.Object{
 		Plaintext:      []byte("plaintext"),
 		AssociatedData: []byte("associated_data"),
 	}
@@ -84,10 +87,10 @@ func TestEncryptUnauthorizedUser(t *testing.T) {
 	if err == nil {
 		t.Fatal("Unauthorized user able to encrypt")
 	}
-	if !reflect.DeepEqual(object, SealedObject{}) {
+	if !reflect.DeepEqual(object, data.SealedObject{}) {
 		t.Fatal("Encryption failed, but returned sealed object anyway")
 	}
-	if !reflect.DeepEqual(access, SealedAccess{}) {
+	if !reflect.DeepEqual(access, data.SealedAccess{}) {
 		t.Fatal("Encryption failed, but returned sealed access anyway")
 	}
 }
@@ -101,7 +104,7 @@ func TestDecryptUnauthorizedUser(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	plainObject := Object{
+	plainObject := data.Object{
 		Plaintext:      []byte("plaintext"),
 		AssociatedData: []byte("associated_data"),
 	}
@@ -132,7 +135,7 @@ func TestUpdate(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	plainObject := Object{
+	plainObject := data.Object{
 		Plaintext:      []byte("plaintext"),
 		AssociatedData: []byte("associated_data"),
 	}
@@ -142,7 +145,7 @@ func TestUpdate(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	plainObjectUpdated := Object{
+	plainObjectUpdated := data.Object{
 		Plaintext:      []byte("plaintext_updated"),
 		AssociatedData: []byte("associated_data_updated"),
 	}
@@ -170,7 +173,7 @@ func TestUpdateUnauthorizedUser(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	plainObject := Object{
+	plainObject := data.Object{
 		Plaintext:      []byte("plaintext"),
 		AssociatedData: []byte("associated_data"),
 	}
@@ -180,7 +183,7 @@ func TestUpdateUnauthorizedUser(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	plainObjectUpdated := Object{
+	plainObjectUpdated := data.Object{
 		Plaintext:      []byte("plaintext_updated"),
 		AssociatedData: []byte("associated_data_updated"),
 	}
@@ -192,7 +195,7 @@ func TestUpdateUnauthorizedUser(t *testing.T) {
 	if err == nil {
 		t.Fatal("Unauthorized user able to update")
 	}
-	if !reflect.DeepEqual(objectUpdated, SealedObject{}) {
+	if !reflect.DeepEqual(objectUpdated, data.SealedObject{}) {
 		t.Fatal("Update failed, but returned updated object anyway")
 	}
 }
@@ -212,25 +215,25 @@ func TestPlainObject(t *testing.T) {
 
 	type testData struct {
 		description string
-		data        Object
+		data        data.Object
 	}
 
 	tests := []testData{
 		testData{
 			description: "Plaintext=nil",
-			data:        Object{Plaintext: nil, AssociatedData: []byte("associated_data")},
+			data:        data.Object{Plaintext: nil, AssociatedData: []byte("associated_data")},
 		},
 		testData{
 			description: "AssociatedData=nil",
-			data:        Object{Plaintext: []byte("plaintext"), AssociatedData: nil},
+			data:        data.Object{Plaintext: []byte("plaintext"), AssociatedData: nil},
 		},
 		testData{
 			description: "Plaintext=nil AssociatedData=nil",
-			data:        Object{Plaintext: nil, AssociatedData: nil},
+			data:        data.Object{Plaintext: nil, AssociatedData: nil},
 		},
 		testData{
 			description: "Plaintext!=nil AssociatedData!=nil",
-			data:        Object{Plaintext: []byte("plaintext"), AssociatedData: []byte("associated_data")},
+			data:        data.Object{Plaintext: []byte("plaintext"), AssociatedData: []byte("associated_data")},
 		},
 	}
 
@@ -303,7 +306,7 @@ func TestGetAccessGroups(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	plainObject := Object{
+	plainObject := data.Object{
 		Plaintext:      []byte("plaintext"),
 		AssociatedData: []byte("associated_data"),
 	}
@@ -341,7 +344,7 @@ func TestAddRemoveGroupsFromAccess(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	plainObject := Object{
+	plainObject := data.Object{
 		Plaintext:      []byte("plaintext"),
 		AssociatedData: []byte("associated_data"),
 	}
@@ -395,7 +398,7 @@ func TestAddRemoveGroupsFromAccessUnauthorized(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	plainObject := Object{
+	plainObject := data.Object{
 		Plaintext:      []byte("plaintext"),
 		AssociatedData: []byte("associated_data"),
 	}
@@ -433,7 +436,7 @@ func TestAddRemoveGroupsFromAccessAuthorized(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	plainObject := Object{
+	plainObject := data.Object{
 		Plaintext:      []byte("plaintext"),
 		AssociatedData: []byte("associated_data"),
 	}
@@ -482,7 +485,7 @@ func TestAddInvalidGroupsToAccess(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	plainObject := Object{
+	plainObject := data.Object{
 		Plaintext:      []byte("plaintext"),
 		AssociatedData: []byte("associated_data"),
 	}
@@ -514,7 +517,7 @@ func TestRemoveInvalidGroupsFromAccess(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	plainObject := Object{
+	plainObject := data.Object{
 		Plaintext:      []byte("plaintext"),
 		AssociatedData: []byte("associated_data"),
 	}
@@ -554,7 +557,7 @@ func TestAuthorizeUser(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	plainObject := Object{
+	plainObject := data.Object{
 		Plaintext:      []byte("plaintext"),
 		AssociatedData: []byte("associated_data"),
 	}
@@ -614,7 +617,7 @@ func TestNewUser(t *testing.T) {
 	if err == nil {
 		t.Fatal("User added to invalid group")
 	}
-	if !reflect.DeepEqual(user2, SealedUser{}) {
+	if !reflect.DeepEqual(user2, data.SealedUser{}) {
 		t.Fatal("NewUser failed, but returned data anyway")
 	}
 }
@@ -859,7 +862,7 @@ func TestAddRemoveUserFromGroupsUnauthorized(t *testing.T) {
 	enc := newTestEncryptonize(t)
 
 	numUsers := 3
-	users := make([]SealedUser, 0, numUsers)
+	users := make([]data.SealedUser, 0, numUsers)
 	for i := 0; i < numUsers; i++ {
 		newUser, _, _, err := enc.NewUser(nil)
 		if err != nil {
@@ -1037,7 +1040,7 @@ func TestNewGroupInvalidUser(t *testing.T) {
 	if err == nil {
 		t.Fatal("Invalid user able to create a new group")
 	}
-	if !reflect.DeepEqual(group, SealedGroup{}) {
+	if !reflect.DeepEqual(group, data.SealedGroup{}) {
 		t.Fatal("NewGroup failed, but returned sealed group anyway")
 	}
 }
@@ -1141,7 +1144,7 @@ func TestRemoveAccess(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	plainObject := Object{
+	plainObject := data.Object{
 		Plaintext:      []byte("plaintext"),
 		AssociatedData: []byte("associated_data"),
 	}
@@ -1169,7 +1172,7 @@ func TestSharingObjectPart1(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	plainObject := Object{
+	plainObject := data.Object{
 		Plaintext:      []byte("plaintext"),
 		AssociatedData: []byte("associated_data"),
 	}
@@ -1202,7 +1205,7 @@ func TestSharingObjectPart2(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	plainObject := Object{
+	plainObject := data.Object{
 		Plaintext:      []byte("plaintext"),
 		AssociatedData: []byte("associated_data"),
 	}
@@ -1239,7 +1242,7 @@ func TestSharingObjectPart3(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	plainObject := Object{
+	plainObject := data.Object{
 		Plaintext:      []byte("plaintext"),
 		AssociatedData: []byte("associated_data"),
 	}
@@ -1281,7 +1284,7 @@ func TestSharingObjectPart4(t *testing.T) {
 	enc := newTestEncryptonize(t)
 
 	numUsers := 5
-	users := make([]SealedUser, 0, numUsers)
+	users := make([]data.SealedUser, 0, numUsers)
 	for i := 0; i < numUsers; i++ {
 		newUser, _, _, err := enc.NewUser(nil)
 		if err != nil {
@@ -1301,7 +1304,7 @@ func TestSharingObjectPart4(t *testing.T) {
 		}
 	}
 
-	plainObject := Object{
+	plainObject := data.Object{
 		Plaintext:      []byte("plaintext"),
 		AssociatedData: []byte("associated_data"),
 	}
@@ -1338,7 +1341,7 @@ func TestAddToIndex(t *testing.T) {
 		}
 	}
 
-	if len(index.mapping) != len(keywords)*len(ids) {
+	if index.Size() != len(keywords)*len(ids) {
 		t.Fatal("Keyword/ID pairs not correctly added.")
 	}
 }

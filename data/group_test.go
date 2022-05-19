@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package encryptonize
+package data
 
 import (
 	"testing"
@@ -30,13 +30,13 @@ func TestGroupSeal(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	group := newGroup([]byte("data"))
-	sealed, err := group.seal(uuid.Must(uuid.NewV4()), &cryptor)
+	group := NewGroup([]byte("data"))
+	sealed, err := group.Seal(uuid.Must(uuid.NewV4()), &cryptor)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	unsealed, err := sealed.unseal(&cryptor)
+	unsealed, err := sealed.Unseal(&cryptor)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -52,17 +52,17 @@ func TestGroupVerifyCiphertext(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	group := newGroup([]byte("data"))
-	sealed, err := group.seal(uuid.Must(uuid.NewV4()), &cryptor)
+	group := NewGroup([]byte("data"))
+	sealed, err := group.Seal(uuid.Must(uuid.NewV4()), &cryptor)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if !sealed.verify(&cryptor) {
+	if !sealed.Verify(&cryptor) {
 		t.Fatal("Verification failed")
 	}
 	sealed.Ciphertext[0] = sealed.Ciphertext[0] ^ 1
-	if sealed.verify(&cryptor) {
+	if sealed.Verify(&cryptor) {
 		t.Fatal("Verification should have failed")
 	}
 }
@@ -74,17 +74,17 @@ func TestGroupVerifyID(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	group := newGroup([]byte("data"))
-	sealed, err := group.seal(uuid.Must(uuid.NewV4()), &cryptor)
+	group := NewGroup([]byte("data"))
+	sealed, err := group.Seal(uuid.Must(uuid.NewV4()), &cryptor)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if !sealed.verify(&cryptor) {
+	if !sealed.Verify(&cryptor) {
 		t.Fatal("Verification failed")
 	}
 	sealed.ID = uuid.Must(uuid.NewV4())
-	if sealed.verify(&cryptor) {
+	if sealed.Verify(&cryptor) {
 		t.Fatal("Verification should have failed")
 	}
 }
@@ -96,12 +96,12 @@ func TestGroupID(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	group := newGroup([]byte("data"))
-	sealed1, err := group.seal(uuid.Must(uuid.NewV4()), &cryptor)
+	group := NewGroup([]byte("data"))
+	sealed1, err := group.Seal(uuid.Must(uuid.NewV4()), &cryptor)
 	if err != nil {
 		t.Fatal(err)
 	}
-	sealed2, err := group.seal(uuid.Must(uuid.NewV4()), &cryptor)
+	sealed2, err := group.Seal(uuid.Must(uuid.NewV4()), &cryptor)
 	if err != nil {
 		t.Fatal(err)
 	}

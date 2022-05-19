@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package encryptonize
+package data
 
 import (
 	"testing"
@@ -33,12 +33,12 @@ func TestObjectSeal(t *testing.T) {
 	}
 
 	object := Object{[]byte("plaintext"), []byte("data")}
-	wrappedKey, sealed, err := object.seal(id, &cryptor)
+	wrappedKey, sealed, err := object.Seal(id, &cryptor)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	unsealed, err := sealed.unseal(wrappedKey, &cryptor)
+	unsealed, err := sealed.Unseal(wrappedKey, &cryptor)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -55,7 +55,7 @@ func TestObjectVerifyCiphertext(t *testing.T) {
 	}
 
 	object := Object{[]byte("plaintext"), []byte("data")}
-	wrappedKey, sealed, err := object.seal(id, &cryptor)
+	wrappedKey, sealed, err := object.Seal(id, &cryptor)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,7 +77,7 @@ func TestObjectVerifyData(t *testing.T) {
 	}
 
 	object := Object{[]byte("plaintext"), []byte("data")}
-	wrappedKey, sealed, err := object.seal(id, &cryptor)
+	wrappedKey, sealed, err := object.Seal(id, &cryptor)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -99,7 +99,7 @@ func TestObjectVerifyID(t *testing.T) {
 	}
 
 	object := Object{[]byte("plaintext"), []byte("data")}
-	wrappedKey, sealed, err := object.seal(id, &cryptor)
+	wrappedKey, sealed, err := object.Seal(id, &cryptor)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -121,7 +121,7 @@ func TestObjectID(t *testing.T) {
 	}
 
 	object := Object{[]byte("plaintext"), []byte("data")}
-	_, sealed, err := object.seal(id, &cryptor)
+	_, sealed, err := object.Seal(id, &cryptor)
 	if err != nil {
 		t.Fatal(err)
 	}

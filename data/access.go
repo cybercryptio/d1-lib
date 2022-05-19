@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package encryptonize
+package data
 
 import (
 	"github.com/gofrs/uuid"
@@ -20,9 +20,9 @@ import (
 	"github.com/cyber-crypt-com/encryptonize-lib/crypto"
 )
 
-// access is used to manage access to encrypted objects. Note: All member fields need to be exported
+// Access is used to manage access to encrypted objects. Note: All member fields need to be exported
 // in order for gob to serialize them.
-type access struct {
+type Access struct {
 	// The set of groups that have access to the associated object.
 	Groups map[uuid.UUID]struct{}
 
@@ -39,16 +39,16 @@ type SealedAccess struct {
 	WrappedKey []byte
 }
 
-// newAccess creates a new access object which contains the provided wrapped key and no groups.
-func newAccess(wrappedOEK []byte) access {
-	return access{
+// NewAccess creates a new access object which contains the provided wrapped key and no groups.
+func NewAccess(wrappedOEK []byte) Access {
+	return Access{
 		Groups:     map[uuid.UUID]struct{}{},
 		WrappedOEK: wrappedOEK,
 	}
 }
 
-// seal encrypts the access object.
-func (a *access) seal(id uuid.UUID, cryptor crypto.CryptorInterface) (SealedAccess, error) {
+// Seal encrypts the access object.
+func (a *Access) Seal(id uuid.UUID, cryptor crypto.CryptorInterface) (SealedAccess, error) {
 	wrappedKey, ciphertext, err := cryptor.Encrypt(a, id.Bytes())
 	if err != nil {
 		return SealedAccess{}, err
@@ -63,23 +63,23 @@ func (a *access) seal(id uuid.UUID, cryptor crypto.CryptorInterface) (SealedAcce
 	return sealed, nil
 }
 
-// addGroups appends the provided group IDs to the access object.
-func (a *access) addGroups(ids ...uuid.UUID) {
+// AddGroups appends the provided group IDs to the access object.
+func (a *Access) AddGroups(ids ...uuid.UUID) {
 	for _, id := range ids {
 		a.Groups[id] = struct{}{}
 	}
 }
 
-// addGroups removes the provided group IDs from the access object.
-func (a *access) removeGroups(ids ...uuid.UUID) {
+// RemoveGroups removes the provided group IDs from the access object.
+func (a *Access) RemoveGroups(ids ...uuid.UUID) {
 	for _, id := range ids {
 		delete(a.Groups, id)
 	}
 }
 
-// containsGroups returns true if all provided group IDs are contained in the access object, and
+// ContainsGroups returns true if all provided group IDs are contained in the access object, and
 // false otherwise.
-func (a *access) containsGroups(ids ...uuid.UUID) bool {
+func (a *Access) ContainsGroups(ids ...uuid.UUID) bool {
 	for _, id := range ids {
 		if _, exists := a.Groups[id]; !exists {
 			return false
@@ -88,22 +88,22 @@ func (a *access) containsGroups(ids ...uuid.UUID) bool {
 	return true
 }
 
-// getGroups returns the set of group IDs contained in the access object.
-func (a *access) getGroups() map[uuid.UUID]struct{} {
+// GetGroups returns the set of group IDs contained in the access object.
+func (a *Access) GetGroups() map[uuid.UUID]struct{} {
 	return a.Groups
 }
 
-// unseal decrypts the sealed object.
-func (a *SealedAccess) unseal(cryptor crypto.CryptorInterface) (access, error) {
-	plainAccess := access{}
+// Unseal decrypts the sealed object.
+func (a *SealedAccess) Unseal(cryptor crypto.CryptorInterface) (Access, error) {
+	plainAccess := Access{}
 	if err := cryptor.Decrypt(&plainAccess, a.ID.Bytes(), a.WrappedKey, a.Ciphertext); err != nil {
-		return access{}, err
+		return Access{}, err
 	}
 	return plainAccess, nil
 }
 
 // verify checks the integrity of the sealed object.
 func (a *SealedAccess) verify(cryptor crypto.CryptorInterface) bool {
-	_, err := a.unseal(cryptor)
+	_, err := a.Unseal(cryptor)
 	return err == nil
 }

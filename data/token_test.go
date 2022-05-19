@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package encryptonize
+package data
 
 import (
 	"testing"
@@ -30,13 +30,13 @@ func TestTokenSeal(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	token := newToken([]byte("plaintext"), time.Minute)
-	sealed, err := token.seal(&cryptor)
+	token := NewToken([]byte("plaintext"), time.Minute)
+	sealed, err := token.Seal(&cryptor)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	unsealed, err := sealed.unseal(&cryptor)
+	unsealed, err := sealed.Unseal(&cryptor)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -52,8 +52,8 @@ func TestTokenVerifyCiphertext(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	token := newToken([]byte("plaintext"), time.Minute)
-	sealed, err := token.seal(&cryptor)
+	token := NewToken([]byte("plaintext"), time.Minute)
+	sealed, err := token.Seal(&cryptor)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -74,8 +74,8 @@ func TestTokenVerifyExpiry(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	token := newToken([]byte("plaintext"), time.Minute)
-	sealed, err := token.seal(&cryptor)
+	token := NewToken([]byte("plaintext"), time.Minute)
+	sealed, err := token.Seal(&cryptor)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -96,13 +96,13 @@ func TestTokenExpired(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	token := newToken([]byte("plaintext"), -time.Minute)
-	sealed, err := token.seal(&cryptor)
+	token := NewToken([]byte("plaintext"), -time.Minute)
+	sealed, err := token.Seal(&cryptor)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	_, err = sealed.unseal(&cryptor)
+	_, err = sealed.Unseal(&cryptor)
 	if err == nil {
 		t.Fatal("Expected unseal to fail")
 	}
