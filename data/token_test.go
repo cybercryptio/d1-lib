@@ -58,11 +58,11 @@ func TestTokenVerifyCiphertext(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if !sealed.verify(&cryptor) {
+	if _, err := sealed.Unseal(&cryptor); err != nil {
 		t.Fatal("Verification failed")
 	}
 	sealed.Ciphertext[0] = sealed.Ciphertext[0] ^ 1
-	if sealed.verify(&cryptor) {
+	if _, err := sealed.Unseal(&cryptor); err == nil {
 		t.Fatal("Verification should have failed")
 	}
 }
@@ -80,11 +80,11 @@ func TestTokenVerifyExpiry(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if !sealed.verify(&cryptor) {
+	if _, err := sealed.Unseal(&cryptor); err != nil {
 		t.Fatal("Verification failed")
 	}
 	sealed.ExpiryTime = sealed.ExpiryTime.Add(time.Hour)
-	if sealed.verify(&cryptor) {
+	if _, err := sealed.Unseal(&cryptor); err == nil {
 		t.Fatal("Verification should have failed")
 	}
 }
@@ -105,8 +105,5 @@ func TestTokenExpired(t *testing.T) {
 	_, err = sealed.Unseal(&cryptor)
 	if err == nil {
 		t.Fatal("Expected unseal to fail")
-	}
-	if sealed.verify(&cryptor) {
-		t.Fatal("Expected verification to fail")
 	}
 }

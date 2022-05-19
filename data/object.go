@@ -79,9 +79,3 @@ func (o *SealedObject) Unseal(wrappedKey []byte, cryptor crypto.CryptorInterface
 		AssociatedData: o.AssociatedData,
 	}, nil
 }
-
-// verify uses the wrapped key to check the integrity of the sealed object.
-func (o *SealedObject) verify(wrappedKey []byte, cryptor crypto.CryptorInterface) bool {
-	_, err := o.Unseal(wrappedKey, cryptor)
-	return err == nil
-}

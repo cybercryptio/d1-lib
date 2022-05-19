@@ -101,9 +101,3 @@ func (a *SealedAccess) Unseal(cryptor crypto.CryptorInterface) (Access, error) {
 	}
 	return plainAccess, nil
 }
-
-// verify checks the integrity of the sealed object.
-func (a *SealedAccess) verify(cryptor crypto.CryptorInterface) bool {
-	_, err := a.Unseal(cryptor)
-	return err == nil
-}

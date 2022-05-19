@@ -60,11 +60,11 @@ func TestObjectVerifyCiphertext(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if !sealed.verify(wrappedKey, &cryptor) {
+	if _, err := sealed.Unseal(wrappedKey, &cryptor); err != nil {
 		t.Fatal("Verification failed")
 	}
 	sealed.Ciphertext[0] = sealed.Ciphertext[0] ^ 1
-	if sealed.verify(wrappedKey, &cryptor) {
+	if _, err := sealed.Unseal(wrappedKey, &cryptor); err == nil {
 		t.Fatal("Verification should have failed")
 	}
 }
@@ -82,11 +82,11 @@ func TestObjectVerifyData(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if !sealed.verify(wrappedKey, &cryptor) {
+	if _, err := sealed.Unseal(wrappedKey, &cryptor); err != nil {
 		t.Fatal("Verification failed")
 	}
 	sealed.AssociatedData[0] = sealed.AssociatedData[0] ^ 1
-	if sealed.verify(wrappedKey, &cryptor) {
+	if _, err := sealed.Unseal(wrappedKey, &cryptor); err == nil {
 		t.Fatal("Verification should have failed")
 	}
 }
@@ -104,11 +104,11 @@ func TestObjectVerifyID(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if !sealed.verify(wrappedKey, &cryptor) {
+	if _, err := sealed.Unseal(wrappedKey, &cryptor); err != nil {
 		t.Fatal("Verification failed")
 	}
 	sealed.ID = uuid.Must(uuid.NewV4())
-	if sealed.verify(wrappedKey, &cryptor) {
+	if _, err := sealed.Unseal(wrappedKey, &cryptor); err == nil {
 		t.Fatal("Verification should have failed")
 	}
 }

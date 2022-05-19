@@ -140,11 +140,11 @@ func TestAccessVerifyCiphertext(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if !sealed.verify(&cryptor) {
+	if _, err := sealed.Unseal(&cryptor); err != nil {
 		t.Fatal("Verification failed")
 	}
 	sealed.Ciphertext[0] = sealed.Ciphertext[0] ^ 1
-	if sealed.verify(&cryptor) {
+	if _, err := sealed.Unseal(&cryptor); err == nil {
 		t.Fatal("Verification should have failed")
 	}
 }
@@ -165,11 +165,11 @@ func TestAccessVerifyID(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if !sealed.verify(&cryptor) {
+	if _, err := sealed.Unseal(&cryptor); err != nil {
 		t.Fatal("Verification failed")
 	}
 	sealed.ID = uuid.Must(uuid.NewV4())
-	if sealed.verify(&cryptor) {
+	if _, err := sealed.Unseal(&cryptor); err == nil {
 		t.Fatal("Verification should have failed")
 	}
 }

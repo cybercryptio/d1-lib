@@ -97,14 +97,6 @@ func (t *SealedToken) Unseal(cryptor crypto.CryptorInterface) (Token, error) {
 	return Token{plaintext, t.ExpiryTime}, nil
 }
 
-// verify checks the integrity of the sealed token.
-func (t *SealedToken) verify(cryptor crypto.CryptorInterface) bool {
-	if _, err := t.Unseal(cryptor); err != nil {
-		return false
-	}
-	return true
-}
-
 // String serializes the sealed token into a raw base 64 URL encoded format.
 func (t *SealedToken) String() (string, error) {
 	var buffer bytes.Buffer
