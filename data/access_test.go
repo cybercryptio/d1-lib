@@ -37,7 +37,7 @@ func TestAccessGetGroupIDs(t *testing.T) {
 
 	uuids := access.GetGroups()
 	if _, ok := uuids[groupID]; len(uuids) == 0 || !ok {
-		t.Error("Expected getGroups to return a group ID")
+		t.Error("Expected GetGroups to return a group ID")
 	}
 }
 
@@ -45,7 +45,7 @@ func TestAccessGetZeroGroupIDs(t *testing.T) {
 	access := NewAccess(nil)
 	uuids := access.GetGroups()
 	if len(uuids) != 0 {
-		t.Error("getGroups should have returned empty array")
+		t.Error("GetGroups should have returned empty array")
 	}
 }
 
