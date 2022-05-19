@@ -18,42 +18,44 @@ import (
 	"errors"
 
 	"github.com/gofrs/uuid"
+
+	"github.com/cyber-crypt-com/encryptonize-lib/data"
 )
 
 // authorizeAccess checks whether the authorizing user is allowed to access the provided access
 // object. If so, the unsealed access object is returned.
-func (e *Encryptonize) authorizeAccess(authorizer *SealedUser, sealedAccess *SealedAccess) (access, error) {
-	plainAccess, err := sealedAccess.unseal(e.AccessCryptor)
+func (e *Encryptonize) authorizeAccess(authorizer *data.SealedUser, sealedAccess *data.SealedAccess) (data.Access, error) {
+	plainAccess, err := sealedAccess.Unseal(e.AccessCryptor)
 	if err != nil {
-		return access{}, err
+		return data.Access{}, err
 	}
 
-	plainAuthorizer, err := authorizer.unseal(e.UserCryptor)
+	plainAuthorizer, err := authorizer.Unseal(e.UserCryptor)
 	if err != nil {
-		return access{}, err
+		return data.Access{}, err
 	}
 
-	for id := range plainAuthorizer.getGroups() {
-		if plainAccess.containsGroups(id) {
+	for id := range plainAuthorizer.GetGroups() {
+		if plainAccess.ContainsGroups(id) {
 			return plainAccess, nil
 		}
 	}
-	return access{}, errors.New("User not authorized")
+	return data.Access{}, errors.New("User not authorized")
 }
 
 // authorizeGroups checks whether the authorizing user is a member of all provided groups. If so, a
 // list of all the group IDs is returned.
-func (e *Encryptonize) authorizeGroups(authorizer *SealedUser, groups ...*SealedGroup) ([]uuid.UUID, error) {
+func (e *Encryptonize) authorizeGroups(authorizer *data.SealedUser, groups ...*data.SealedGroup) ([]uuid.UUID, error) {
 	groupIDs, err := e.verifyGroups(groups...)
 	if err != nil {
 		return nil, err
 	}
 
-	plainAuthorizer, err := authorizer.unseal(e.UserCryptor)
+	plainAuthorizer, err := authorizer.Unseal(e.UserCryptor)
 	if err != nil {
 		return nil, err
 	}
-	if !plainAuthorizer.containsGroups(groupIDs...) {
+	if !plainAuthorizer.ContainsGroups(groupIDs...) {
 		return nil, errors.New("User not authorized")
 	}
 
@@ -62,10 +64,10 @@ func (e *Encryptonize) authorizeGroups(authorizer *SealedUser, groups ...*Sealed
 
 // verifyGroups integrity checks all the provided groups. If they are all authentic, a list of all
 // the group IDs is returned.
-func (e *Encryptonize) verifyGroups(groups ...*SealedGroup) ([]uuid.UUID, error) {
+func (e *Encryptonize) verifyGroups(groups ...*data.SealedGroup) ([]uuid.UUID, error) {
 	groupIDs := make([]uuid.UUID, 0, len(groups))
 	for _, group := range groups {
-		if !group.verify(e.GroupCryptor) {
+		if !group.Verify(e.GroupCryptor) {
 			return nil, errors.New("Invalid group")
 		}
 		groupIDs = append(groupIDs, group.ID)

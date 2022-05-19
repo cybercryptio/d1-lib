@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package encryptonize
+package data
 
 import (
 	"encoding/base64"
@@ -27,7 +27,7 @@ const MasterKeyLength = 32
 var ErrInvalidMasterKeyLength = fmt.Errorf("invalid key length, accepted key length is %d bytes", MasterKeyLength)
 
 // Index contains a mapping from string label to SealedID.
-type index struct {
+type Index struct {
 	mapping map[string]sealedID
 }
 
@@ -38,12 +38,17 @@ type sealedID struct {
 }
 
 // NewIndex creates an Index which is used to manage keyword/ID pairs.
-func newIndex() index {
-	return index{mapping: make(map[string]sealedID)}
+func NewIndex() Index {
+	return Index{mapping: make(map[string]sealedID)}
+}
+
+// Size returns the total number of entries in the index.
+func (i *Index) Size() int {
+	return len(i.mapping)
 }
 
 // Add is used to add a keyword/ID pair to the Index.
-func (i *index) add(key []byte, keyword, id string) error {
+func (i *Index) Add(key []byte, keyword, id string) error {
 	if len(key) != MasterKeyLength {
 		return ErrInvalidMasterKeyLength
 	}
@@ -86,7 +91,7 @@ func (i *index) add(key []byte, keyword, id string) error {
 }
 
 // Given a keyword, Search returns all decrypted ID's that the keyword is contained in.
-func (i *index) search(key []byte, keyword string) ([]string, error) {
+func (i *Index) Search(key []byte, keyword string) ([]string, error) {
 	if len(key) != MasterKeyLength {
 		return nil, ErrInvalidMasterKeyLength
 	}
@@ -130,7 +135,7 @@ func (i *index) search(key []byte, keyword string) ([]string, error) {
 	return decryptedIDs, nil
 }
 
-func (i *index) count(key []byte, keyword string) (uint64, error) {
+func (i *Index) count(key []byte, keyword string) (uint64, error) {
 	if len(key) != MasterKeyLength {
 		return 0, ErrInvalidMasterKeyLength
 	}

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package encryptonize
+package data
 
 import (
 	"github.com/gofrs/uuid"
@@ -20,9 +20,9 @@ import (
 	"github.com/cyber-crypt-com/encryptonize-lib/crypto"
 )
 
-// group contains data about an Encryptonize group. Note: All fields need to exported in order for
+// Group contains data about an Encryptonize group. Note: All fields need to exported in order for
 // gob to serialize them.
-type group struct {
+type Group struct {
 	Data []byte
 }
 
@@ -35,13 +35,13 @@ type SealedGroup struct {
 	WrappedKey []byte
 }
 
-// newGroup creates a new group which contains the provided data.
-func newGroup(data []byte) group {
-	return group{data}
+// NewGroup creates a new group which contains the provided data.
+func NewGroup(data []byte) Group {
+	return Group{data}
 }
 
-// seal encrypts the group.
-func (g *group) seal(id uuid.UUID, cryptor crypto.CryptorInterface) (SealedGroup, error) {
+// Seal encrypts the group.
+func (g *Group) Seal(id uuid.UUID, cryptor crypto.CryptorInterface) (SealedGroup, error) {
 	wrappedKey, ciphertext, err := cryptor.Encrypt(g, id.Bytes())
 	if err != nil {
 		return SealedGroup{}, err
@@ -50,17 +50,17 @@ func (g *group) seal(id uuid.UUID, cryptor crypto.CryptorInterface) (SealedGroup
 	return SealedGroup{id, ciphertext, wrappedKey}, nil
 }
 
-// unseal decrypts the sealed group.
-func (g *SealedGroup) unseal(cryptor crypto.CryptorInterface) (group, error) {
-	plainGroup := group{}
+// Unseal decrypts the sealed group.
+func (g *SealedGroup) Unseal(cryptor crypto.CryptorInterface) (Group, error) {
+	plainGroup := Group{}
 	if err := cryptor.Decrypt(&plainGroup, g.ID.Bytes(), g.WrappedKey, g.Ciphertext); err != nil {
-		return group{}, err
+		return Group{}, err
 	}
 	return plainGroup, nil
 }
 
-// verify checks the integrity of the sealed group.
-func (g *SealedGroup) verify(cryptor crypto.CryptorInterface) bool {
-	_, err := g.unseal(cryptor)
+// Verify checks the integrity of the sealed group.
+func (g *SealedGroup) Verify(cryptor crypto.CryptorInterface) bool {
+	_, err := g.Unseal(cryptor)
 	return err == nil
 }
