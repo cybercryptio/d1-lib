@@ -22,8 +22,10 @@ import (
 	"github.com/cyber-crypt-com/encryptonize-lib/crypto"
 )
 
+// The length of the master key used for searchable encryption.
 const MasterKeyLength = 32
 
+// Error returned if a key with invalid length is used for searchable encryption.
 var ErrInvalidMasterKeyLength = fmt.Errorf("invalid key length, accepted key length is %d bytes", MasterKeyLength)
 
 // Index contains a mapping from string label to SealedID.

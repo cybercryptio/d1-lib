@@ -57,7 +57,7 @@ type Encryptonize struct {
 	IndexKey                                                              []byte
 }
 
-// New creates a new instance of Encryptonize which uses the given configuration.
+// New creates a new instance of Encryptonize configured with the given keys.
 func New(keys Keys) (Encryptonize, error) {
 	objectCryptor, err := crypto.NewAESCryptor(keys.KEK)
 	if err != nil {
@@ -166,6 +166,8 @@ func (e *Encryptonize) Decrypt(authorizer *data.SealedUser, object *data.SealedO
 
 // CreateToken encapsulates the provided plaintext data in an opaque, self contained token with an
 // expiry time given by TokenValidity.
+//
+// The contents of the token can be validated and retrieved with the GetTokenContents method.
 func (e *Encryptonize) CreateToken(plaintext []byte) (data.SealedToken, error) {
 	token := data.NewToken(plaintext, data.TokenValidity)
 	return token.Seal(e.TokenCryptor)
@@ -249,11 +251,12 @@ func (e *Encryptonize) AuthorizeUser(user *data.SealedUser, access *data.SealedA
 ////////////////////////////////////////////////////////
 
 // NewUser creates a new Encryptonize user as well as an initial group for that user. The newly
-// created user and group has the same ID. The user's own group contains the provided data, and the
+// created user and group have the same ID. The user's own group contains the provided data, and the
 // user is added to any additional groups provided. A randomly generated password is also created
 // and returned to the caller.
 //
-// The sealed user and group are not sensitive data. The generated password is sensitive data.
+// The SealedUser object acts as credentials for decryption so it should only be accessed by
+// authenticated users.
 func (e *Encryptonize) NewUser(userData []byte, groups ...*data.SealedGroup) (data.SealedUser, data.SealedGroup, string, error) {
 	id, err := uuid.NewV4()
 	if err != nil {
@@ -263,6 +266,13 @@ func (e *Encryptonize) NewUser(userData []byte, groups ...*data.SealedGroup) (da
 	return e.NewUserWithID(id, userData, groups...)
 }
 
+// NewUserWithID creates a new Encryptonize user as well as an initial group for that user, both
+// having the provided ID. The user's own group contains the provided data, and the user is added to
+// any additional groups provided. A randomly generated password is also created and returned to the
+// caller.
+//
+// The SealedUser object acts as credentials for decryption so it should only be accessed by
+// authenticated users.
 func (e *Encryptonize) NewUserWithID(id uuid.UUID, userData []byte, groups ...*data.SealedGroup) (data.SealedUser, data.SealedGroup, string, error) {
 	groupIDs, err := e.verifyGroups(groups...)
 	if err != nil {
