@@ -19,6 +19,7 @@ import (
 	"log"
 
 	"github.com/cyber-crypt-com/encryptonize-lib"
+	"github.com/cyber-crypt-com/encryptonize-lib/data"
 )
 
 // The UserData struct models the data of a user. It contains both private data that should be kept confidential and public data that can be shared
@@ -29,15 +30,15 @@ type UserData struct {
 }
 
 type PrivateUserData struct {
-	user     encryptonize.SealedUser
+	user     data.SealedUser
 	password string
-	data     encryptonize.Object
+	data     data.Object
 }
 
 type PublicUserData struct {
-	group               encryptonize.SealedGroup
-	encryptedData       encryptonize.SealedObject
-	encryptedDataAccess encryptonize.SealedAccess
+	group               data.SealedGroup
+	encryptedData       data.SealedObject
+	encryptedDataAccess data.SealedAccess
 }
 
 // createUserData instantiates a user with its private and public data.
@@ -47,7 +48,7 @@ func createUserData(ectnz encryptonize.Encryptonize) UserData {
 		log.Fatalf("Error creating Encryptonize user: %v", err)
 	}
 
-	privateUserObject := encryptonize.Object{
+	privateUserObject := data.Object{
 		Plaintext:      []byte("Plaintext"),
 		AssociatedData: []byte("AssociatedData"),
 	}

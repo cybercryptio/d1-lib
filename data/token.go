@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package encryptonize
+package data
 
 import (
 	"bytes"
@@ -27,9 +27,9 @@ import (
 // Validity period of tokens created with Encryptonize.CreateToken.
 const TokenValidity = time.Hour
 
-// token contains arbitrary data along with an expiry time. Note: All fields need to be exported in
+// Token contains arbitrary data along with an expiry time. Note: All fields need to be exported in
 // order for gob to serialize them.
-type token struct {
+type Token struct {
 	// Arbitrary plaintext data.
 	Plaintext []byte
 
@@ -46,15 +46,15 @@ type SealedToken struct {
 	WrappedKey []byte
 }
 
-// newToken creates a new token which contains the provided plaintext and has the given validity
+// NewToken creates a new token which contains the provided plaintext and has the given validity
 // period.
-func newToken(plaintext []byte, validityPeriod time.Duration) token {
+func NewToken(plaintext []byte, validityPeriod time.Duration) Token {
 	expiryTime := time.Now().Add(validityPeriod)
-	return token{plaintext, expiryTime}
+	return Token{plaintext, expiryTime}
 }
 
-// seal encrypts the token.
-func (t *token) seal(cryptor crypto.CryptorInterface) (SealedToken, error) {
+// Seal encrypts the token.
+func (t *Token) Seal(cryptor crypto.CryptorInterface) (SealedToken, error) {
 	associatedData, err := t.ExpiryTime.GobEncode()
 	if err != nil {
 		return SealedToken{}, err
@@ -74,35 +74,27 @@ func (t *token) seal(cryptor crypto.CryptorInterface) (SealedToken, error) {
 	return sealed, nil
 }
 
-// unseal decrypts the sealed token.
-func (t *SealedToken) unseal(cryptor crypto.CryptorInterface) (token, error) {
+// Unseal decrypts the sealed token.
+func (t *SealedToken) Unseal(cryptor crypto.CryptorInterface) (Token, error) {
 	// Note that we check the expiry time *before* it has been authenticated through decryption. In
 	// general we should never trust unauthenticated data, but if this value has been manipulated, the
 	// decrypt call below will anyway fail.
 	if t.ExpiryTime.Before(time.Now()) {
-		return token{}, errors.New("Token expired")
+		return Token{}, errors.New("Token expired")
 	}
 
 	associatedData, err := t.ExpiryTime.GobEncode()
 	if err != nil {
-		return token{}, err
+		return Token{}, err
 	}
 
 	plaintext := []byte{}
 	err = cryptor.Decrypt(&plaintext, associatedData, t.WrappedKey, t.Ciphertext)
 	if err != nil {
-		return token{}, err
+		return Token{}, err
 	}
 
-	return token{plaintext, t.ExpiryTime}, nil
-}
-
-// verify checks the integrity of the sealed token.
-func (t *SealedToken) verify(cryptor crypto.CryptorInterface) bool {
-	if _, err := t.unseal(cryptor); err != nil {
-		return false
-	}
-	return true
+	return Token{plaintext, t.ExpiryTime}, nil
 }
 
 // String serializes the sealed token into a raw base 64 URL encoded format.

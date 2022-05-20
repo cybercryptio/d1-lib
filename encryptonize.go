@@ -23,10 +23,8 @@ import (
 	"github.com/gofrs/uuid"
 
 	"github.com/cyber-crypt-com/encryptonize-lib/crypto"
+	"github.com/cyber-crypt-com/encryptonize-lib/data"
 )
-
-// Error returned if a user cannot be authenticated, e.g. if they provide a wrong password.
-var ErrNotAuthenticated = errors.New("user not authenticated")
 
 // Error returned if a user tries to access data they are not authorized for.
 var ErrNotAuthorized = errors.New("user not authorized")
@@ -96,26 +94,26 @@ func New(keys Keys) (Encryptonize, error) {
 // bytes.
 //
 // The sealed object and the sealed access object are not sensitive data.
-func (e *Encryptonize) Encrypt(user *SealedUser, object *Object) (SealedObject, SealedAccess, error) {
-	if !user.verify(e.UserCryptor) {
-		return SealedObject{}, SealedAccess{}, ErrNotAuthorized
+func (e *Encryptonize) Encrypt(user *data.SealedUser, object *data.Object) (data.SealedObject, data.SealedAccess, error) {
+	if !user.Verify(e.UserCryptor) {
+		return data.SealedObject{}, data.SealedAccess{}, ErrNotAuthorized
 	}
 
 	id, err := uuid.NewV4()
 	if err != nil {
-		return SealedObject{}, SealedAccess{}, err
+		return data.SealedObject{}, data.SealedAccess{}, err
 	}
 
-	wrappedOEK, sealedObject, err := object.seal(id, e.ObjectCryptor)
+	wrappedOEK, sealedObject, err := object.Seal(id, e.ObjectCryptor)
 	if err != nil {
-		return SealedObject{}, SealedAccess{}, err
+		return data.SealedObject{}, data.SealedAccess{}, err
 	}
 
-	access := newAccess(wrappedOEK)
-	access.addGroups(user.ID)
-	sealedAccess, err := access.seal(sealedObject.ID, e.AccessCryptor)
+	access := data.NewAccess(wrappedOEK)
+	access.AddGroups(user.ID)
+	sealedAccess, err := access.Seal(sealedObject.ID, e.AccessCryptor)
 	if err != nil {
-		return SealedObject{}, SealedAccess{}, err
+		return data.SealedObject{}, data.SealedAccess{}, err
 	}
 
 	return sealedObject, sealedAccess, nil
@@ -128,21 +126,21 @@ func (e *Encryptonize) Encrypt(user *SealedUser, object *Object) (SealedObject, 
 // decrypted.
 //
 // The sealed object is not sensitive data.
-func (e *Encryptonize) Update(authorizer *SealedUser, object *Object, access *SealedAccess) (SealedObject, error) {
+func (e *Encryptonize) Update(authorizer *data.SealedUser, object *data.Object, access *data.SealedAccess) (data.SealedObject, error) {
 	plainAccess, err := e.authorizeAccess(authorizer, access)
 	if err != nil {
-		return SealedObject{}, err
+		return data.SealedObject{}, err
 	}
 
-	wrappedOEK, sealedObject, err := object.seal(access.ID, e.ObjectCryptor)
+	wrappedOEK, sealedObject, err := object.Seal(access.ID, e.ObjectCryptor)
 	if err != nil {
-		return SealedObject{}, err
+		return data.SealedObject{}, err
 	}
 
 	plainAccess.WrappedOEK = wrappedOEK
-	sealedAccess, err := plainAccess.seal(sealedObject.ID, e.AccessCryptor)
+	sealedAccess, err := plainAccess.Seal(sealedObject.ID, e.AccessCryptor)
 	if err != nil {
-		return SealedObject{}, err
+		return data.SealedObject{}, err
 	}
 	*access = sealedAccess
 
@@ -153,13 +151,13 @@ func (e *Encryptonize) Update(authorizer *SealedUser, object *Object, access *Se
 // provided access object, either directly or through group membership.
 //
 // The unsealed object may contain sensitive data.
-func (e *Encryptonize) Decrypt(authorizer *SealedUser, object *SealedObject, access *SealedAccess) (Object, error) {
+func (e *Encryptonize) Decrypt(authorizer *data.SealedUser, object *data.SealedObject, access *data.SealedAccess) (data.Object, error) {
 	plainAccess, err := e.authorizeAccess(authorizer, access)
 	if err != nil {
-		return Object{}, err
+		return data.Object{}, err
 	}
 
-	return object.unseal(plainAccess.WrappedOEK, e.ObjectCryptor)
+	return object.Unseal(plainAccess.WrappedOEK, e.ObjectCryptor)
 }
 
 ////////////////////////////////////////////////////////
@@ -170,15 +168,15 @@ func (e *Encryptonize) Decrypt(authorizer *SealedUser, object *SealedObject, acc
 // expiry time given by TokenValidity.
 //
 // The contents of the token can be validated and retrieved with the GetTokenContents method.
-func (e *Encryptonize) CreateToken(plaintext []byte) (SealedToken, error) {
-	token := newToken(plaintext, TokenValidity)
-	return token.seal(e.TokenCryptor)
+func (e *Encryptonize) CreateToken(plaintext []byte) (data.SealedToken, error) {
+	token := data.NewToken(plaintext, data.TokenValidity)
+	return token.Seal(e.TokenCryptor)
 }
 
 // GetTokenContents extracts the plaintext data from a sealed token, provided that the token has not
 // expired.
-func (e *Encryptonize) GetTokenContents(token *SealedToken) ([]byte, error) {
-	plainToken, err := token.unseal(e.TokenCryptor)
+func (e *Encryptonize) GetTokenContents(token *data.SealedToken) ([]byte, error) {
+	plainToken, err := token.Unseal(e.TokenCryptor)
 	if err != nil {
 		return nil, err
 	}
@@ -194,18 +192,18 @@ func (e *Encryptonize) GetTokenContents(token *SealedToken) ([]byte, error) {
 //
 // The set of group IDs is somewhat sensitive data, as it reveals what groups/users have access to
 // the associated object.
-func (e *Encryptonize) GetAccessGroups(authorizer *SealedUser, access *SealedAccess) (map[uuid.UUID]struct{}, error) {
+func (e *Encryptonize) GetAccessGroups(authorizer *data.SealedUser, access *data.SealedAccess) (map[uuid.UUID]struct{}, error) {
 	plainAccess, err := e.authorizeAccess(authorizer, access)
 	if err != nil {
 		return nil, err
 	}
-	return plainAccess.getGroups(), nil
+	return plainAccess.GetGroups(), nil
 }
 
 // AddGroupsToAccess appends the provided groups to the provided access object, giving them access
 // to the associated object. The authorizing user must be part of the access object. The access
 // object is modified in-place.
-func (e *Encryptonize) AddGroupsToAccess(authorizer *SealedUser, access *SealedAccess, groups ...*SealedGroup) error {
+func (e *Encryptonize) AddGroupsToAccess(authorizer *data.SealedUser, access *data.SealedAccess, groups ...*data.SealedGroup) error {
 	groupIDs, err := e.verifyGroups(groups...)
 	if err != nil {
 		return err
@@ -215,16 +213,16 @@ func (e *Encryptonize) AddGroupsToAccess(authorizer *SealedUser, access *SealedA
 	if err != nil {
 		return err
 	}
-	plainAccess.addGroups(groupIDs...)
+	plainAccess.AddGroups(groupIDs...)
 
-	*access, err = plainAccess.seal(access.ID, e.AccessCryptor)
+	*access, err = plainAccess.Seal(access.ID, e.AccessCryptor)
 	return err
 }
 
 // RemoveGroupsFromAccess removes the provided groups from the provided access object, preventing
 // them from accessing the associated object. The authorizing user must be part of the access
 // object. The access object is modified in-place.
-func (e *Encryptonize) RemoveGroupsFromAccess(authorizer *SealedUser, access *SealedAccess, groups ...*SealedGroup) error {
+func (e *Encryptonize) RemoveGroupsFromAccess(authorizer *data.SealedUser, access *data.SealedAccess, groups ...*data.SealedGroup) error {
 	groupIDs, err := e.verifyGroups(groups...)
 	if err != nil {
 		return err
@@ -234,16 +232,16 @@ func (e *Encryptonize) RemoveGroupsFromAccess(authorizer *SealedUser, access *Se
 	if err != nil {
 		return err
 	}
-	plainAccess.removeGroups(groupIDs...)
+	plainAccess.RemoveGroups(groupIDs...)
 
-	*access, err = plainAccess.seal(access.ID, e.AccessCryptor)
+	*access, err = plainAccess.Seal(access.ID, e.AccessCryptor)
 	return err
 }
 
 // AuthorizeUser checks whether the provided user is part of the provided access object, i.e.
 // whether they are authorized to access the associated object. An error is returned if the user is
 // not authorized.
-func (e *Encryptonize) AuthorizeUser(user *SealedUser, access *SealedAccess) error {
+func (e *Encryptonize) AuthorizeUser(user *data.SealedUser, access *data.SealedAccess) error {
 	_, err := e.authorizeAccess(user, access)
 	return err
 }
@@ -259,13 +257,13 @@ func (e *Encryptonize) AuthorizeUser(user *SealedUser, access *SealedAccess) err
 //
 // The SealedUser object acts as credentials for decryption so it should only be accessed by
 // authenticated users.
-func (e *Encryptonize) NewUser(data []byte, groups ...*SealedGroup) (SealedUser, SealedGroup, string, error) {
+func (e *Encryptonize) NewUser(userData []byte, groups ...*data.SealedGroup) (data.SealedUser, data.SealedGroup, string, error) {
 	id, err := uuid.NewV4()
 	if err != nil {
-		return SealedUser{}, SealedGroup{}, "", err
+		return data.SealedUser{}, data.SealedGroup{}, "", err
 	}
 
-	return e.NewUserWithID(id, data, groups...)
+	return e.NewUserWithID(id, userData, groups...)
 }
 
 // NewUserWithID creates a new Encryptonize user as well as an initial group for that user, both
@@ -275,26 +273,26 @@ func (e *Encryptonize) NewUser(data []byte, groups ...*SealedGroup) (SealedUser,
 //
 // The SealedUser object acts as credentials for decryption so it should only be accessed by
 // authenticated users.
-func (e *Encryptonize) NewUserWithID(id uuid.UUID, data []byte, groups ...*SealedGroup) (SealedUser, SealedGroup, string, error) {
+func (e *Encryptonize) NewUserWithID(id uuid.UUID, userData []byte, groups ...*data.SealedGroup) (data.SealedUser, data.SealedGroup, string, error) {
 	groupIDs, err := e.verifyGroups(groups...)
 	if err != nil {
-		return SealedUser{}, SealedGroup{}, "", err
+		return data.SealedUser{}, data.SealedGroup{}, "", err
 	}
 
-	group := newGroup(data)
-	sealedGroup, err := (&group).seal(id, e.GroupCryptor)
+	group := data.NewGroup(userData)
+	sealedGroup, err := (&group).Seal(id, e.GroupCryptor)
 	if err != nil {
-		return SealedUser{}, SealedGroup{}, "", err
+		return data.SealedUser{}, data.SealedGroup{}, "", err
 	}
 
-	user, pwd, err := newUser(append(groupIDs, id)...)
+	user, pwd, err := data.NewUser(append(groupIDs, id)...)
 	if err != nil {
-		return SealedUser{}, SealedGroup{}, "", err
+		return data.SealedUser{}, data.SealedGroup{}, "", err
 	}
 
-	sealedUser, err := user.seal(id, e.UserCryptor)
+	sealedUser, err := user.Seal(id, e.UserCryptor)
 	if err != nil {
-		return SealedUser{}, SealedGroup{}, "", err
+		return data.SealedUser{}, data.SealedGroup{}, "", err
 	}
 
 	return sealedUser, sealedGroup, pwd, nil
@@ -304,22 +302,22 @@ func (e *Encryptonize) NewUserWithID(id uuid.UUID, data []byte, groups ...*Seale
 //
 // The set of group IDs is somewhat sensitive data, as it reveals what groups the user is a member
 // of.
-func (e *Encryptonize) GetUserGroups(user *SealedUser) (map[uuid.UUID]struct{}, error) {
-	plainUser, err := user.unseal(e.UserCryptor)
+func (e *Encryptonize) GetUserGroups(user *data.SealedUser) (map[uuid.UUID]struct{}, error) {
+	plainUser, err := user.Unseal(e.UserCryptor)
 	if err != nil {
 		return nil, err
 	}
-	return plainUser.getGroups(), nil
+	return plainUser.GetGroups(), nil
 }
 
 // AuthenticateUser checks whether the password provided matches the user. If not, an error is
 // returned.
-func (e *Encryptonize) AuthenticateUser(user *SealedUser, password string) error {
-	plainUser, err := user.unseal(e.UserCryptor)
+func (e *Encryptonize) AuthenticateUser(user *data.SealedUser, password string) error {
+	plainUser, err := user.Unseal(e.UserCryptor)
 	if err != nil {
 		return err
 	}
-	if err := plainUser.authenticate(password); err != nil {
+	if err := plainUser.Authenticate(password); err != nil {
 		return err
 	}
 	return nil
@@ -329,18 +327,18 @@ func (e *Encryptonize) AuthenticateUser(user *SealedUser, password string) error
 // It modifies the user object in place and returns the generated password.
 //
 // Any copies of the old sealed user must be disposed of.
-func (e *Encryptonize) ChangeUserPassword(user *SealedUser, oldPassword string) (string, error) {
-	plainUser, err := user.unseal(e.UserCryptor)
+func (e *Encryptonize) ChangeUserPassword(user *data.SealedUser, oldPassword string) (string, error) {
+	plainUser, err := user.Unseal(e.UserCryptor)
 	if err != nil {
 		return "", err
 	}
 
-	newPwd, err := plainUser.changePassword(oldPassword)
+	newPwd, err := plainUser.ChangePassword(oldPassword)
 	if err != nil {
 		return "", err
 	}
 
-	*user, err = plainUser.seal(user.ID, e.UserCryptor)
+	*user, err = plainUser.Seal(user.ID, e.UserCryptor)
 	if err != nil {
 		return "", err
 	}
@@ -350,19 +348,19 @@ func (e *Encryptonize) ChangeUserPassword(user *SealedUser, oldPassword string) 
 
 // AddUserToGroups adds the user to the provided groups. The authorizing user must be a member of
 // all the groups. The user is modified in-place.
-func (e *Encryptonize) AddUserToGroups(authorizer *SealedUser, user *SealedUser, groups ...*SealedGroup) error {
+func (e *Encryptonize) AddUserToGroups(authorizer *data.SealedUser, user *data.SealedUser, groups ...*data.SealedGroup) error {
 	groupIDs, err := e.authorizeGroups(authorizer, groups...)
 	if err != nil {
 		return err
 	}
 
-	plainUser, err := user.unseal(e.UserCryptor)
+	plainUser, err := user.Unseal(e.UserCryptor)
 	if err != nil {
 		return err
 	}
-	plainUser.addGroups(groupIDs...)
+	plainUser.AddGroups(groupIDs...)
 
-	*user, err = plainUser.seal(user.ID, e.UserCryptor)
+	*user, err = plainUser.Seal(user.ID, e.UserCryptor)
 	if err != nil {
 		return err
 	}
@@ -372,19 +370,19 @@ func (e *Encryptonize) AddUserToGroups(authorizer *SealedUser, user *SealedUser,
 
 // RemoveUserFromGroups removes the user from the provided groups. The authorizing user must be a
 // member of all the groups. The user is modified in-place.
-func (e *Encryptonize) RemoveUserFromGroups(authorizer *SealedUser, user *SealedUser, groups ...*SealedGroup) error {
+func (e *Encryptonize) RemoveUserFromGroups(authorizer *data.SealedUser, user *data.SealedUser, groups ...*data.SealedGroup) error {
 	groupIDs, err := e.authorizeGroups(authorizer, groups...)
 	if err != nil {
 		return err
 	}
 
-	plainUser, err := user.unseal(e.UserCryptor)
+	plainUser, err := user.Unseal(e.UserCryptor)
 	if err != nil {
 		return err
 	}
-	plainUser.removeGroups(groupIDs...)
+	plainUser.RemoveGroups(groupIDs...)
 
-	*user, err = plainUser.seal(user.ID, e.UserCryptor)
+	*user, err = plainUser.Seal(user.ID, e.UserCryptor)
 	if err != nil {
 		return err
 	}
@@ -400,27 +398,27 @@ func (e *Encryptonize) RemoveUserFromGroups(authorizer *SealedUser, user *Sealed
 // automatically added to the newly created group. The user is modified in-place.
 //
 // The sealed group is not sensitive data.
-func (e *Encryptonize) NewGroup(user *SealedUser, data []byte) (SealedGroup, error) {
+func (e *Encryptonize) NewGroup(user *data.SealedUser, groupData []byte) (data.SealedGroup, error) {
 	id, err := uuid.NewV4()
 	if err != nil {
-		return SealedGroup{}, err
+		return data.SealedGroup{}, err
 	}
 
-	group := newGroup(data)
-	sealedGroup, err := (&group).seal(id, e.GroupCryptor)
+	group := data.NewGroup(groupData)
+	sealedGroup, err := (&group).Seal(id, e.GroupCryptor)
 	if err != nil {
-		return SealedGroup{}, err
+		return data.SealedGroup{}, err
 	}
 
-	plainUser, err := user.unseal(e.UserCryptor)
+	plainUser, err := user.Unseal(e.UserCryptor)
 	if err != nil {
-		return SealedGroup{}, err
+		return data.SealedGroup{}, err
 	}
-	plainUser.addGroups(sealedGroup.ID)
+	plainUser.AddGroups(sealedGroup.ID)
 
-	*user, err = plainUser.seal(user.ID, e.UserCryptor)
+	*user, err = plainUser.Seal(user.ID, e.UserCryptor)
 	if err != nil {
-		return SealedGroup{}, err
+		return data.SealedGroup{}, err
 	}
 
 	return sealedGroup, nil
@@ -430,17 +428,17 @@ func (e *Encryptonize) NewGroup(user *SealedUser, data []byte) (SealedGroup, err
 // member of the group.
 //
 // The returned data may be sensitive.
-func (e *Encryptonize) GetGroupData(authorizer *SealedUser, group *SealedGroup) ([]byte, error) {
-	plainGroup, err := group.unseal(e.GroupCryptor)
+func (e *Encryptonize) GetGroupData(authorizer *data.SealedUser, group *data.SealedGroup) ([]byte, error) {
+	plainGroup, err := group.Unseal(e.GroupCryptor)
 	if err != nil {
 		return nil, err
 	}
 
-	plainAuthorizer, err := authorizer.unseal(e.UserCryptor)
+	plainAuthorizer, err := authorizer.Unseal(e.UserCryptor)
 	if err != nil {
 		return nil, err
 	}
-	if !plainAuthorizer.containsGroups(group.ID) {
+	if !plainAuthorizer.ContainsGroups(group.ID) {
 		return nil, ErrNotAuthorized
 	}
 
@@ -453,13 +451,13 @@ func (e *Encryptonize) GetGroupData(authorizer *SealedUser, group *SealedGroup) 
 
 // NewIndex creates a new index that can be used to map keywords to IDs (e.g. documents). This
 // means that the index can be used to keep track of which keywords are contained in which IDs.
-func (e *Encryptonize) NewIndex() index {
-	return newIndex()
+func (e *Encryptonize) NewIndex() data.Index {
+	return data.NewIndex()
 }
 
 // Add adds the keyword/ID pair to index i.
-func (e *Encryptonize) Add(keyword, id string, i *index) error {
-	if err := i.add(e.IndexKey, keyword, id); err != nil {
+func (e *Encryptonize) Add(keyword, id string, i *data.Index) error {
+	if err := i.Add(e.IndexKey, keyword, id); err != nil {
 		return err
 	}
 
@@ -467,8 +465,8 @@ func (e *Encryptonize) Add(keyword, id string, i *index) error {
 }
 
 // Search finds all IDs that contain the given keyword and returns them in plaintext.
-func (e *Encryptonize) Search(keyword string, i *index) ([]string, error) {
-	decryptedIDs, err := i.search(e.IndexKey, keyword)
+func (e *Encryptonize) Search(keyword string, i *data.Index) ([]string, error) {
+	decryptedIDs, err := i.Search(e.IndexKey, keyword)
 	if err != nil {
 		return nil, err
 	}

@@ -19,6 +19,7 @@ import (
 	"log"
 
 	"github.com/cyber-crypt-com/encryptonize-lib"
+	"github.com/cyber-crypt-com/encryptonize-lib/data"
 )
 
 // These are insecure keys used only for demonstration purposes.
@@ -46,7 +47,7 @@ func Example_basicEncryptDecrypt() {
 	}
 
 	// A simple binary object with associated data.
-	binaryObject := encryptonize.Object{
+	binaryObject := data.Object{
 		Plaintext:      []byte("Plaintext"),
 		AssociatedData: []byte("AssociatedData"),
 	}

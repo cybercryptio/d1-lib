@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package encryptonize
+package data
 
 import (
 	"testing"
@@ -33,12 +33,12 @@ func TestObjectSeal(t *testing.T) {
 	}
 
 	object := Object{[]byte("plaintext"), []byte("data")}
-	wrappedKey, sealed, err := object.seal(id, &cryptor)
+	wrappedKey, sealed, err := object.Seal(id, &cryptor)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	unsealed, err := sealed.unseal(wrappedKey, &cryptor)
+	unsealed, err := sealed.Unseal(wrappedKey, &cryptor)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -55,16 +55,16 @@ func TestObjectVerifyCiphertext(t *testing.T) {
 	}
 
 	object := Object{[]byte("plaintext"), []byte("data")}
-	wrappedKey, sealed, err := object.seal(id, &cryptor)
+	wrappedKey, sealed, err := object.Seal(id, &cryptor)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if !sealed.verify(wrappedKey, &cryptor) {
+	if _, err := sealed.Unseal(wrappedKey, &cryptor); err != nil {
 		t.Fatal("Verification failed")
 	}
 	sealed.Ciphertext[0] = sealed.Ciphertext[0] ^ 1
-	if sealed.verify(wrappedKey, &cryptor) {
+	if _, err := sealed.Unseal(wrappedKey, &cryptor); err == nil {
 		t.Fatal("Verification should have failed")
 	}
 }
@@ -77,16 +77,16 @@ func TestObjectVerifyData(t *testing.T) {
 	}
 
 	object := Object{[]byte("plaintext"), []byte("data")}
-	wrappedKey, sealed, err := object.seal(id, &cryptor)
+	wrappedKey, sealed, err := object.Seal(id, &cryptor)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if !sealed.verify(wrappedKey, &cryptor) {
+	if _, err := sealed.Unseal(wrappedKey, &cryptor); err != nil {
 		t.Fatal("Verification failed")
 	}
 	sealed.AssociatedData[0] = sealed.AssociatedData[0] ^ 1
-	if sealed.verify(wrappedKey, &cryptor) {
+	if _, err := sealed.Unseal(wrappedKey, &cryptor); err == nil {
 		t.Fatal("Verification should have failed")
 	}
 }
@@ -99,16 +99,16 @@ func TestObjectVerifyID(t *testing.T) {
 	}
 
 	object := Object{[]byte("plaintext"), []byte("data")}
-	wrappedKey, sealed, err := object.seal(id, &cryptor)
+	wrappedKey, sealed, err := object.Seal(id, &cryptor)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if !sealed.verify(wrappedKey, &cryptor) {
+	if _, err := sealed.Unseal(wrappedKey, &cryptor); err != nil {
 		t.Fatal("Verification failed")
 	}
 	sealed.ID = uuid.Must(uuid.NewV4())
-	if sealed.verify(wrappedKey, &cryptor) {
+	if _, err := sealed.Unseal(wrappedKey, &cryptor); err == nil {
 		t.Fatal("Verification should have failed")
 	}
 }
@@ -121,7 +121,7 @@ func TestObjectID(t *testing.T) {
 	}
 
 	object := Object{[]byte("plaintext"), []byte("data")}
-	_, sealed, err := object.seal(id, &cryptor)
+	_, sealed, err := object.Seal(id, &cryptor)
 	if err != nil {
 		t.Fatal(err)
 	}
