@@ -40,8 +40,8 @@ type PublicUserData struct {
 	encryptedDataAccess encryptonize.SealedAccess
 }
 
-// createUser instantiates a user with its private and public data.
-func createUser(ectnz encryptonize.Encryptonize) UserData {
+// createUserData instantiates a user with its private and public data.
+func createUserData(ectnz encryptonize.Encryptonize) UserData {
 	user, group, password, err := ectnz.NewUser(nil)
 	if err != nil {
 		log.Fatalf("Error creating Encryptonize user: %v", err)
@@ -72,35 +72,35 @@ func Example_accessControl() {
 	}
 
 	// Create three users with their data.
-	user1 := createUser(ectnz)
-	user2 := createUser(ectnz)
-	user3 := createUser(ectnz)
+	alice := createUserData(ectnz)
+	bob := createUserData(ectnz)
+	charlie := createUserData(ectnz)
 
-	// user3 wants to share her data with user2.
-	err = ectnz.AddGroupsToAccess(&user3.private.user, &user3.public.encryptedDataAccess, &user2.public.group)
+	// charlie wants to share her data with bob.
+	err = ectnz.AddGroupsToAccess(&charlie.private.user, &charlie.public.encryptedDataAccess, &bob.public.group)
 	if err != nil {
 		log.Fatalf("Error adding group to access: %v", err)
 	}
 
-	// user2 can now decrypt user3's encrypted data.
-	user3sDecryptedData, err := ectnz.Decrypt(&user2.private.user, &user3.public.encryptedData, &user3.public.encryptedDataAccess)
+	// bob can now decrypt charlie's encrypted data.
+	charliesDecryptedData, err := ectnz.Decrypt(&bob.private.user, &charlie.public.encryptedData, &charlie.public.encryptedDataAccess)
 	if err != nil {
 		log.Fatalf("Error decrypting object: %v", err)
 	}
-	fmt.Printf("%s %s\n", user3sDecryptedData.Plaintext, user3sDecryptedData.AssociatedData)
+	fmt.Printf("%s %s\n", charliesDecryptedData.Plaintext, charliesDecryptedData.AssociatedData)
 
-	// user1 wants to form a group with user3 so that all of his previously encrypted data can be decrypted by user3.
-	err = ectnz.AddUserToGroups(&user1.private.user, &user3.private.user, &user1.public.group)
+	// alice wants to form a group with charlie so that all of his previously encrypted data can be decrypted by charlie.
+	err = ectnz.AddUserToGroups(&alice.private.user, &charlie.private.user, &alice.public.group)
 	if err != nil {
 		log.Fatalf("Error adding user to group: %v", err)
 	}
 
-	// user3 can now decrypt all of user1's previously encrypted data.
-	user1sDecryptedData, err := ectnz.Decrypt(&user3.private.user, &user1.public.encryptedData, &user1.public.encryptedDataAccess)
+	// charlie can now decrypt all of alice's previously encrypted data.
+	alicesDecryptedData, err := ectnz.Decrypt(&charlie.private.user, &alice.public.encryptedData, &alice.public.encryptedDataAccess)
 	if err != nil {
 		log.Fatalf("Error decrypting object: %v", err)
 	}
-	fmt.Printf("%s %s\n", user1sDecryptedData.Plaintext, user1sDecryptedData.AssociatedData)
+	fmt.Printf("%s %s\n", alicesDecryptedData.Plaintext, alicesDecryptedData.AssociatedData)
 
 	// Output:
 	// Plaintext AssociatedData
