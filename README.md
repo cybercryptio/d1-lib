@@ -37,3 +37,6 @@ For examples on how to use the Encryptonize&reg; library [see our Examples secti
 
 ## Security
 For more details about the security guarantees offered by the Encryptonize&reg; library [see our Security Architecture Documentation](TODO).
+
+## High level overview
+For a high level overview of the main concepts and use cases of the Encryptonize® library [see our Explainer Document](documentation/explainer.md).
