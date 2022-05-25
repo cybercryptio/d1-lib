@@ -40,8 +40,6 @@ type Encryptonize struct {
 	objectCryptor crypto.CryptorInterface
 	accessCryptor crypto.CryptorInterface
 	tokenCryptor  crypto.CryptorInterface
-	userCryptor   crypto.CryptorInterface
-	groupCryptor  crypto.CryptorInterface
 	indexKey      []byte
 }
 
@@ -64,14 +62,6 @@ func New(keyProvider key.Provider, ioProvider io.Provider) (Encryptonize, error)
 	if err != nil {
 		return Encryptonize{}, err
 	}
-	userCryptor, err := crypto.NewAESCryptor(keys.UEK)
-	if err != nil {
-		return Encryptonize{}, err
-	}
-	groupCryptor, err := crypto.NewAESCryptor(keys.GEK)
-	if err != nil {
-		return Encryptonize{}, err
-	}
 
 	return Encryptonize{
 		keyProvider:   keyProvider,
@@ -79,8 +69,6 @@ func New(keyProvider key.Provider, ioProvider io.Provider) (Encryptonize, error)
 		objectCryptor: &objectCryptor,
 		accessCryptor: &accessCryptor,
 		tokenCryptor:  &tokenCryptor,
-		userCryptor:   &userCryptor,
-		groupCryptor:  &groupCryptor,
 		indexKey:      keys.IEK,
 	}, nil
 }
@@ -312,205 +300,6 @@ func (e *Encryptonize) AuthorizeUser(user *data.SealedUser, oid uuid.UUID) error
 
 	_, err = e.authorizeAccess(user, access)
 	return err
-}
-
-////////////////////////////////////////////////////////
-//                        User                        //
-////////////////////////////////////////////////////////
-
-// NewUser creates a new Encryptonize user as well as an initial group for that user. The newly
-// created user and group have the same ID. The user's own group contains the provided data, and the
-// user is added to any additional groups provided. A randomly generated password is also created
-// and returned to the caller.
-//
-// The SealedUser object acts as credentials for decryption so it should only be accessed by
-// authenticated users.
-func (e *Encryptonize) NewUser(userData []byte, groups ...*data.SealedGroup) (data.SealedUser, data.SealedGroup, string, error) {
-	id, err := uuid.NewV4()
-	if err != nil {
-		return data.SealedUser{}, data.SealedGroup{}, "", err
-	}
-
-	return e.NewUserWithID(id, userData, groups...)
-}
-
-// NewUserWithID creates a new Encryptonize user as well as an initial group for that user, both
-// having the provided ID. The user's own group contains the provided data, and the user is added to
-// any additional groups provided. A randomly generated password is also created and returned to the
-// caller.
-//
-// The SealedUser object acts as credentials for decryption so it should only be accessed by
-// authenticated users.
-func (e *Encryptonize) NewUserWithID(id uuid.UUID, userData []byte, groups ...*data.SealedGroup) (data.SealedUser, data.SealedGroup, string, error) {
-	groupIDs, err := e.verifyGroups(groups...)
-	if err != nil {
-		return data.SealedUser{}, data.SealedGroup{}, "", err
-	}
-
-	group := data.NewGroup(userData)
-	sealedGroup, err := (&group).Seal(id, e.groupCryptor)
-	if err != nil {
-		return data.SealedUser{}, data.SealedGroup{}, "", err
-	}
-
-	user, pwd, err := data.NewUser(append(groupIDs, id)...)
-	if err != nil {
-		return data.SealedUser{}, data.SealedGroup{}, "", err
-	}
-
-	sealedUser, err := user.Seal(id, e.userCryptor)
-	if err != nil {
-		return data.SealedUser{}, data.SealedGroup{}, "", err
-	}
-
-	return sealedUser, sealedGroup, pwd, nil
-}
-
-// GetUserGroups extracts user's set of group IDs.
-//
-// The set of group IDs is somewhat sensitive data, as it reveals what groups the user is a member
-// of.
-func (e *Encryptonize) GetUserGroups(user *data.SealedUser) (map[uuid.UUID]struct{}, error) {
-	plainUser, err := user.Unseal(e.userCryptor)
-	if err != nil {
-		return nil, err
-	}
-	return plainUser.GetGroups(), nil
-}
-
-// AuthenticateUser checks whether the password provided matches the user. If not, an error is
-// returned.
-func (e *Encryptonize) AuthenticateUser(user *data.SealedUser, password string) error {
-	plainUser, err := user.Unseal(e.userCryptor)
-	if err != nil {
-		return err
-	}
-	if err := plainUser.Authenticate(password); err != nil {
-		return err
-	}
-	return nil
-}
-
-// ChangeUserPassword authenticates the provided sealed user with the given password and generates a new password for the user.
-// It modifies the user object in place and returns the generated password.
-//
-// Any copies of the old sealed user must be disposed of.
-func (e *Encryptonize) ChangeUserPassword(user *data.SealedUser, oldPassword string) (string, error) {
-	plainUser, err := user.Unseal(e.userCryptor)
-	if err != nil {
-		return "", err
-	}
-
-	newPwd, err := plainUser.ChangePassword(oldPassword)
-	if err != nil {
-		return "", err
-	}
-
-	*user, err = plainUser.Seal(user.ID, e.userCryptor)
-	if err != nil {
-		return "", err
-	}
-
-	return newPwd, nil
-}
-
-// AddUserToGroups adds the user to the provided groups. The authorizing user must be a member of
-// all the groups. The user is modified in-place.
-func (e *Encryptonize) AddUserToGroups(authorizer *data.SealedUser, user *data.SealedUser, groups ...*data.SealedGroup) error {
-	groupIDs, err := e.authorizeGroups(authorizer, groups...)
-	if err != nil {
-		return err
-	}
-
-	plainUser, err := user.Unseal(e.userCryptor)
-	if err != nil {
-		return err
-	}
-	plainUser.AddGroups(groupIDs...)
-
-	*user, err = plainUser.Seal(user.ID, e.userCryptor)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// RemoveUserFromGroups removes the user from the provided groups. The authorizing user must be a
-// member of all the groups. The user is modified in-place.
-func (e *Encryptonize) RemoveUserFromGroups(authorizer *data.SealedUser, user *data.SealedUser, groups ...*data.SealedGroup) error {
-	groupIDs, err := e.authorizeGroups(authorizer, groups...)
-	if err != nil {
-		return err
-	}
-
-	plainUser, err := user.Unseal(e.userCryptor)
-	if err != nil {
-		return err
-	}
-	plainUser.RemoveGroups(groupIDs...)
-
-	*user, err = plainUser.Seal(user.ID, e.userCryptor)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-////////////////////////////////////////////////////////
-//                       Group                        //
-////////////////////////////////////////////////////////
-
-// NewGroup creates a new Encryptonize group containing the provided data. The provided user is
-// automatically added to the newly created group. The user is modified in-place.
-//
-// The sealed group is not sensitive data.
-func (e *Encryptonize) NewGroup(user *data.SealedUser, groupData []byte) (data.SealedGroup, error) {
-	id, err := uuid.NewV4()
-	if err != nil {
-		return data.SealedGroup{}, err
-	}
-
-	group := data.NewGroup(groupData)
-	sealedGroup, err := (&group).Seal(id, e.groupCryptor)
-	if err != nil {
-		return data.SealedGroup{}, err
-	}
-
-	plainUser, err := user.Unseal(e.userCryptor)
-	if err != nil {
-		return data.SealedGroup{}, err
-	}
-	plainUser.AddGroups(sealedGroup.ID)
-
-	*user, err = plainUser.Seal(user.ID, e.userCryptor)
-	if err != nil {
-		return data.SealedGroup{}, err
-	}
-
-	return sealedGroup, nil
-}
-
-// GetGroupData extracts the data contained in the provided group. The authorizing user must be a
-// member of the group.
-//
-// The returned data may be sensitive.
-func (e *Encryptonize) GetGroupData(authorizer *data.SealedUser, group *data.SealedGroup) ([]byte, error) {
-	plainGroup, err := group.Unseal(e.groupCryptor)
-	if err != nil {
-		return nil, err
-	}
-
-	plainAuthorizer, err := authorizer.Unseal(e.userCryptor)
-	if err != nil {
-		return nil, err
-	}
-	if !plainAuthorizer.ContainsGroups(group.ID) {
-		return nil, ErrNotAuthorized
-	}
-
-	return plainGroup.Data, nil
 }
 
 ////////////////////////////////////////////////////////

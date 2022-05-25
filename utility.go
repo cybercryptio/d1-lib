@@ -46,38 +46,6 @@ func (e *Encryptonize) authorizeAccess(authorizer *data.SealedUser, sealedAccess
 	return data.Access{}, errors.New("User not authorized")
 }
 
-// authorizeGroups checks whether the authorizing user is a member of all provided groups. If so, a
-// list of all the group IDs is returned.
-func (e *Encryptonize) authorizeGroups(authorizer *data.SealedUser, groups ...*data.SealedGroup) ([]uuid.UUID, error) {
-	groupIDs, err := e.verifyGroups(groups...)
-	if err != nil {
-		return nil, err
-	}
-
-	plainAuthorizer, err := authorizer.Unseal(e.userCryptor)
-	if err != nil {
-		return nil, err
-	}
-	if !plainAuthorizer.ContainsGroups(groupIDs...) {
-		return nil, errors.New("User not authorized")
-	}
-
-	return groupIDs, nil
-}
-
-// verifyGroups integrity checks all the provided groups. If they are all authentic, a list of all
-// the group IDs is returned.
-func (e *Encryptonize) verifyGroups(groups ...*data.SealedGroup) ([]uuid.UUID, error) {
-	groupIDs := make([]uuid.UUID, 0, len(groups))
-	for _, group := range groups {
-		if !group.Verify(e.groupCryptor) {
-			return nil, errors.New("Invalid group")
-		}
-		groupIDs = append(groupIDs, group.ID)
-	}
-	return groupIDs, nil
-}
-
 // putSealedObject encodes a sealed object and sends it to the IO Provider, either as a "Put" or an
 // "Update".
 func (e *Encryptonize) putSealedObject(object *data.SealedObject, update bool) error {
