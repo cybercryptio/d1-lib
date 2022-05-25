@@ -67,7 +67,7 @@ func createUserData(ectnz encryptonize.Encryptonize) UserData {
 // This example demonstrates how to use the Encryptonize® library to enforce discretionary access control for binary data.
 func Example_accessControl() {
 	// Instantiate the Encryptonize® library with the given keys.
-	ectnz, err := encryptonize.New(keys)
+	ectnz, err := encryptonize.New(&keyProvider)
 	if err != nil {
 		log.Fatalf("Error instantiating Encryptonize: %v", err)
 	}

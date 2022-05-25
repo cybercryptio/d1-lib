@@ -24,41 +24,27 @@ import (
 
 	"github.com/cyber-crypt-com/encryptonize-lib/crypto"
 	"github.com/cyber-crypt-com/encryptonize-lib/data"
+	"github.com/cyber-crypt-com/encryptonize-lib/key"
 )
 
 // Error returned if a user tries to access data they are not authorized for.
 var ErrNotAuthorized = errors.New("user not authorized")
 
-// Keys contains the master key material used by Encryptonize. All keys must be 32 bytes.
-type Keys struct {
-	// Key Encryption Key used for wrapping randomly generated encryption keys.
-	KEK []byte `koanf:"kek"`
-
-	// Access Encryption Key used for encrypting access objects.
-	AEK []byte `koanf:"aek"`
-
-	// Token Encryption Key used for encrypting tokens.
-	TEK []byte `koanf:"tek"`
-
-	// User Encryption Key used for encrypting user data.
-	UEK []byte `koanf:"uek"`
-
-	// Group Encryption Key used for encrypting group data.
-	GEK []byte `koanf:"gek"`
-
-	// Index Encryption Key used for searchable encryption.
-	IEK []byte `koanf:"iek"`
-}
-
 // Encryptonize is the entry point to the library. All main functionality is exposed through methods
 // on this struct.
 type Encryptonize struct {
+	keyProvider                                                           key.Provider
 	ObjectCryptor, AccessCryptor, TokenCryptor, UserCryptor, GroupCryptor crypto.CryptorInterface
 	IndexKey                                                              []byte
 }
 
-// New creates a new instance of Encryptonize configured with the given keys.
-func New(keys Keys) (Encryptonize, error) {
+// New creates a new instance of Encryptonize configured with the given providers.
+func New(keyProvider key.Provider) (Encryptonize, error) {
+	keys, err := keyProvider.GetKeys()
+	if err != nil {
+		return Encryptonize{}, err
+	}
+
 	objectCryptor, err := crypto.NewAESCryptor(keys.KEK)
 	if err != nil {
 		return Encryptonize{}, err
@@ -79,7 +65,7 @@ func New(keys Keys) (Encryptonize, error) {
 	if err != nil {
 		return Encryptonize{}, err
 	}
-	return Encryptonize{&objectCryptor, &accessCryptor, &tokenCryptor, &userCryptor, &groupCryptor, keys.IEK}, nil
+	return Encryptonize{keyProvider, &objectCryptor, &accessCryptor, &tokenCryptor, &userCryptor, &groupCryptor, keys.IEK}, nil
 }
 
 ////////////////////////////////////////////////////////

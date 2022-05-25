@@ -23,7 +23,7 @@ import (
 
 func ExampleEncryptonize_CreateToken() {
 	// Instantiate the Encryptonize® library with the given keys.
-	ectnz, err := encryptonize.New(keys)
+	ectnz, err := encryptonize.New(&keyProvider)
 	if err != nil {
 		log.Fatalf("Error instantiating Encryptonize: %v", err)
 	}
