@@ -20,18 +20,19 @@ import (
 	"reflect"
 
 	"github.com/cyber-crypt-com/encryptonize-lib/data"
+	"github.com/cyber-crypt-com/encryptonize-lib/key"
 )
 
 func newTestEncryptonize(t *testing.T) Encryptonize {
-	var keys = Keys{
+	keyProvider := key.NewStatic(key.Keys{
 		KEK: []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 		AEK: []byte{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
 		TEK: []byte{2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2},
 		UEK: []byte{3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3},
 		GEK: []byte{4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4},
 		IEK: []byte{5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5},
-	}
-	encryptonize, err := New(keys)
+	})
+	encryptonize, err := New(&keyProvider)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -219,19 +220,19 @@ func TestPlainObject(t *testing.T) {
 	}
 
 	tests := []testData{
-		testData{
+		{
 			description: "Plaintext=nil",
 			data:        data.Object{Plaintext: nil, AssociatedData: []byte("associated_data")},
 		},
-		testData{
+		{
 			description: "AssociatedData=nil",
 			data:        data.Object{Plaintext: []byte("plaintext"), AssociatedData: nil},
 		},
-		testData{
+		{
 			description: "Plaintext=nil AssociatedData=nil",
 			data:        data.Object{Plaintext: nil, AssociatedData: nil},
 		},
-		testData{
+		{
 			description: "Plaintext!=nil AssociatedData!=nil",
 			data:        data.Object{Plaintext: []byte("plaintext"), AssociatedData: []byte("associated_data")},
 		},
