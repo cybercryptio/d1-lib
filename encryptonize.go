@@ -221,12 +221,19 @@ func (e *Encryptonize) GetTokenContents(token *data.SealedToken) ([]byte, error)
 //                       Access                       //
 ////////////////////////////////////////////////////////
 
-// GetAccessGroups extracts the set of group IDs contained in the provided access object. The
-// authorizing user must be part of the access object.
+// GetAccessGroups extracts the set of group IDs contained in the object's access list. The
+// authorizing user must be part of the access list.
+//
+// The input ID is the identifier obtained by previously calling Encrypt.
 //
 // The set of group IDs is somewhat sensitive data, as it reveals what groups/users have access to
 // the associated object.
-func (e *Encryptonize) GetAccessGroups(authorizer *data.SealedUser, access *data.SealedAccess) (map[uuid.UUID]struct{}, error) {
+func (e *Encryptonize) GetAccessGroups(authorizer *data.SealedUser, oid uuid.UUID) (map[uuid.UUID]struct{}, error) {
+	access, err := e.getSealedAccess(oid)
+	if err != nil {
+		return nil, err
+	}
+
 	plainAccess, err := e.authorizeAccess(authorizer, access)
 	if err != nil {
 		return nil, err
@@ -234,11 +241,17 @@ func (e *Encryptonize) GetAccessGroups(authorizer *data.SealedUser, access *data
 	return plainAccess.GetGroups(), nil
 }
 
-// AddGroupsToAccess appends the provided groups to the provided access object, giving them access
-// to the associated object. The authorizing user must be part of the access object. The access
-// object is modified in-place.
-func (e *Encryptonize) AddGroupsToAccess(authorizer *data.SealedUser, access *data.SealedAccess, groups ...*data.SealedGroup) error {
+// AddGroupsToAccess appends the provided groups to the object's access list, giving them access to
+// the associated object. The authorizing user must be part of the access list.
+//
+// The input ID is the identifier obtained by previously calling Encrypt.
+func (e *Encryptonize) AddGroupsToAccess(authorizer *data.SealedUser, oid uuid.UUID, groups ...*data.SealedGroup) error {
 	groupIDs, err := e.verifyGroups(groups...)
+	if err != nil {
+		return err
+	}
+
+	access, err := e.getSealedAccess(oid)
 	if err != nil {
 		return err
 	}
@@ -249,15 +262,25 @@ func (e *Encryptonize) AddGroupsToAccess(authorizer *data.SealedUser, access *da
 	}
 	plainAccess.AddGroups(groupIDs...)
 
-	*access, err = plainAccess.Seal(access.ID, e.accessCryptor)
-	return err
+	*access, err = plainAccess.Seal(oid, e.accessCryptor)
+	if err != nil {
+		return err
+	}
+
+	return e.putSealedAccess(access, true)
 }
 
-// RemoveGroupsFromAccess removes the provided groups from the provided access object, preventing
-// them from accessing the associated object. The authorizing user must be part of the access
-// object. The access object is modified in-place.
-func (e *Encryptonize) RemoveGroupsFromAccess(authorizer *data.SealedUser, access *data.SealedAccess, groups ...*data.SealedGroup) error {
+// RemoveGroupsFromAccess removes the provided groups from the object's access list, preventing them
+// from accessing the associated object. The authorizing user must be part of the access object.
+//
+// The input ID is the identifier obtained by previously calling Encrypt.
+func (e *Encryptonize) RemoveGroupsFromAccess(authorizer *data.SealedUser, oid uuid.UUID, groups ...*data.SealedGroup) error {
 	groupIDs, err := e.verifyGroups(groups...)
+	if err != nil {
+		return err
+	}
+
+	access, err := e.getSealedAccess(oid)
 	if err != nil {
 		return err
 	}
@@ -268,15 +291,26 @@ func (e *Encryptonize) RemoveGroupsFromAccess(authorizer *data.SealedUser, acces
 	}
 	plainAccess.RemoveGroups(groupIDs...)
 
-	*access, err = plainAccess.Seal(access.ID, e.accessCryptor)
-	return err
+	*access, err = plainAccess.Seal(oid, e.accessCryptor)
+	if err != nil {
+		return err
+	}
+
+	return e.putSealedAccess(access, true)
 }
 
-// AuthorizeUser checks whether the provided user is part of the provided access object, i.e.
-// whether they are authorized to access the associated object. An error is returned if the user is
-// not authorized.
-func (e *Encryptonize) AuthorizeUser(user *data.SealedUser, access *data.SealedAccess) error {
-	_, err := e.authorizeAccess(user, access)
+// AuthorizeUser checks whether the provided user is part of the object's access list, i.e. whether
+// they are authorized to access the associated object. An error is returned if the user is not
+// authorized.
+//
+// The input ID is the identifier obtained by previously calling Encrypt.
+func (e *Encryptonize) AuthorizeUser(user *data.SealedUser, oid uuid.UUID) error {
+	access, err := e.getSealedAccess(oid)
+	if err != nil {
+		return err
+	}
+
+	_, err = e.authorizeAccess(user, access)
 	return err
 }
 

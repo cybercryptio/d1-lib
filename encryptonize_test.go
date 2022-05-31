@@ -308,17 +308,17 @@ func TestGetAccessGroups(t *testing.T) {
 		AssociatedData: []byte("associated_data"),
 	}
 
-	_, access, err := enc.Encrypt(&user1, &plainObject)
+	id, err := enc.Encrypt(&user1, &plainObject)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	_, err = enc.GetAccessGroups(&user1, &access)
+	_, err = enc.GetAccessGroups(&user1, id)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	accessGroups, err := enc.GetAccessGroups(&user2, &access)
+	accessGroups, err := enc.GetAccessGroups(&user2, id)
 	if err == nil {
 		t.Fatal("Unauthorized user able to get group IDs contained in access object")
 	}
@@ -346,16 +346,16 @@ func TestAddRemoveGroupsFromAccess(t *testing.T) {
 		AssociatedData: []byte("associated_data"),
 	}
 
-	_, access, err := enc.Encrypt(&user, &plainObject)
+	id, err := enc.Encrypt(&user, &plainObject)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if err = enc.AddGroupsToAccess(&user, &access, &group); err != nil {
+	if err = enc.AddGroupsToAccess(&user, id, &group); err != nil {
 		t.Fatal(err)
 	}
 
-	accessGroups, err := enc.GetAccessGroups(&user, &access)
+	accessGroups, err := enc.GetAccessGroups(&user, id)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -363,11 +363,11 @@ func TestAddRemoveGroupsFromAccess(t *testing.T) {
 		t.Fatal("Group not correctly added to access object")
 	}
 
-	if err = enc.RemoveGroupsFromAccess(&user, &access, &group); err != nil {
+	if err = enc.RemoveGroupsFromAccess(&user, id, &group); err != nil {
 		t.Fatal(err)
 	}
 
-	accessGroups, err = enc.GetAccessGroups(&user, &access)
+	accessGroups, err = enc.GetAccessGroups(&user, id)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -400,20 +400,20 @@ func TestAddRemoveGroupsFromAccessUnauthorized(t *testing.T) {
 		AssociatedData: []byte("associated_data"),
 	}
 
-	_, access, err := enc.Encrypt(&user1, &plainObject)
+	id, err := enc.Encrypt(&user1, &plainObject)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if err = enc.AddGroupsToAccess(&user2, &access, &group); err == nil {
+	if err = enc.AddGroupsToAccess(&user2, id, &group); err == nil {
 		t.Fatal("Unauthorized user able to add groups to access")
 	}
 
-	if err = enc.AddGroupsToAccess(&user1, &access, &group); err != nil {
+	if err = enc.AddGroupsToAccess(&user1, id, &group); err != nil {
 		t.Fatal(err)
 	}
 
-	if err = enc.RemoveGroupsFromAccess(&user2, &access, &group); err == nil {
+	if err = enc.RemoveGroupsFromAccess(&user2, id, &group); err == nil {
 		t.Fatal("Unauthorized user able to remove groups from access")
 	}
 }
@@ -438,16 +438,16 @@ func TestAddRemoveGroupsFromAccessAuthorized(t *testing.T) {
 		AssociatedData: []byte("associated_data"),
 	}
 
-	_, access, err := enc.Encrypt(&user1, &plainObject)
+	id, err := enc.Encrypt(&user1, &plainObject)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if err = enc.AddGroupsToAccess(&user1, &access, &group2); err != nil {
+	if err = enc.AddGroupsToAccess(&user1, id, &group2); err != nil {
 		t.Fatal(err)
 	}
 
-	accessGroups, err := enc.GetAccessGroups(&user1, &access)
+	accessGroups, err := enc.GetAccessGroups(&user1, id)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -455,11 +455,11 @@ func TestAddRemoveGroupsFromAccessAuthorized(t *testing.T) {
 		t.Fatal("User not able to add groups to access object. User is not member of all groups, but is part of access object.")
 	}
 
-	if err = enc.RemoveGroupsFromAccess(&user1, &access, &group2); err != nil {
+	if err = enc.RemoveGroupsFromAccess(&user1, id, &group2); err != nil {
 		t.Fatal(err)
 	}
 
-	accessGroups, err = enc.GetAccessGroups(&user1, &access)
+	accessGroups, err = enc.GetAccessGroups(&user1, id)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -487,7 +487,7 @@ func TestAddInvalidGroupsToAccess(t *testing.T) {
 		AssociatedData: []byte("associated_data"),
 	}
 
-	_, access, err := enc.Encrypt(&user, &plainObject)
+	id, err := enc.Encrypt(&user, &plainObject)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -495,7 +495,7 @@ func TestAddInvalidGroupsToAccess(t *testing.T) {
 	// Make group invalid by changing its ciphertext
 	copy(group.Ciphertext[:5], make([]byte, 5))
 
-	if err = enc.AddGroupsToAccess(&user, &access, &group); err == nil {
+	if err = enc.AddGroupsToAccess(&user, id, &group); err == nil {
 		t.Fatal("User able to add invalid groups to access")
 	}
 }
@@ -519,19 +519,19 @@ func TestRemoveInvalidGroupsFromAccess(t *testing.T) {
 		AssociatedData: []byte("associated_data"),
 	}
 
-	_, access, err := enc.Encrypt(&user, &plainObject)
+	id, err := enc.Encrypt(&user, &plainObject)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if err = enc.AddGroupsToAccess(&user, &access, &group); err != nil {
+	if err = enc.AddGroupsToAccess(&user, id, &group); err != nil {
 		t.Fatal(err)
 	}
 
 	// Make group invalid by changing its ciphertext
 	copy(group.Ciphertext[:5], make([]byte, 5))
 
-	if err = enc.RemoveGroupsFromAccess(&user, &access, &group); err == nil {
+	if err = enc.RemoveGroupsFromAccess(&user, id, &group); err == nil {
 		t.Fatal("User able to remove invalid groups from access")
 	}
 }
@@ -559,23 +559,23 @@ func TestAuthorizeUser(t *testing.T) {
 		AssociatedData: []byte("associated_data"),
 	}
 
-	_, access, err := enc.Encrypt(&user1, &plainObject)
+	id, err := enc.Encrypt(&user1, &plainObject)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if err = enc.AuthorizeUser(&user1, &access); err != nil {
+	if err = enc.AuthorizeUser(&user1, id); err != nil {
 		t.Fatal(err)
 	}
 
-	if err = enc.AuthorizeUser(&user2, &access); err == nil {
+	if err = enc.AuthorizeUser(&user2, id); err == nil {
 		t.Fatal("Unauthorized user is authorized anyway")
 	}
 
 	// Make user1 unauthorized by changing its first 5 ciphertext bytes to 0
 	copy(user1.Ciphertext[:5], make([]byte, 5))
 
-	if err = enc.AuthorizeUser(&user1, &access); err == nil {
+	if err = enc.AuthorizeUser(&user1, id); err == nil {
 		t.Fatal("Unauthorized user is authorized anyway")
 	}
 }
@@ -1146,7 +1146,7 @@ func TestRemoveAccess(t *testing.T) {
 		AssociatedData: []byte("associated_data"),
 	}
 
-	_, access, err := enc.Encrypt(&user, &plainObject)
+	id, err := enc.Encrypt(&user, &plainObject)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1155,7 +1155,7 @@ func TestRemoveAccess(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err = enc.AuthorizeUser(&user, &access); err == nil {
+	if err = enc.AuthorizeUser(&user, id); err == nil {
 		t.Fatal("Unauthorized user is authorized anyway")
 	}
 }
