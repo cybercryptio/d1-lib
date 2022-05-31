@@ -20,6 +20,7 @@ import (
 	"reflect"
 
 	"github.com/cyber-crypt-com/encryptonize-lib/data"
+	"github.com/cyber-crypt-com/encryptonize-lib/io"
 	"github.com/cyber-crypt-com/encryptonize-lib/key"
 )
 
@@ -32,7 +33,8 @@ func newTestEncryptonize(t *testing.T) Encryptonize {
 		GEK: []byte{4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4},
 		IEK: []byte{5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5},
 	})
-	encryptonize, err := New(&keyProvider)
+	ioProvider := io.NewMem()
+	encryptonize, err := New(&keyProvider, &ioProvider)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -53,12 +55,12 @@ func TestEncryptDecrypt(t *testing.T) {
 		AssociatedData: []byte("associated_data"),
 	}
 
-	object, access, err := enc.Encrypt(&user, &plainObject)
+	id, err := enc.Encrypt(&user, &plainObject)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	decrypted, err := enc.Decrypt(&user, &object, &access)
+	decrypted, err := enc.Decrypt(&user, id)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -84,15 +86,12 @@ func TestEncryptUnauthorizedUser(t *testing.T) {
 		AssociatedData: []byte("associated_data"),
 	}
 
-	object, access, err := enc.Encrypt(&user, &plainObject)
+	id, err := enc.Encrypt(&user, &plainObject)
 	if err == nil {
 		t.Fatal("Unauthorized user able to encrypt")
 	}
-	if !reflect.DeepEqual(object, data.SealedObject{}) {
-		t.Fatal("Encryption failed, but returned sealed object anyway")
-	}
-	if !reflect.DeepEqual(access, data.SealedAccess{}) {
-		t.Fatal("Encryption failed, but returned sealed access anyway")
+	if !id.IsNil() {
+		t.Fatal("Encryption failed, but returned an ID anyway")
 	}
 }
 
@@ -110,7 +109,7 @@ func TestDecryptUnauthorizedUser(t *testing.T) {
 		AssociatedData: []byte("associated_data"),
 	}
 
-	object, access, err := enc.Encrypt(&user, &plainObject)
+	id, err := enc.Encrypt(&user, &plainObject)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -118,7 +117,7 @@ func TestDecryptUnauthorizedUser(t *testing.T) {
 	// Make user unauthorized by changing its first 5 ciphertext bytes to 0
 	copy(user.Ciphertext[:5], make([]byte, 5))
 
-	decrypted, err := enc.Decrypt(&user, &object, &access)
+	decrypted, err := enc.Decrypt(&user, id)
 	if err == nil {
 		t.Fatal("Unauthorized user able to decrypt")
 	}
@@ -141,7 +140,7 @@ func TestUpdate(t *testing.T) {
 		AssociatedData: []byte("associated_data"),
 	}
 
-	_, access, err := enc.Encrypt(&user, &plainObject)
+	id, err := enc.Encrypt(&user, &plainObject)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -151,12 +150,12 @@ func TestUpdate(t *testing.T) {
 		AssociatedData: []byte("associated_data_updated"),
 	}
 
-	objectUpdated, err := enc.Update(&user, &plainObjectUpdated, &access)
+	err = enc.Update(&user, id, &plainObjectUpdated)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	decrypted, err := enc.Decrypt(&user, &objectUpdated, &access)
+	decrypted, err := enc.Decrypt(&user, id)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -179,7 +178,7 @@ func TestUpdateUnauthorizedUser(t *testing.T) {
 		AssociatedData: []byte("associated_data"),
 	}
 
-	_, access, err := enc.Encrypt(&user, &plainObject)
+	id, err := enc.Encrypt(&user, &plainObject)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -192,12 +191,9 @@ func TestUpdateUnauthorizedUser(t *testing.T) {
 	// Make user unauthorized by changing its first 5 ciphertext bytes to 0
 	copy(user.Ciphertext[:5], make([]byte, 5))
 
-	objectUpdated, err := enc.Update(&user, &plainObjectUpdated, &access)
+	err = enc.Update(&user, id, &plainObjectUpdated)
 	if err == nil {
 		t.Fatal("Unauthorized user able to update")
-	}
-	if !reflect.DeepEqual(objectUpdated, data.SealedObject{}) {
-		t.Fatal("Update failed, but returned updated object anyway")
 	}
 }
 
@@ -240,7 +236,7 @@ func TestPlainObject(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.description, func(t *testing.T) {
-			if _, _, err = enc.Encrypt(&user, &test.data); err != nil {
+			if _, err = enc.Encrypt(&user, &test.data); err != nil {
 				t.Fatal(err)
 			}
 		})
@@ -1178,7 +1174,7 @@ func TestSharingObjectPart1(t *testing.T) {
 		AssociatedData: []byte("associated_data"),
 	}
 
-	object, access, err := enc.Encrypt(&user1, &plainObject)
+	id, err := enc.Encrypt(&user1, &plainObject)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1192,7 +1188,7 @@ func TestSharingObjectPart1(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err = enc.Decrypt(&user2, &object, &access); err != nil {
+	if _, err = enc.Decrypt(&user2, id); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -1211,7 +1207,7 @@ func TestSharingObjectPart2(t *testing.T) {
 		AssociatedData: []byte("associated_data"),
 	}
 
-	object, access, err := enc.Encrypt(&user1, &plainObject)
+	id, err := enc.Encrypt(&user1, &plainObject)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1229,7 +1225,7 @@ func TestSharingObjectPart2(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err = enc.Decrypt(&user1, &object, &access); err == nil {
+	if _, err = enc.Decrypt(&user1, id); err == nil {
 		t.Fatal("Unauthorized user able to decrypt")
 	}
 }
@@ -1248,7 +1244,7 @@ func TestSharingObjectPart3(t *testing.T) {
 		AssociatedData: []byte("associated_data"),
 	}
 
-	object, access, err := enc.Encrypt(&user1, &plainObject)
+	id, err := enc.Encrypt(&user1, &plainObject)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1271,7 +1267,7 @@ func TestSharingObjectPart3(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err = enc.Decrypt(&user3, &object, &access); err != nil {
+	if _, err = enc.Decrypt(&user3, id); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -1310,17 +1306,17 @@ func TestSharingObjectPart4(t *testing.T) {
 		AssociatedData: []byte("associated_data"),
 	}
 
-	object, access, err := enc.Encrypt(&users[0], &plainObject)
+	id, err := enc.Encrypt(&users[0], &plainObject)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if err = enc.AddGroupsToAccess(&users[0], &access, &group); err != nil {
+	if err = enc.AddGroupsToAccess(&users[0], id, &group); err != nil {
 		t.Fatal(err)
 	}
 
 	for i := range users {
-		if _, err = enc.Decrypt(&users[i], &object, &access); err != nil {
+		if _, err = enc.Decrypt(&users[i], id); err != nil {
 			t.Fatal(err)
 		}
 	}

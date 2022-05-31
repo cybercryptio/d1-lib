@@ -24,6 +24,7 @@ import (
 
 	"github.com/cyber-crypt-com/encryptonize-lib/crypto"
 	"github.com/cyber-crypt-com/encryptonize-lib/data"
+	"github.com/cyber-crypt-com/encryptonize-lib/io"
 	"github.com/cyber-crypt-com/encryptonize-lib/key"
 )
 
@@ -33,7 +34,9 @@ var ErrNotAuthorized = errors.New("user not authorized")
 // Encryptonize is the entry point to the library. All main functionality is exposed through methods
 // on this struct.
 type Encryptonize struct {
-	keyProvider   key.Provider
+	keyProvider key.Provider
+	ioProvider  io.Provider
+
 	objectCryptor crypto.CryptorInterface
 	accessCryptor crypto.CryptorInterface
 	tokenCryptor  crypto.CryptorInterface
@@ -43,7 +46,7 @@ type Encryptonize struct {
 }
 
 // New creates a new instance of Encryptonize configured with the given providers.
-func New(keyProvider key.Provider) (Encryptonize, error) {
+func New(keyProvider key.Provider, ioProvider io.Provider) (Encryptonize, error) {
 	keys, err := keyProvider.GetKeys()
 	if err != nil {
 		return Encryptonize{}, err
@@ -72,6 +75,7 @@ func New(keyProvider key.Provider) (Encryptonize, error) {
 
 	return Encryptonize{
 		keyProvider:   keyProvider,
+		ioProvider:    ioProvider,
 		objectCryptor: &objectCryptor,
 		accessCryptor: &accessCryptor,
 		tokenCryptor:  &tokenCryptor,
@@ -86,76 +90,107 @@ func New(keyProvider key.Provider) (Encryptonize, error) {
 ////////////////////////////////////////////////////////
 
 // Encrypt creates a new sealed object containing the provided plaintext data as well as an access
-// object that controls access to that data. The calling user is automatically added to the access
-// object. To grant other users access, see AddGroupsToAccess and AddUserToGroups.
+// list that controls access to that data. The calling user is automatically added to the access
+// list. To grant other users access, see AddGroupsToAccess and AddUserToGroups.
+//
+// The returned ID is the unique identifier of the sealed object. It is used to identify the object
+// and related data about the object to the IO Provider, and needs to be provided when decrypting
+// the object.
 //
 // For all practical purposes, the size of the ciphertext in the SealedObject is len(plaintext) + 48
 // bytes.
-//
-// The sealed object and the sealed access object are not sensitive data.
-func (e *Encryptonize) Encrypt(user *data.SealedUser, object *data.Object) (data.SealedObject, data.SealedAccess, error) {
+func (e *Encryptonize) Encrypt(user *data.SealedUser, object *data.Object) (uuid.UUID, error) {
 	if !user.Verify(e.userCryptor) {
-		return data.SealedObject{}, data.SealedAccess{}, ErrNotAuthorized
+		return uuid.Nil, ErrNotAuthorized
 	}
 
-	id, err := uuid.NewV4()
+	oid, err := uuid.NewV4()
 	if err != nil {
-		return data.SealedObject{}, data.SealedAccess{}, err
+		return uuid.Nil, err
 	}
 
-	wrappedOEK, sealedObject, err := object.Seal(id, e.objectCryptor)
+	wrappedOEK, sealedObject, err := object.Seal(oid, e.objectCryptor)
 	if err != nil {
-		return data.SealedObject{}, data.SealedAccess{}, err
+		return uuid.Nil, err
 	}
 
 	access := data.NewAccess(wrappedOEK)
 	access.AddGroups(user.ID)
-	sealedAccess, err := access.Seal(sealedObject.ID, e.accessCryptor)
+	sealedAccess, err := access.Seal(oid, e.accessCryptor)
 	if err != nil {
-		return data.SealedObject{}, data.SealedAccess{}, err
+		return uuid.Nil, err
 	}
 
-	return sealedObject, sealedAccess, nil
+	// Write data to IO Provider
+	if err := e.putSealedObject(&sealedObject, false); err != nil {
+		return uuid.Nil, err
+	}
+	if err := e.putSealedAccess(&sealedAccess, false); err != nil {
+		return uuid.Nil, err
+	}
+
+	return oid, nil
 }
 
 // Update creates a new sealed object containing the provided plaintext data but uses a previously
-// created access object to control access to that data. The authorizing user must be part of the
-// provided access object, either directly or through group membership. The access object is
-// modified in-place, and any object previously associated with this access object can no longer be
-// decrypted.
+// created access list to control access to that data. The authorizing user must be part of the
+// provided access list, either directly or through group membership.
 //
-// The sealed object is not sensitive data.
-func (e *Encryptonize) Update(authorizer *data.SealedUser, object *data.Object, access *data.SealedAccess) (data.SealedObject, error) {
-	plainAccess, err := e.authorizeAccess(authorizer, access)
+// The input ID is the identifier obtained by previously calling Encrypt.
+func (e *Encryptonize) Update(authorizer *data.SealedUser, oid uuid.UUID, object *data.Object) error {
+	access, err := e.getSealedAccess(oid)
 	if err != nil {
-		return data.SealedObject{}, err
+		return err
 	}
 
-	wrappedOEK, sealedObject, err := object.Seal(access.ID, e.objectCryptor)
+	plainAccess, err := e.authorizeAccess(authorizer, access)
 	if err != nil {
-		return data.SealedObject{}, err
+		return err
+	}
+
+	wrappedOEK, sealedObject, err := object.Seal(oid, e.objectCryptor)
+	if err != nil {
+		return err
 	}
 
 	plainAccess.WrappedOEK = wrappedOEK
-	sealedAccess, err := plainAccess.Seal(sealedObject.ID, e.accessCryptor)
+	sealedAccess, err := plainAccess.Seal(oid, e.accessCryptor)
 	if err != nil {
-		return data.SealedObject{}, err
+		return err
 	}
-	*access = sealedAccess
 
-	return sealedObject, nil
+	// Write data to IO Provider
+	if err := e.putSealedObject(&sealedObject, true); err != nil {
+		return err
+	}
+	if err := e.putSealedAccess(&sealedAccess, true); err != nil {
+		return err
+	}
+
+	return nil
 }
 
-// Decrypt extracts the plaintext from a sealed object. The authorizing user must be part of the
-// provided access object, either directly or through group membership.
+// Decrypt fetches a sealed object and extracts the plaintext. The authorizing user must be part of
+// the provided access list, either directly or through group membership.
+//
+// The input ID is the identifier obtained by previously calling Encrypt.
 //
 // The unsealed object may contain sensitive data.
-func (e *Encryptonize) Decrypt(authorizer *data.SealedUser, object *data.SealedObject, access *data.SealedAccess) (data.Object, error) {
+func (e *Encryptonize) Decrypt(authorizer *data.SealedUser, oid uuid.UUID) (data.Object, error) {
+	access, err := e.getSealedAccess(oid)
+	if err != nil {
+		return data.Object{}, err
+	}
+
 	plainAccess, err := e.authorizeAccess(authorizer, access)
 	if err != nil {
 		return data.Object{}, err
 	}
 
+	object, err := e.getSealedObject(oid)
+	if err != nil {
+		return data.Object{}, err
+	}
 	return object.Unseal(plainAccess.WrappedOEK, e.objectCryptor)
 }
 
