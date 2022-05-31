@@ -33,7 +33,7 @@ type Access struct {
 // SealedAccess is an encrypted structure which is used to manage access to encrypted objects.
 type SealedAccess struct {
 	// The ID of the object this access object provides access to.
-	ID uuid.UUID
+	OID uuid.UUID
 
 	Ciphertext []byte
 	WrappedKey []byte
@@ -48,14 +48,14 @@ func NewAccess(wrappedOEK []byte) Access {
 }
 
 // Seal encrypts the access object.
-func (a *Access) Seal(id uuid.UUID, cryptor crypto.CryptorInterface) (SealedAccess, error) {
-	wrappedKey, ciphertext, err := cryptor.Encrypt(a, id.Bytes())
+func (a *Access) Seal(oid uuid.UUID, cryptor crypto.CryptorInterface) (SealedAccess, error) {
+	wrappedKey, ciphertext, err := cryptor.Encrypt(a, oid.Bytes())
 	if err != nil {
 		return SealedAccess{}, err
 	}
 
 	sealed := SealedAccess{
-		ID:         id,
+		OID:        oid,
 		Ciphertext: ciphertext,
 		WrappedKey: wrappedKey,
 	}
@@ -96,7 +96,7 @@ func (a *Access) GetGroups() map[uuid.UUID]struct{} {
 // Unseal decrypts the sealed object.
 func (a *SealedAccess) Unseal(cryptor crypto.CryptorInterface) (Access, error) {
 	plainAccess := Access{}
-	if err := cryptor.Decrypt(&plainAccess, a.ID.Bytes(), a.WrappedKey, a.Ciphertext); err != nil {
+	if err := cryptor.Decrypt(&plainAccess, a.OID.Bytes(), a.WrappedKey, a.Ciphertext); err != nil {
 		return Access{}, err
 	}
 	return plainAccess, nil

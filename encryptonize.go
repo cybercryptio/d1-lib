@@ -24,9 +24,13 @@ import (
 
 	"github.com/cyber-crypt-com/encryptonize-lib/crypto"
 	"github.com/cyber-crypt-com/encryptonize-lib/data"
+	"github.com/cyber-crypt-com/encryptonize-lib/id"
 	"github.com/cyber-crypt-com/encryptonize-lib/io"
 	"github.com/cyber-crypt-com/encryptonize-lib/key"
 )
+
+// Error returned if the caller cannot be authenticated by the Identity Provider.
+var ErrNotAuthenticated = errors.New("user not authenticated")
 
 // Error returned if a user tries to access data they are not authorized for.
 var ErrNotAuthorized = errors.New("user not authorized")
@@ -36,6 +40,7 @@ var ErrNotAuthorized = errors.New("user not authorized")
 type Encryptonize struct {
 	keyProvider key.Provider
 	ioProvider  io.Provider
+	idProvider  id.Provider
 
 	objectCryptor crypto.CryptorInterface
 	accessCryptor crypto.CryptorInterface
@@ -44,7 +49,7 @@ type Encryptonize struct {
 }
 
 // New creates a new instance of Encryptonize configured with the given providers.
-func New(keyProvider key.Provider, ioProvider io.Provider) (Encryptonize, error) {
+func New(keyProvider key.Provider, ioProvider io.Provider, idProvider id.Provider) (Encryptonize, error) {
 	keys, err := keyProvider.GetKeys()
 	if err != nil {
 		return Encryptonize{}, err
@@ -66,6 +71,7 @@ func New(keyProvider key.Provider, ioProvider io.Provider) (Encryptonize, error)
 	return Encryptonize{
 		keyProvider:   keyProvider,
 		ioProvider:    ioProvider,
+		idProvider:    idProvider,
 		objectCryptor: &objectCryptor,
 		accessCryptor: &accessCryptor,
 		tokenCryptor:  &tokenCryptor,
@@ -87,8 +93,12 @@ func New(keyProvider key.Provider, ioProvider io.Provider) (Encryptonize, error)
 //
 // For all practical purposes, the size of the ciphertext in the SealedObject is len(plaintext) + 48
 // bytes.
-func (e *Encryptonize) Encrypt(user *data.SealedUser, object *data.Object) (uuid.UUID, error) {
-	if !user.Verify(e.userCryptor) {
+func (e *Encryptonize) Encrypt(token string, object *data.Object) (uuid.UUID, error) {
+	identity, err := e.idProvider.GetIdentity(token)
+	if err != nil {
+		return uuid.Nil, ErrNotAuthenticated
+	}
+	if !identity.Scopes.Contains(id.ScopeEncrypt) {
 		return uuid.Nil, ErrNotAuthorized
 	}
 
@@ -103,7 +113,7 @@ func (e *Encryptonize) Encrypt(user *data.SealedUser, object *data.Object) (uuid
 	}
 
 	access := data.NewAccess(wrappedOEK)
-	access.AddGroups(user.ID)
+	access.AddGroups(identity.ID)
 	sealedAccess, err := access.Seal(oid, e.accessCryptor)
 	if err != nil {
 		return uuid.Nil, err
@@ -125,13 +135,21 @@ func (e *Encryptonize) Encrypt(user *data.SealedUser, object *data.Object) (uuid
 // provided access list, either directly or through group membership.
 //
 // The input ID is the identifier obtained by previously calling Encrypt.
-func (e *Encryptonize) Update(authorizer *data.SealedUser, oid uuid.UUID, object *data.Object) error {
+func (e *Encryptonize) Update(token string, oid uuid.UUID, object *data.Object) error {
+	identity, err := e.idProvider.GetIdentity(token)
+	if err != nil {
+		return ErrNotAuthenticated
+	}
+	if !identity.Scopes.Contains(id.ScopeUpdate) {
+		return ErrNotAuthorized
+	}
+
 	access, err := e.getSealedAccess(oid)
 	if err != nil {
 		return err
 	}
 
-	plainAccess, err := e.authorizeAccess(authorizer, access)
+	plainAccess, err := e.authorizeAccess(&identity, id.ScopeUpdate, access)
 	if err != nil {
 		return err
 	}
@@ -164,13 +182,21 @@ func (e *Encryptonize) Update(authorizer *data.SealedUser, oid uuid.UUID, object
 // The input ID is the identifier obtained by previously calling Encrypt.
 //
 // The unsealed object may contain sensitive data.
-func (e *Encryptonize) Decrypt(authorizer *data.SealedUser, oid uuid.UUID) (data.Object, error) {
+func (e *Encryptonize) Decrypt(token string, oid uuid.UUID) (data.Object, error) {
+	identity, err := e.idProvider.GetIdentity(token)
+	if err != nil {
+		return data.Object{}, ErrNotAuthenticated
+	}
+	if !identity.Scopes.Contains(id.ScopeDecrypt) {
+		return data.Object{}, ErrNotAuthorized
+	}
+
 	access, err := e.getSealedAccess(oid)
 	if err != nil {
 		return data.Object{}, err
 	}
 
-	plainAccess, err := e.authorizeAccess(authorizer, access)
+	plainAccess, err := e.authorizeAccess(&identity, id.ScopeDecrypt, access)
 	if err != nil {
 		return data.Object{}, err
 	}
@@ -216,16 +242,25 @@ func (e *Encryptonize) GetTokenContents(token *data.SealedToken) ([]byte, error)
 //
 // The set of group IDs is somewhat sensitive data, as it reveals what groups/users have access to
 // the associated object.
-func (e *Encryptonize) GetAccessGroups(authorizer *data.SealedUser, oid uuid.UUID) (map[uuid.UUID]struct{}, error) {
+func (e *Encryptonize) GetAccessGroups(token string, oid uuid.UUID) (map[uuid.UUID]struct{}, error) {
+	identity, err := e.idProvider.GetIdentity(token)
+	if err != nil {
+		return nil, ErrNotAuthenticated
+	}
+	if !identity.Scopes.Contains(id.ScopeGetAccessGroups) {
+		return nil, ErrNotAuthorized
+	}
+
 	access, err := e.getSealedAccess(oid)
 	if err != nil {
 		return nil, err
 	}
 
-	plainAccess, err := e.authorizeAccess(authorizer, access)
+	plainAccess, err := e.authorizeAccess(&identity, id.ScopeGetAccessGroups, access)
 	if err != nil {
 		return nil, err
 	}
+
 	return plainAccess.GetGroups(), nil
 }
 
@@ -233,10 +268,13 @@ func (e *Encryptonize) GetAccessGroups(authorizer *data.SealedUser, oid uuid.UUI
 // the associated object. The authorizing user must be part of the access list.
 //
 // The input ID is the identifier obtained by previously calling Encrypt.
-func (e *Encryptonize) AddGroupsToAccess(authorizer *data.SealedUser, oid uuid.UUID, groups ...*data.SealedGroup) error {
-	groupIDs, err := e.verifyGroups(groups...)
+func (e *Encryptonize) AddGroupsToAccess(token string, oid uuid.UUID, groups ...uuid.UUID) error {
+	identity, err := e.idProvider.GetIdentity(token)
 	if err != nil {
-		return err
+		return ErrNotAuthenticated
+	}
+	if !identity.Scopes.Contains(id.ScopeModifyAccessGroups) {
+		return ErrNotAuthorized
 	}
 
 	access, err := e.getSealedAccess(oid)
@@ -244,11 +282,11 @@ func (e *Encryptonize) AddGroupsToAccess(authorizer *data.SealedUser, oid uuid.U
 		return err
 	}
 
-	plainAccess, err := e.authorizeAccess(authorizer, access)
+	plainAccess, err := e.authorizeAccess(&identity, id.ScopeModifyAccessGroups, access)
 	if err != nil {
 		return err
 	}
-	plainAccess.AddGroups(groupIDs...)
+	plainAccess.AddGroups(groups...)
 
 	*access, err = plainAccess.Seal(oid, e.accessCryptor)
 	if err != nil {
@@ -262,10 +300,13 @@ func (e *Encryptonize) AddGroupsToAccess(authorizer *data.SealedUser, oid uuid.U
 // from accessing the associated object. The authorizing user must be part of the access object.
 //
 // The input ID is the identifier obtained by previously calling Encrypt.
-func (e *Encryptonize) RemoveGroupsFromAccess(authorizer *data.SealedUser, oid uuid.UUID, groups ...*data.SealedGroup) error {
-	groupIDs, err := e.verifyGroups(groups...)
+func (e *Encryptonize) RemoveGroupsFromAccess(token string, oid uuid.UUID, groups ...uuid.UUID) error {
+	identity, err := e.idProvider.GetIdentity(token)
 	if err != nil {
-		return err
+		return ErrNotAuthenticated
+	}
+	if !identity.Scopes.Contains(id.ScopeModifyAccessGroups) {
+		return ErrNotAuthorized
 	}
 
 	access, err := e.getSealedAccess(oid)
@@ -273,11 +314,11 @@ func (e *Encryptonize) RemoveGroupsFromAccess(authorizer *data.SealedUser, oid u
 		return err
 	}
 
-	plainAccess, err := e.authorizeAccess(authorizer, access)
+	plainAccess, err := e.authorizeAccess(&identity, id.ScopeModifyAccessGroups, access)
 	if err != nil {
 		return err
 	}
-	plainAccess.RemoveGroups(groupIDs...)
+	plainAccess.RemoveGroups(groups...)
 
 	*access, err = plainAccess.Seal(oid, e.accessCryptor)
 	if err != nil {
@@ -292,13 +333,21 @@ func (e *Encryptonize) RemoveGroupsFromAccess(authorizer *data.SealedUser, oid u
 // authorized.
 //
 // The input ID is the identifier obtained by previously calling Encrypt.
-func (e *Encryptonize) AuthorizeUser(user *data.SealedUser, oid uuid.UUID) error {
+func (e *Encryptonize) AuthorizeUser(token string, oid uuid.UUID) error {
+	identity, err := e.idProvider.GetIdentity(token)
+	if err != nil {
+		return ErrNotAuthenticated
+	}
+	if !identity.Scopes.Contains(id.ScopeGetAccessGroups) {
+		return ErrNotAuthorized
+	}
+
 	access, err := e.getSealedAccess(oid)
 	if err != nil {
 		return err
 	}
 
-	_, err = e.authorizeAccess(user, access)
+	_, err = e.authorizeAccess(&identity, id.ScopeGetAccessGroups, access)
 	return err
 }
 

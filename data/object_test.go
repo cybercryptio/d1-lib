@@ -107,7 +107,7 @@ func TestObjectVerifyID(t *testing.T) {
 	if _, err := sealed.Unseal(wrappedKey, &cryptor); err != nil {
 		t.Fatal("Verification failed")
 	}
-	sealed.ID = uuid.Must(uuid.NewV4())
+	sealed.OID = uuid.Must(uuid.NewV4())
 	if _, err := sealed.Unseal(wrappedKey, &cryptor); err == nil {
 		t.Fatal("Verification should have failed")
 	}
@@ -125,7 +125,7 @@ func TestObjectID(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if sealed.ID != id {
-		t.Fatalf("Object ID not equal to expected value: %s != %s", sealed.ID, id)
+	if sealed.OID != id {
+		t.Fatalf("Object ID not equal to expected value: %s != %s", sealed.OID, id)
 	}
 }
