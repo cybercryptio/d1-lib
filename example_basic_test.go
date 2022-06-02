@@ -20,6 +20,7 @@ import (
 
 	"github.com/cyber-crypt-com/encryptonize-lib"
 	"github.com/cyber-crypt-com/encryptonize-lib/data"
+	"github.com/cyber-crypt-com/encryptonize-lib/io"
 	"github.com/cyber-crypt-com/encryptonize-lib/key"
 )
 
@@ -33,10 +34,13 @@ var keyProvider = key.NewStatic(key.Keys{
 	IEK: []byte{5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5},
 })
 
+// Store encrypted data in memory.
+var ioProvider = io.NewMem()
+
 // This is a basic example demonstrating how to use the Encryptonize® library to encrypt and decrypt binary data.
 func Example_basicEncryptDecrypt() {
 	// Instantiate the Encryptonize® library with the given keys.
-	ectnz, err := encryptonize.New(&keyProvider)
+	ectnz, err := encryptonize.New(&keyProvider, &ioProvider)
 	if err != nil {
 		log.Fatalf("Error instantiating Encryptonize: %v", err)
 	}
@@ -53,16 +57,15 @@ func Example_basicEncryptDecrypt() {
 		AssociatedData: []byte("AssociatedData"),
 	}
 
-	// Encrypt the object and get the corresponding encrypted access object. The access object is required for decryption as its ciphertext contains
-	// the wrapped object encryption key and the IDs of the users that are allowed to decrypt the corresponding object. By default, only the default
-	// group of the user who encrypted the object is allowed to decrypt the object.
-	encryptedObject, encryptedAccess, err := ectnz.Encrypt(&user, &binaryObject)
+	// Encrypt the object and get the resulting object ID. By default, only the default group of the
+	// user who encrypted the object is allowed to decrypt the object.
+	oid, err := ectnz.Encrypt(&user, &binaryObject)
 	if err != nil {
 		log.Fatalf("Error encrypting object: %v", err)
 	}
 
-	// Decrypt the object with the corresponding access using the given user as the authorizer.
-	decryptedObject, err := ectnz.Decrypt(&user, &encryptedObject, &encryptedAccess)
+	// Decrypt the object using the given user as the authorizer.
+	decryptedObject, err := ectnz.Decrypt(&user, oid)
 	if err != nil {
 		log.Fatalf("Error decrypting object: %v", err)
 	}

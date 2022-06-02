@@ -20,6 +20,7 @@ import (
 
 	"github.com/cyber-crypt-com/encryptonize-lib"
 	"github.com/cyber-crypt-com/encryptonize-lib/data"
+	"github.com/gofrs/uuid"
 )
 
 // The UserData struct models the data of a user. It contains both private data that should be kept confidential and public data that can be shared
@@ -36,9 +37,8 @@ type PrivateUserData struct {
 }
 
 type PublicUserData struct {
-	group               data.SealedGroup
-	encryptedData       data.SealedObject
-	encryptedDataAccess data.SealedAccess
+	group    data.SealedGroup
+	objectID uuid.UUID
 }
 
 // createUserData instantiates a user with its private and public data.
@@ -53,21 +53,21 @@ func createUserData(ectnz encryptonize.Encryptonize) UserData {
 		AssociatedData: []byte("AssociatedData"),
 	}
 
-	encryptedUserObject, encryptedObjectAccess, err := ectnz.Encrypt(&user, &privateUserObject)
+	oid, err := ectnz.Encrypt(&user, &privateUserObject)
 	if err != nil {
 		log.Fatalf("Error encrypting object: %v", err)
 	}
 
 	return UserData{
 		PrivateUserData{user, password, privateUserObject},
-		PublicUserData{group, encryptedUserObject, encryptedObjectAccess},
+		PublicUserData{group, oid},
 	}
 }
 
 // This example demonstrates how to use the Encryptonize® library to enforce discretionary access control for binary data.
 func Example_accessControl() {
 	// Instantiate the Encryptonize® library with the given keys.
-	ectnz, err := encryptonize.New(&keyProvider)
+	ectnz, err := encryptonize.New(&keyProvider, &ioProvider)
 	if err != nil {
 		log.Fatalf("Error instantiating Encryptonize: %v", err)
 	}
@@ -78,13 +78,13 @@ func Example_accessControl() {
 	charlie := createUserData(ectnz)
 
 	// charlie wants to share her data with bob.
-	err = ectnz.AddGroupsToAccess(&charlie.private.user, &charlie.public.encryptedDataAccess, &bob.public.group)
+	err = ectnz.AddGroupsToAccess(&charlie.private.user, charlie.public.objectID, &bob.public.group)
 	if err != nil {
 		log.Fatalf("Error adding group to access: %v", err)
 	}
 
 	// bob can now decrypt charlie's encrypted data.
-	charliesDecryptedData, err := ectnz.Decrypt(&bob.private.user, &charlie.public.encryptedData, &charlie.public.encryptedDataAccess)
+	charliesDecryptedData, err := ectnz.Decrypt(&bob.private.user, charlie.public.objectID)
 	if err != nil {
 		log.Fatalf("Error decrypting object: %v", err)
 	}
@@ -97,7 +97,7 @@ func Example_accessControl() {
 	}
 
 	// charlie can now decrypt all of alice's previously encrypted data.
-	alicesDecryptedData, err := ectnz.Decrypt(&charlie.private.user, &alice.public.encryptedData, &alice.public.encryptedDataAccess)
+	alicesDecryptedData, err := ectnz.Decrypt(&charlie.private.user, alice.public.objectID)
 	if err != nil {
 		log.Fatalf("Error decrypting object: %v", err)
 	}
