@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package data
+package id
 
 import (
 	"testing"
@@ -31,11 +31,12 @@ var userGroups = []uuid.UUID{
 }
 
 func TestGetGroupIDs(t *testing.T) {
-	groupID := uuid.Must(uuid.NewV4())
-	user, _, err := NewUser(groupID)
+	user, _, err := NewUser(ScopeEncrypt)
 	if err != nil {
 		t.Fatal(err)
 	}
+	groupID := uuid.Must(uuid.NewV4())
+	user.AddGroups(groupID)
 
 	uuids := user.GetGroups()
 	if _, ok := uuids[groupID]; len(uuids) == 0 || !ok {
@@ -44,7 +45,7 @@ func TestGetGroupIDs(t *testing.T) {
 }
 
 func TestGetZeroGroupIDs(t *testing.T) {
-	user, _, err := NewUser()
+	user, _, err := NewUser(ScopeEncrypt)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -56,10 +57,11 @@ func TestGetZeroGroupIDs(t *testing.T) {
 }
 
 func TestUserContainsGroup(t *testing.T) {
-	user, _, err := NewUser(userGroups...)
+	user, _, err := NewUser(ScopeEncrypt)
 	if err != nil {
 		t.Fatal(err)
 	}
+	user.AddGroups(userGroups...)
 
 	if !user.ContainsGroups(userGroups...) {
 		t.Error("ContainsGroup returned false")
@@ -71,7 +73,7 @@ func TestUserContainsGroup(t *testing.T) {
 }
 
 func TestUserAdd(t *testing.T) {
-	user, _, err := NewUser()
+	user, _, err := NewUser(ScopeEncrypt)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -86,7 +88,7 @@ func TestUserAdd(t *testing.T) {
 }
 
 func TestUserAddDuplicate(t *testing.T) {
-	user, _, err := NewUser()
+	user, _, err := NewUser(ScopeEncrypt)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -99,10 +101,11 @@ func TestUserAddDuplicate(t *testing.T) {
 }
 
 func TestUserRemoveGroup(t *testing.T) {
-	user, _, err := NewUser(userGroups...)
+	user, _, err := NewUser(ScopeEncrypt)
 	if err != nil {
 		t.Fatal(err)
 	}
+	user.AddGroups(userGroups...)
 
 	for _, g := range userGroups {
 		user.RemoveGroups(g)
@@ -119,18 +122,19 @@ func TestUserSeal(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	user, _, err := NewUser(userGroups...)
+	user, _, err := NewUser(ScopeEncrypt)
 	if err != nil {
 		t.Fatal(err)
 	}
+	user.AddGroups(userGroups...)
 
 	id := uuid.Must(uuid.NewV4())
 	sealed, err := user.Seal(id, &cryptor)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if sealed.ID != id {
-		t.Fatalf("Wrong ID: %s != %s", sealed.ID, id)
+	if sealed.UID != id {
+		t.Fatalf("Wrong ID: %s != %s", sealed.UID, id)
 	}
 
 	unsealed, err := sealed.Unseal(&cryptor)
@@ -149,10 +153,11 @@ func TestUserVerifyCiphertext(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	user, _, err := NewUser(userGroups...)
+	user, _, err := NewUser(ScopeEncrypt)
 	if err != nil {
 		t.Fatal(err)
 	}
+	user.AddGroups(userGroups...)
 
 	id := uuid.Must(uuid.NewV4())
 	sealed, err := user.Seal(id, &cryptor)
@@ -176,10 +181,11 @@ func TestUserVerifyID(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	user, _, err := NewUser(userGroups...)
+	user, _, err := NewUser(ScopeEncrypt)
 	if err != nil {
 		t.Fatal(err)
 	}
+	user.AddGroups(userGroups...)
 
 	id := uuid.Must(uuid.NewV4())
 	sealed, err := user.Seal(id, &cryptor)
@@ -190,14 +196,14 @@ func TestUserVerifyID(t *testing.T) {
 	if !sealed.Verify(&cryptor) {
 		t.Fatal("Verification failed")
 	}
-	sealed.ID = uuid.Must(uuid.NewV4())
+	sealed.UID = uuid.Must(uuid.NewV4())
 	if sealed.Verify(&cryptor) {
 		t.Fatal("Verification should have failed")
 	}
 }
 
 func TestUserAuth(t *testing.T) {
-	user, pwd, err := NewUser()
+	user, pwd, err := NewUser(ScopeEncrypt)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -208,7 +214,7 @@ func TestUserAuth(t *testing.T) {
 }
 
 func TestUserAuthWrongPwd(t *testing.T) {
-	user, _, err := NewUser()
+	user, _, err := NewUser(ScopeEncrypt)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -219,7 +225,7 @@ func TestUserAuthWrongPwd(t *testing.T) {
 }
 
 func TestChangePwd(t *testing.T) {
-	user, pwd, err := NewUser()
+	user, pwd, err := NewUser(ScopeEncrypt)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -235,7 +241,7 @@ func TestChangePwd(t *testing.T) {
 }
 
 func TestChangePwdWrongPwd(t *testing.T) {
-	user, _, err := NewUser()
+	user, _, err := NewUser(ScopeEncrypt)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -246,7 +252,7 @@ func TestChangePwdWrongPwd(t *testing.T) {
 }
 
 func TestChangePwdAuthWithOldPwd(t *testing.T) {
-	user, pwd, err := NewUser()
+	user, pwd, err := NewUser(ScopeEncrypt)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package data
+package id
 
 import (
 	"testing"
@@ -30,7 +30,7 @@ func TestGroupSeal(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	group := NewGroup([]byte("data"))
+	group := NewGroup(ScopeEncrypt)
 	sealed, err := group.Seal(uuid.Must(uuid.NewV4()), &cryptor)
 	if err != nil {
 		t.Fatal(err)
@@ -52,7 +52,7 @@ func TestGroupVerifyCiphertext(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	group := NewGroup([]byte("data"))
+	group := NewGroup(ScopeEncrypt)
 	sealed, err := group.Seal(uuid.Must(uuid.NewV4()), &cryptor)
 	if err != nil {
 		t.Fatal(err)
@@ -74,7 +74,7 @@ func TestGroupVerifyID(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	group := NewGroup([]byte("data"))
+	group := NewGroup(ScopeEncrypt)
 	sealed, err := group.Seal(uuid.Must(uuid.NewV4()), &cryptor)
 	if err != nil {
 		t.Fatal(err)
@@ -83,7 +83,7 @@ func TestGroupVerifyID(t *testing.T) {
 	if !sealed.Verify(&cryptor) {
 		t.Fatal("Verification failed")
 	}
-	sealed.ID = uuid.Must(uuid.NewV4())
+	sealed.GID = uuid.Must(uuid.NewV4())
 	if sealed.Verify(&cryptor) {
 		t.Fatal("Verification should have failed")
 	}
@@ -96,7 +96,7 @@ func TestGroupID(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	group := NewGroup([]byte("data"))
+	group := NewGroup(ScopeEncrypt)
 	sealed1, err := group.Seal(uuid.Must(uuid.NewV4()), &cryptor)
 	if err != nil {
 		t.Fatal(err)
@@ -106,7 +106,7 @@ func TestGroupID(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if sealed1.ID == sealed2.ID {
+	if sealed1.GID == sealed2.GID {
 		t.Fatal("Expected different IDs")
 	}
 }
