@@ -17,65 +17,34 @@ package encryptonize
 import (
 	"bytes"
 	"encoding/gob"
-	"errors"
 
 	"github.com/gofrs/uuid"
 
 	"github.com/cyber-crypt-com/encryptonize-lib/data"
+	"github.com/cyber-crypt-com/encryptonize-lib/id"
 	"github.com/cyber-crypt-com/encryptonize-lib/io"
 )
 
 // authorizeAccess checks whether the authorizing user is allowed to access the provided access
 // object. If so, the unsealed access object is returned.
-func (e *Encryptonize) authorizeAccess(authorizer *data.SealedUser, sealedAccess *data.SealedAccess) (data.Access, error) {
+//
+// A user is authorized to access an object if at least one of the following is true:
+// * The the user's identity ID is part of the Access and the user's identity scope contains the
+//   required scope.
+// * One of the user's group IDs is part of the Access and that group's scope contains the required
+//   scope.
+func (e *Encryptonize) authorizeAccess(identity *id.Identity, scopes id.Scope, sealedAccess *data.SealedAccess) (data.Access, error) {
 	plainAccess, err := sealedAccess.Unseal(e.accessCryptor)
 	if err != nil {
 		return data.Access{}, err
 	}
 
-	plainAuthorizer, err := authorizer.Unseal(e.userCryptor)
-	if err != nil {
-		return data.Access{}, err
-	}
-
-	for id := range plainAuthorizer.GetGroups() {
-		if plainAccess.ContainsGroups(id) {
+	for gid := range identity.GetIDs() {
+		if plainAccess.ContainsGroups(gid) && identity.GetIDScope(gid).Contains(scopes) {
 			return plainAccess, nil
 		}
 	}
-	return data.Access{}, errors.New("User not authorized")
-}
-
-// authorizeGroups checks whether the authorizing user is a member of all provided groups. If so, a
-// list of all the group IDs is returned.
-func (e *Encryptonize) authorizeGroups(authorizer *data.SealedUser, groups ...*data.SealedGroup) ([]uuid.UUID, error) {
-	groupIDs, err := e.verifyGroups(groups...)
-	if err != nil {
-		return nil, err
-	}
-
-	plainAuthorizer, err := authorizer.Unseal(e.userCryptor)
-	if err != nil {
-		return nil, err
-	}
-	if !plainAuthorizer.ContainsGroups(groupIDs...) {
-		return nil, errors.New("User not authorized")
-	}
-
-	return groupIDs, nil
-}
-
-// verifyGroups integrity checks all the provided groups. If they are all authentic, a list of all
-// the group IDs is returned.
-func (e *Encryptonize) verifyGroups(groups ...*data.SealedGroup) ([]uuid.UUID, error) {
-	groupIDs := make([]uuid.UUID, 0, len(groups))
-	for _, group := range groups {
-		if !group.Verify(e.groupCryptor) {
-			return nil, errors.New("Invalid group")
-		}
-		groupIDs = append(groupIDs, group.ID)
-	}
-	return groupIDs, nil
+	return data.Access{}, ErrNotAuthorized
 }
 
 // putSealedObject encodes a sealed object and sends it to the IO Provider, either as a "Put" or an
@@ -88,14 +57,14 @@ func (e *Encryptonize) putSealedObject(object *data.SealedObject, update bool) e
 	}
 
 	if update {
-		return e.ioProvider.Update(object.ID, io.DataTypeSealedObject, objectBuffer.Bytes())
+		return e.ioProvider.Update(object.OID, io.DataTypeSealedObject, objectBuffer.Bytes())
 	}
-	return e.ioProvider.Put(object.ID, io.DataTypeSealedObject, objectBuffer.Bytes())
+	return e.ioProvider.Put(object.OID, io.DataTypeSealedObject, objectBuffer.Bytes())
 }
 
 // getSealedObject fetches bytes from the IO Provider and decodes them into a sealed object.
-func (e *Encryptonize) getSealedObject(id uuid.UUID) (*data.SealedObject, error) {
-	objectBytes, err := e.ioProvider.Get(id, io.DataTypeSealedObject)
+func (e *Encryptonize) getSealedObject(oid uuid.UUID) (*data.SealedObject, error) {
+	objectBytes, err := e.ioProvider.Get(oid, io.DataTypeSealedObject)
 	if err != nil {
 		return nil, err
 	}
@@ -107,11 +76,11 @@ func (e *Encryptonize) getSealedObject(id uuid.UUID) (*data.SealedObject, error)
 		return nil, err
 	}
 
-	object.ID = id
+	object.OID = oid
 	return object, nil
 }
 
-// putSealedObject encodes a sealed access and sends it to the IO Provider, either as a "Put" or an
+// putSealedAccess encodes a sealed access and sends it to the IO Provider, either as a "Put" or an
 // "Update".
 func (e *Encryptonize) putSealedAccess(access *data.SealedAccess, update bool) error {
 	var accessBuffer bytes.Buffer
@@ -121,14 +90,14 @@ func (e *Encryptonize) putSealedAccess(access *data.SealedAccess, update bool) e
 	}
 
 	if update {
-		return e.ioProvider.Update(access.ID, io.DataTypeSealedAccess, accessBuffer.Bytes())
+		return e.ioProvider.Update(access.OID, io.DataTypeSealedAccess, accessBuffer.Bytes())
 	}
-	return e.ioProvider.Put(access.ID, io.DataTypeSealedAccess, accessBuffer.Bytes())
+	return e.ioProvider.Put(access.OID, io.DataTypeSealedAccess, accessBuffer.Bytes())
 }
 
-// getSealedObject fetches bytes from the IO Provider and decodes them into a sealed access.
-func (e *Encryptonize) getSealedAccess(id uuid.UUID) (*data.SealedAccess, error) {
-	accessBytes, err := e.ioProvider.Get(id, io.DataTypeSealedAccess)
+// getSealedAccess fetches bytes from the IO Provider and decodes them into a sealed access.
+func (e *Encryptonize) getSealedAccess(oid uuid.UUID) (*data.SealedAccess, error) {
+	accessBytes, err := e.ioProvider.Get(oid, io.DataTypeSealedAccess)
 	if err != nil {
 		return nil, err
 	}
@@ -140,6 +109,6 @@ func (e *Encryptonize) getSealedAccess(id uuid.UUID) (*data.SealedAccess, error)
 		return nil, err
 	}
 
-	access.ID = id
+	access.OID = oid
 	return access, nil
 }

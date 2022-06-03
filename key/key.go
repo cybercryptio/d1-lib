@@ -13,12 +13,6 @@ type Keys struct {
 	// Token Encryption Key used for sealing Tokens.
 	TEK []byte `koanf:"tek"`
 
-	// User Encryption Key used for Sealing user data.
-	UEK []byte `koanf:"uek"`
-
-	// Group Encryption Key used for Sealing group data.
-	GEK []byte `koanf:"gek"`
-
 	// Index Encryption Key used for searchable encryption.
 	IEK []byte `koanf:"iek"`
 }

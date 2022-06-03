@@ -20,8 +20,10 @@ import (
 
 	"github.com/cyber-crypt-com/encryptonize-lib"
 	"github.com/cyber-crypt-com/encryptonize-lib/data"
+	"github.com/cyber-crypt-com/encryptonize-lib/id"
 	"github.com/cyber-crypt-com/encryptonize-lib/io"
 	"github.com/cyber-crypt-com/encryptonize-lib/key"
+	"github.com/gofrs/uuid"
 )
 
 // These are insecure keys used only for demonstration purposes.
@@ -29,27 +31,53 @@ var keyProvider = key.NewStatic(key.Keys{
 	KEK: []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 	AEK: []byte{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
 	TEK: []byte{2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2},
-	UEK: []byte{3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3},
-	GEK: []byte{4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4},
-	IEK: []byte{5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5},
+	IEK: []byte{3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3},
 })
 
 // Store encrypted data in memory.
 var ioProvider = io.NewMem()
 
+var idProvider, _ = id.NewStandalone(
+	[]byte{4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4},
+	[]byte{5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5},
+	[]byte{6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6},
+	&ioProvider,
+)
+
+func NewUser() (uuid.UUID, uuid.UUID, string) {
+	uid, password, err := (&idProvider).NewUser(id.ScopeAll)
+	if err != nil {
+		log.Fatalf("Error creating user: %v", err)
+	}
+
+	token, err := (&idProvider).LoginUser(uid, password)
+	if err != nil {
+		log.Fatalf("Error logging in user: %v", err)
+	}
+
+	gid, err := idProvider.NewGroup(token, id.ScopeAll)
+	if err != nil {
+		log.Fatalf("Error creating group: %v", err)
+	}
+
+	err = idProvider.AddUserToGroups(token, uid, gid)
+	if err != nil {
+		log.Fatalf("Error adding user to group: %v", err)
+	}
+
+	return uid, gid, token
+}
+
 // This is a basic example demonstrating how to use the Encryptonize® library to encrypt and decrypt binary data.
 func Example_basicEncryptDecrypt() {
 	// Instantiate the Encryptonize® library with the given keys.
-	ectnz, err := encryptonize.New(&keyProvider, &ioProvider)
+	ectnz, err := encryptonize.New(&keyProvider, &ioProvider, &idProvider)
 	if err != nil {
 		log.Fatalf("Error instantiating Encryptonize: %v", err)
 	}
 
 	// Create a basic user.
-	user, _, _, err := ectnz.NewUser(nil)
-	if err != nil {
-		log.Fatalf("Error creating Encryptonize user: %v", err)
-	}
+	_, _, token := NewUser()
 
 	// A simple binary object with associated data.
 	binaryObject := data.Object{
@@ -59,13 +87,13 @@ func Example_basicEncryptDecrypt() {
 
 	// Encrypt the object and get the resulting object ID. By default, only the default group of the
 	// user who encrypted the object is allowed to decrypt the object.
-	oid, err := ectnz.Encrypt(&user, &binaryObject)
+	oid, err := ectnz.Encrypt(token, &binaryObject)
 	if err != nil {
 		log.Fatalf("Error encrypting object: %v", err)
 	}
 
 	// Decrypt the object using the given user as the authorizer.
-	decryptedObject, err := ectnz.Decrypt(&user, oid)
+	decryptedObject, err := ectnz.Decrypt(token, oid)
 	if err != nil {
 		log.Fatalf("Error decrypting object: %v", err)
 	}

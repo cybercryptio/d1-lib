@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package data
+package id
 
 import (
 	"github.com/gofrs/uuid"
@@ -20,40 +20,40 @@ import (
 	"github.com/cyber-crypt-com/encryptonize-lib/crypto"
 )
 
-// Group contains data about an Encryptonize group. Note: All fields need to exported in order for
+// Group contains data about a group of users. Note: All fields need to exported in order for
 // gob to serialize them.
 type Group struct {
-	Data []byte
+	Scopes Scope
 }
 
-// SealedGroup is an encrypted structure which contains data about an Encryptonize group.
+// SealedGroup is an encrypted structure which contains data about a user group.
 type SealedGroup struct {
 	// The unique ID of the group.
-	ID uuid.UUID
+	GID uuid.UUID
 
 	Ciphertext []byte
 	WrappedKey []byte
 }
 
-// NewGroup creates a new group which contains the provided data.
-func NewGroup(data []byte) Group {
-	return Group{data}
+// NewGroup creates a new group which has the given scopes.
+func NewGroup(scopes Scope) Group {
+	return Group{scopes}
 }
 
 // Seal encrypts the group.
-func (g *Group) Seal(id uuid.UUID, cryptor crypto.CryptorInterface) (SealedGroup, error) {
-	wrappedKey, ciphertext, err := cryptor.Encrypt(g, id.Bytes())
+func (g *Group) Seal(gid uuid.UUID, cryptor crypto.CryptorInterface) (SealedGroup, error) {
+	wrappedKey, ciphertext, err := cryptor.Encrypt(g, gid.Bytes())
 	if err != nil {
 		return SealedGroup{}, err
 	}
 
-	return SealedGroup{id, ciphertext, wrappedKey}, nil
+	return SealedGroup{gid, ciphertext, wrappedKey}, nil
 }
 
 // Unseal decrypts the sealed group.
 func (g *SealedGroup) Unseal(cryptor crypto.CryptorInterface) (Group, error) {
 	plainGroup := Group{}
-	if err := cryptor.Decrypt(&plainGroup, g.ID.Bytes(), g.WrappedKey, g.Ciphertext); err != nil {
+	if err := cryptor.Decrypt(&plainGroup, g.GID.Bytes(), g.WrappedKey, g.Ciphertext); err != nil {
 		return Group{}, err
 	}
 	return plainGroup, nil

@@ -17,9 +17,13 @@ package encryptonize
 import (
 	"testing"
 
+	"errors"
 	"reflect"
 
+	"github.com/gofrs/uuid"
+
 	"github.com/cyber-crypt-com/encryptonize-lib/data"
+	"github.com/cyber-crypt-com/encryptonize-lib/id"
 	"github.com/cyber-crypt-com/encryptonize-lib/io"
 	"github.com/cyber-crypt-com/encryptonize-lib/key"
 )
@@ -29,173 +33,63 @@ func newTestEncryptonize(t *testing.T) Encryptonize {
 		KEK: []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 		AEK: []byte{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
 		TEK: []byte{2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2},
-		UEK: []byte{3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3},
-		GEK: []byte{4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4},
-		IEK: []byte{5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5},
+		IEK: []byte{3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3},
 	})
 	ioProvider := io.NewMem()
-	encryptonize, err := New(&keyProvider, &ioProvider)
+	idProvider, err := id.NewStandalone(
+		[]byte{4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4},
+		[]byte{5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5},
+		[]byte{6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6},
+		&ioProvider,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	encryptonize, err := New(&keyProvider, &ioProvider, &idProvider)
 	if err != nil {
 		t.Fatal(err)
 	}
 	return encryptonize
 }
 
-// It is verified that an object is correctly encrypted and decrypted.
-func TestEncryptDecrypt(t *testing.T) {
-	enc := newTestEncryptonize(t)
+func newTestUser(t *testing.T, encryptonize *Encryptonize, scopes ...id.Scope) (uuid.UUID, string) {
+	idProvider := encryptonize.idProvider.(*id.Standalone)
 
-	user, _, _, err := enc.NewUser(nil)
+	id, password, err := idProvider.NewUser(scopes...)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	plainObject := data.Object{
-		Plaintext:      []byte("plaintext"),
-		AssociatedData: []byte("associated_data"),
-	}
-
-	id, err := enc.Encrypt(&user, &plainObject)
+	token, err := idProvider.LoginUser(id, password)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	decrypted, err := enc.Decrypt(&user, id)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !reflect.DeepEqual(plainObject, decrypted) {
-		t.Fatal("Decrypted object not equal to original")
-	}
+	return id, token
 }
 
-// It is verified than an unauthorized user is not able to encrypt.
-func TestEncryptUnauthorizedUser(t *testing.T) {
-	enc := newTestEncryptonize(t)
+func newTestGroup(t *testing.T, encryptonize *Encryptonize, token string, scope id.Scope, uids ...uuid.UUID) uuid.UUID {
+	idProvider := encryptonize.idProvider.(*id.Standalone)
 
-	user, _, _, err := enc.NewUser(nil)
+	gid, err := idProvider.NewGroup(token, scope)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	// Make user unauthorized by changing its first 5 ciphertext bytes to 0
-	copy(user.Ciphertext[:5], make([]byte, 5))
-
-	plainObject := data.Object{
-		Plaintext:      []byte("plaintext"),
-		AssociatedData: []byte("associated_data"),
+	for _, uid := range uids {
+		err := idProvider.AddUserToGroups(token, uid, gid)
+		if err != nil {
+			t.Fatal(err)
+		}
 	}
 
-	id, err := enc.Encrypt(&user, &plainObject)
-	if err == nil {
-		t.Fatal("Unauthorized user able to encrypt")
-	}
-	if !id.IsNil() {
-		t.Fatal("Encryption failed, but returned an ID anyway")
-	}
+	return gid
 }
 
-// It is verified that an unauthorized user is not able to decrypt.
-func TestDecryptUnauthorizedUser(t *testing.T) {
-	enc := newTestEncryptonize(t)
-
-	user, _, _, err := enc.NewUser(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	plainObject := data.Object{
-		Plaintext:      []byte("plaintext"),
-		AssociatedData: []byte("associated_data"),
-	}
-
-	id, err := enc.Encrypt(&user, &plainObject)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Make user unauthorized by changing its first 5 ciphertext bytes to 0
-	copy(user.Ciphertext[:5], make([]byte, 5))
-
-	decrypted, err := enc.Decrypt(&user, id)
-	if err == nil {
-		t.Fatal("Unauthorized user able to decrypt")
-	}
-	if reflect.DeepEqual(decrypted, plainObject) {
-		t.Fatal("Decryption failed, but returned plain object anyway")
-	}
-}
-
-// It is verified that an object is correctly encrypted, updated, and decrypted.
-func TestUpdate(t *testing.T) {
-	enc := newTestEncryptonize(t)
-
-	user, _, _, err := enc.NewUser(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	plainObject := data.Object{
-		Plaintext:      []byte("plaintext"),
-		AssociatedData: []byte("associated_data"),
-	}
-
-	id, err := enc.Encrypt(&user, &plainObject)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	plainObjectUpdated := data.Object{
-		Plaintext:      []byte("plaintext_updated"),
-		AssociatedData: []byte("associated_data_updated"),
-	}
-
-	err = enc.Update(&user, id, &plainObjectUpdated)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	decrypted, err := enc.Decrypt(&user, id)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !reflect.DeepEqual(plainObjectUpdated, decrypted) {
-		t.Fatal("Updated and decrypted object not equal to updated plain object")
-	}
-}
-
-// It is verified that an unauthorized user is not able to update.
-func TestUpdateUnauthorizedUser(t *testing.T) {
-	enc := newTestEncryptonize(t)
-
-	user, _, _, err := enc.NewUser(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	plainObject := data.Object{
-		Plaintext:      []byte("plaintext"),
-		AssociatedData: []byte("associated_data"),
-	}
-
-	id, err := enc.Encrypt(&user, &plainObject)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	plainObjectUpdated := data.Object{
-		Plaintext:      []byte("plaintext_updated"),
-		AssociatedData: []byte("associated_data_updated"),
-	}
-
-	// Make user unauthorized by changing its first 5 ciphertext bytes to 0
-	copy(user.Ciphertext[:5], make([]byte, 5))
-
-	err = enc.Update(&user, id, &plainObjectUpdated)
-	if err == nil {
-		t.Fatal("Unauthorized user able to update")
-	}
-}
+////////////////////////////////////////////////////////
+//                       Encrypt                      //
+////////////////////////////////////////////////////////
 
 // It is verified that plain objects with the following properties can be encrypted:
 // 1) Plaintext is empty
@@ -204,11 +98,7 @@ func TestUpdateUnauthorizedUser(t *testing.T) {
 // 4) Both are non-empty
 func TestPlainObject(t *testing.T) {
 	enc := newTestEncryptonize(t)
-
-	user, _, _, err := enc.NewUser(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	_, token := newTestUser(t, &enc, id.ScopeEncrypt)
 
 	type testData struct {
 		description string
@@ -236,12 +126,251 @@ func TestPlainObject(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.description, func(t *testing.T) {
-			if _, err = enc.Encrypt(&user, &test.data); err != nil {
+			if _, err := enc.Encrypt(token, &test.data); err != nil {
 				t.Fatal(err)
 			}
 		})
 	}
 }
+
+func TestEncryptUnauthenticated(t *testing.T) {
+	enc := newTestEncryptonize(t)
+	oid, err := enc.Encrypt("bad token", &data.Object{})
+	if !errors.Is(err, ErrNotAuthenticated) {
+		t.Fatalf("Expected error '%s' but got '%s'", ErrNotAuthenticated, err)
+	}
+	if oid != uuid.Nil {
+		t.Fatal("OID was returned from failed call")
+	}
+}
+
+// Test that a user without the Encrypt scope cannot encrypt.
+func TestEncryptWrongAPIScope(t *testing.T) {
+	enc := newTestEncryptonize(t)
+	scope := id.ScopeAll ^ id.ScopeEncrypt // All scopes except Encrypt
+	_, token := newTestUser(t, &enc, scope)
+	oid, err := enc.Encrypt(token, &data.Object{})
+	if !errors.Is(err, ErrNotAuthorized) {
+		t.Fatalf("Expected error '%s' but got '%s'", ErrNotAuthorized, err)
+	}
+	if oid != uuid.Nil {
+		t.Fatal("OID was returned from failed call")
+	}
+}
+
+////////////////////////////////////////////////////////
+//                       Decrypt                      //
+////////////////////////////////////////////////////////
+
+// It is verified that an object is correctly encrypted and decrypted.
+func TestDecrypt(t *testing.T) {
+	enc := newTestEncryptonize(t)
+	_, token := newTestUser(t, &enc, id.ScopeEncrypt, id.ScopeDecrypt)
+
+	plainObject := data.Object{
+		Plaintext:      []byte("plaintext"),
+		AssociatedData: []byte("associated_data"),
+	}
+
+	id, err := enc.Encrypt(token, &plainObject)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	decrypted, err := enc.Decrypt(token, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(plainObject, decrypted) {
+		t.Fatal("Decrypted object not equal to original")
+	}
+}
+
+func TestDecryptUnauthenticated(t *testing.T) {
+	enc := newTestEncryptonize(t)
+	object, err := enc.Decrypt("bad token", uuid.Must(uuid.NewV4()))
+	if !errors.Is(err, ErrNotAuthenticated) {
+		t.Fatalf("Expected error '%s' but got '%s'", ErrNotAuthenticated, err)
+	}
+	if !reflect.DeepEqual(object, data.Object{}) {
+		t.Fatal("Data was returned from failed call")
+	}
+}
+
+func TestDecryptUnauthorizedUser(t *testing.T) {
+	enc := newTestEncryptonize(t)
+	_, token1 := newTestUser(t, &enc, id.ScopeEncrypt)
+	_, token2 := newTestUser(t, &enc, id.ScopeDecrypt)
+
+	plainObject := data.Object{
+		Plaintext:      []byte("plaintext"),
+		AssociatedData: []byte("associated_data"),
+	}
+
+	oid, err := enc.Encrypt(token1, &plainObject)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err = enc.Decrypt(token2, oid); err == nil {
+		t.Fatal("Unauthorized user was able to decrypt")
+	}
+}
+
+// Test that a user without the Decrypt scope cannot decrypt.
+func TestDecryptWrongAPIScope(t *testing.T) {
+	enc := newTestEncryptonize(t)
+	scope := id.ScopeAll ^ id.ScopeDecrypt // All scopes except Decrypt
+	_, token := newTestUser(t, &enc, scope)
+	object, err := enc.Decrypt(token, uuid.Must(uuid.NewV4()))
+	if !errors.Is(err, ErrNotAuthorized) {
+		t.Fatalf("Expected error '%s' but got '%s'", ErrNotAuthorized, err)
+	}
+	if !reflect.DeepEqual(object, data.Object{}) {
+		t.Fatal("Data was returned from failed call")
+	}
+}
+
+// Test that a user whose group does not have the Decrypt scope cannot decrypt.
+func TestDecryptWrongGroupScope(t *testing.T) {
+	enc := newTestEncryptonize(t)
+	_, token1 := newTestUser(t, &enc, id.ScopeAll)
+	user2, token2 := newTestUser(t, &enc, id.ScopeAll)
+
+	// User2 has all scopes themselves, but get access to the object through a group with a missing
+	// scope.
+	scope := id.ScopeAll ^ id.ScopeDecrypt // All scopes except Decrypt
+	gid := newTestGroup(t, &enc, token1, scope, user2)
+
+	oid, err := enc.Encrypt(token1, &data.Object{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := enc.AddGroupsToAccess(token1, oid, gid); err != nil {
+		t.Fatal(err)
+	}
+
+	object, err := enc.Decrypt(token2, oid)
+	if !errors.Is(err, ErrNotAuthorized) {
+		t.Fatalf("Expected error '%s' but got '%s'", ErrNotAuthorized, err)
+	}
+	if !reflect.DeepEqual(object, data.Object{}) {
+		t.Fatal("Data was returned from failed call")
+	}
+}
+
+////////////////////////////////////////////////////////
+//                       Update                       //
+////////////////////////////////////////////////////////
+
+// It is verified that an object is correctly encrypted, updated, and decrypted.
+func TestUpdate(t *testing.T) {
+	enc := newTestEncryptonize(t)
+	_, token := newTestUser(t, &enc, id.ScopeEncrypt, id.ScopeDecrypt, id.ScopeUpdate)
+
+	plainObject := data.Object{
+		Plaintext:      []byte("plaintext"),
+		AssociatedData: []byte("associated_data"),
+	}
+
+	id, err := enc.Encrypt(token, &plainObject)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	plainObjectUpdated := data.Object{
+		Plaintext:      []byte("plaintext_updated"),
+		AssociatedData: []byte("associated_data_updated"),
+	}
+
+	err = enc.Update(token, id, &plainObjectUpdated)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	decrypted, err := enc.Decrypt(token, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(plainObjectUpdated, decrypted) {
+		t.Fatal("Updated and decrypted object not equal to updated plain object")
+	}
+}
+
+func TestUpdateUnauthenticated(t *testing.T) {
+	enc := newTestEncryptonize(t)
+	err := enc.Update("bad token", uuid.Must(uuid.NewV4()), &data.Object{})
+	if !errors.Is(err, ErrNotAuthenticated) {
+		t.Fatalf("Expected error '%s' but got '%s'", ErrNotAuthenticated, err)
+	}
+}
+
+// It is verified that an unauthorized user is not able to update.
+func TestUpdateUnauthorizedUser(t *testing.T) {
+	enc := newTestEncryptonize(t)
+	_, token1 := newTestUser(t, &enc, id.ScopeEncrypt)
+	_, token2 := newTestUser(t, &enc, id.ScopeUpdate)
+
+	plainObject := data.Object{
+		Plaintext:      []byte("plaintext"),
+		AssociatedData: []byte("associated_data"),
+	}
+
+	id, err := enc.Encrypt(token1, &plainObject)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	plainObjectUpdated := data.Object{
+		Plaintext:      []byte("plaintext_updated"),
+		AssociatedData: []byte("associated_data_updated"),
+	}
+
+	err = enc.Update(token2, id, &plainObjectUpdated)
+	if err == nil {
+		t.Fatal("Unauthorized user able to update")
+	}
+}
+
+// Test that a user without the Update scope cannot update.
+func TestUpdateWrongAPIScope(t *testing.T) {
+	enc := newTestEncryptonize(t)
+	scope := id.ScopeAll ^ id.ScopeUpdate // All scopes except Update
+	_, token := newTestUser(t, &enc, scope)
+	err := enc.Update(token, uuid.Must(uuid.NewV4()), &data.Object{})
+	if !errors.Is(err, ErrNotAuthorized) {
+		t.Fatalf("Expected error '%s' but got '%s'", ErrNotAuthorized, err)
+	}
+}
+
+// Test that a user whose group does not have the Update scope cannot update.
+func TestUpdateWrongGroupScope(t *testing.T) {
+	enc := newTestEncryptonize(t)
+	_, token1 := newTestUser(t, &enc, id.ScopeAll)
+	user2, token2 := newTestUser(t, &enc, id.ScopeAll)
+
+	// User2 has all scopes themselves, but get access to the object through a group with a missing
+	// scope.
+	scope := id.ScopeAll ^ id.ScopeUpdate // All scopes except Update
+	gid := newTestGroup(t, &enc, token1, scope, user2)
+
+	oid, err := enc.Encrypt(token1, &data.Object{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := enc.AddGroupsToAccess(token1, oid, gid); err != nil {
+		t.Fatal(err)
+	}
+
+	err = enc.Update(token2, oid, &data.Object{})
+	if !errors.Is(err, ErrNotAuthorized) {
+		t.Fatalf("Expected error '%s' but got '%s'", ErrNotAuthorized, err)
+	}
+}
+
+////////////////////////////////////////////////////////
+//            CreateToken/GetTokenContents            //
+////////////////////////////////////////////////////////
 
 // It is verified that token contents can be derived correctly.
 func TestToken(t *testing.T) {
@@ -286,21 +415,18 @@ func TestInvalidToken(t *testing.T) {
 	}
 }
 
-// Scenario:
-// 1) Two users are created, user1 and user2.
-// 2) user1 encrypts an object.
-// 3) It is verified that only user1 who is part of the access object is able to call GetAccessGroups.
+////////////////////////////////////////////////////////
+//                   GetAccessGroups                  //
+////////////////////////////////////////////////////////
+
 func TestGetAccessGroups(t *testing.T) {
 	enc := newTestEncryptonize(t)
+	uid, token := newTestUser(t, &enc, id.ScopeEncrypt, id.ScopeModifyAccessGroups, id.ScopeGetAccessGroups)
 
-	user1, _, _, err := enc.NewUser(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	user2, _, _, err := enc.NewUser(nil)
-	if err != nil {
-		t.Fatal(err)
+	numIDs := 5
+	ids := make([]uuid.UUID, 0, numIDs)
+	for i := 0; i < numIDs; i++ {
+		ids = append(ids, uuid.Must(uuid.NewV4()))
 	}
 
 	plainObject := data.Object{
@@ -308,17 +434,66 @@ func TestGetAccessGroups(t *testing.T) {
 		AssociatedData: []byte("associated_data"),
 	}
 
-	id, err := enc.Encrypt(&user1, &plainObject)
+	oid, err := enc.Encrypt(token, &plainObject)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	_, err = enc.GetAccessGroups(&user1, id)
+	err = enc.AddGroupsToAccess(token, oid, ids...)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	accessGroups, err := enc.GetAccessGroups(&user2, id)
+	accessGroups, err := enc.GetAccessGroups(token, oid)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(accessGroups) != numIDs+1 {
+		t.Fatal("Wrong number of IDs returned")
+	}
+	if _, ok := accessGroups[uid]; !ok {
+		t.Fatal("Owner not found in access list")
+	}
+	for _, id := range ids {
+		if _, ok := accessGroups[id]; !ok {
+			t.Fatal("ID not found in access list")
+		}
+	}
+}
+
+func TestGetAccessGroupsUnauthenticated(t *testing.T) {
+	enc := newTestEncryptonize(t)
+	groups, err := enc.GetAccessGroups("bad token", uuid.Must(uuid.NewV4()))
+	if !errors.Is(err, ErrNotAuthenticated) {
+		t.Fatalf("Expected error '%s' but got '%s'", ErrNotAuthenticated, err)
+	}
+	if len(groups) != 0 {
+		t.Fatal("Groups were returned from failed call")
+	}
+}
+
+// Scenario:
+// 1) Two users are created, user1 and user2.
+// 2) user1 encrypts an object.
+// 3) It is verified that only user1 who is part of the access object is able to call GetAccessGroups.
+func TestGetAccessGroupsUnauthorized(t *testing.T) {
+	enc := newTestEncryptonize(t)
+
+	_, token1 := newTestUser(t, &enc, id.ScopeEncrypt)
+	_, token2 := newTestUser(t, &enc, id.ScopeGetAccessGroups)
+
+	plainObject := data.Object{
+		Plaintext:      []byte("plaintext"),
+		AssociatedData: []byte("associated_data"),
+	}
+
+	id, err := enc.Encrypt(token1, &plainObject)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	accessGroups, err := enc.GetAccessGroups(token2, id)
 	if err == nil {
 		t.Fatal("Unauthorized user able to get group IDs contained in access object")
 	}
@@ -327,93 +502,207 @@ func TestGetAccessGroups(t *testing.T) {
 	}
 }
 
+// Test that a user without the GetAccessGroups scope cannot get the access list.
+func TestGetAccessGroupsWrongAPIScope(t *testing.T) {
+	enc := newTestEncryptonize(t)
+	scope := id.ScopeAll ^ id.ScopeGetAccessGroups // All scopes except GetAccessGroups
+	_, token := newTestUser(t, &enc, scope)
+	groups, err := enc.GetAccessGroups(token, uuid.Must(uuid.NewV4()))
+	if !errors.Is(err, ErrNotAuthorized) {
+		t.Fatalf("Expected error '%s' but got '%s'", ErrNotAuthorized, err)
+	}
+	if len(groups) != 0 {
+		t.Fatal("Groups were returned from failed call")
+	}
+}
+
+// Test that a user whose group does not have the GetAccessGroups scope cannot get the access list.
+func TestGetAccessGroupsWrongGroupScope(t *testing.T) {
+	enc := newTestEncryptonize(t)
+	_, token1 := newTestUser(t, &enc, id.ScopeAll)
+	user2, token2 := newTestUser(t, &enc, id.ScopeAll)
+
+	// User2 has all scopes themselves, but get access to the object through a group with a missing
+	// scope.
+	scope := id.ScopeAll ^ id.ScopeGetAccessGroups // All scopes except GetAccessGroups
+	gid := newTestGroup(t, &enc, token1, scope, user2)
+
+	oid, err := enc.Encrypt(token1, &data.Object{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := enc.AddGroupsToAccess(token1, oid, gid); err != nil {
+		t.Fatal(err)
+	}
+
+	groups, err := enc.GetAccessGroups(token2, oid)
+	if !errors.Is(err, ErrNotAuthorized) {
+		t.Fatalf("Expected error '%s' but got '%s'", ErrNotAuthorized, err)
+	}
+	if len(groups) != 0 {
+		t.Fatal("Groups were returned from failed call")
+	}
+}
+
+////////////////////////////////////////////////////////
+//       AddGroupsToAccess/RemoveGroupsFromAccess     //
+////////////////////////////////////////////////////////
+
 // It is verified that a user can encrypt an object and add/remove a group to/from the access object.
 func TestAddRemoveGroupsFromAccess(t *testing.T) {
 	enc := newTestEncryptonize(t)
-
-	user, _, _, err := enc.NewUser(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	group, err := enc.NewGroup(&user, []byte("group_data"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	_, token := newTestUser(t, &enc, id.ScopeEncrypt, id.ScopeModifyAccessGroups, id.ScopeGetAccessGroups)
+	group := newTestGroup(t, &enc, token, id.ScopeNone)
 
 	plainObject := data.Object{
 		Plaintext:      []byte("plaintext"),
 		AssociatedData: []byte("associated_data"),
 	}
 
-	id, err := enc.Encrypt(&user, &plainObject)
+	id, err := enc.Encrypt(token, &plainObject)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if err = enc.AddGroupsToAccess(&user, id, &group); err != nil {
+	if err = enc.AddGroupsToAccess(token, id, group); err != nil {
 		t.Fatal(err)
 	}
 
-	accessGroups, err := enc.GetAccessGroups(&user, id)
+	accessGroups, err := enc.GetAccessGroups(token, id)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := accessGroups[group.ID]; !ok {
+	if _, ok := accessGroups[group]; !ok {
 		t.Fatal("Group not correctly added to access object")
 	}
 
-	if err = enc.RemoveGroupsFromAccess(&user, id, &group); err != nil {
+	if err = enc.RemoveGroupsFromAccess(token, id, group); err != nil {
 		t.Fatal(err)
 	}
 
-	accessGroups, err = enc.GetAccessGroups(&user, id)
+	accessGroups, err = enc.GetAccessGroups(token, id)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := accessGroups[group.ID]; ok {
+	if _, ok := accessGroups[group]; ok {
 		t.Fatal("Group not correctly removed from access object")
+	}
+}
+
+func TestAddGroupsToAccessUnauthenticated(t *testing.T) {
+	enc := newTestEncryptonize(t)
+	err := enc.AddGroupsToAccess("bad token", uuid.Must(uuid.NewV4()), uuid.Must(uuid.NewV4()))
+	if !errors.Is(err, ErrNotAuthenticated) {
+		t.Fatalf("Expected error '%s' but got '%s'", ErrNotAuthenticated, err)
+	}
+}
+
+func TestRemoveGroupsFromAccessUnauthenticated(t *testing.T) {
+	enc := newTestEncryptonize(t)
+	err := enc.RemoveGroupsFromAccess("bad token", uuid.Must(uuid.NewV4()), uuid.Must(uuid.NewV4()))
+	if !errors.Is(err, ErrNotAuthenticated) {
+		t.Fatalf("Expected error '%s' but got '%s'", ErrNotAuthenticated, err)
+	}
+}
+
+// Test that a user without the ModifyAccessGroups scope cannot add to the access list.
+func TestAddGroupsToAccessWrongAPIScope(t *testing.T) {
+	enc := newTestEncryptonize(t)
+	scope := id.ScopeAll ^ id.ScopeModifyAccessGroups // All scopes except ModifyAccessGroups
+	_, token := newTestUser(t, &enc, scope)
+	err := enc.AddGroupsToAccess(token, uuid.Must(uuid.NewV4()), uuid.Must(uuid.NewV4()))
+	if !errors.Is(err, ErrNotAuthorized) {
+		t.Fatalf("Expected error '%s' but got '%s'", ErrNotAuthorized, err)
+	}
+}
+
+// Test that a user without the ModifyAccessGroups scope cannot remove from the access list.
+func TestRemoveGroupsToAccessWrongAPIScope(t *testing.T) {
+	enc := newTestEncryptonize(t)
+	scope := id.ScopeAll ^ id.ScopeModifyAccessGroups // All scopes except ModifyAccessGroups
+	_, token := newTestUser(t, &enc, scope)
+	err := enc.RemoveGroupsFromAccess(token, uuid.Must(uuid.NewV4()), uuid.Must(uuid.NewV4()))
+	if !errors.Is(err, ErrNotAuthorized) {
+		t.Fatalf("Expected error '%s' but got '%s'", ErrNotAuthorized, err)
+	}
+}
+
+// Test that a user whose group does not have the AddGroupsToAccess scope cannot add to the access list.
+func TestAddGroupsToAccessWrongGroupScope(t *testing.T) {
+	enc := newTestEncryptonize(t)
+	_, token1 := newTestUser(t, &enc, id.ScopeAll)
+	user2, token2 := newTestUser(t, &enc, id.ScopeAll)
+
+	// User2 has all scopes themselves, but get access to the object through a group with a missing
+	// scope.
+	scope := id.ScopeAll ^ id.ScopeModifyAccessGroups // All scopes except ModifyAccessGroups
+	gid := newTestGroup(t, &enc, token1, scope, user2)
+
+	oid, err := enc.Encrypt(token1, &data.Object{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := enc.AddGroupsToAccess(token1, oid, gid); err != nil {
+		t.Fatal(err)
+	}
+
+	err = enc.AddGroupsToAccess(token2, oid, uuid.Must(uuid.NewV4()))
+	if !errors.Is(err, ErrNotAuthorized) {
+		t.Fatalf("Expected error '%s' but got '%s'", ErrNotAuthorized, err)
+	}
+}
+
+// Test that a user whose group does not have the RemoveGroupsFromAccess scope cannot remove from the access list.
+func TestRemoveGroupsFromAccessWrongGroupScope(t *testing.T) {
+	enc := newTestEncryptonize(t)
+	_, token1 := newTestUser(t, &enc, id.ScopeAll)
+	user2, token2 := newTestUser(t, &enc, id.ScopeAll)
+
+	// User2 has all scopes themselves, but get access to the object through a group with a missing
+	// scope.
+	scope := id.ScopeAll ^ id.ScopeModifyAccessGroups // All scopes except ModifyAccessGroups
+	gid := newTestGroup(t, &enc, token1, scope, user2)
+
+	oid, err := enc.Encrypt(token1, &data.Object{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := enc.RemoveGroupsFromAccess(token1, oid, gid); err != nil {
+		t.Fatal(err)
+	}
+
+	err = enc.RemoveGroupsFromAccess(token2, oid, uuid.Must(uuid.NewV4()))
+	if !errors.Is(err, ErrNotAuthorized) {
+		t.Fatalf("Expected error '%s' but got '%s'", ErrNotAuthorized, err)
 	}
 }
 
 // It is verified that a user cannot add/remove groups to/from an access object without being part of the access object.
 func TestAddRemoveGroupsFromAccessUnauthorized(t *testing.T) {
 	enc := newTestEncryptonize(t)
-
-	user1, _, _, err := enc.NewUser(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	user2, _, _, err := enc.NewUser(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	group, err := enc.NewGroup(&user1, []byte("group_data"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	_, token1 := newTestUser(t, &enc, id.ScopeEncrypt, id.ScopeModifyAccessGroups)
+	_, token2 := newTestUser(t, &enc, id.ScopeModifyAccessGroups)
+	group := newTestGroup(t, &enc, token1, id.ScopeNone)
 
 	plainObject := data.Object{
 		Plaintext:      []byte("plaintext"),
 		AssociatedData: []byte("associated_data"),
 	}
 
-	id, err := enc.Encrypt(&user1, &plainObject)
+	id, err := enc.Encrypt(token1, &plainObject)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if err = enc.AddGroupsToAccess(&user2, id, &group); err == nil {
+	if err = enc.AddGroupsToAccess(token2, id, group); err == nil {
 		t.Fatal("Unauthorized user able to add groups to access")
 	}
 
-	if err = enc.AddGroupsToAccess(&user1, id, &group); err != nil {
+	if err = enc.AddGroupsToAccess(token1, id, group); err != nil {
 		t.Fatal(err)
 	}
 
-	if err = enc.RemoveGroupsFromAccess(&user2, id, &group); err == nil {
+	if err = enc.RemoveGroupsFromAccess(token2, id, group); err == nil {
 		t.Fatal("Unauthorized user able to remove groups from access")
 	}
 }
@@ -422,773 +711,69 @@ func TestAddRemoveGroupsFromAccessUnauthorized(t *testing.T) {
 // as long as the user is part of the access object.
 func TestAddRemoveGroupsFromAccessAuthorized(t *testing.T) {
 	enc := newTestEncryptonize(t)
-
-	user1, _, _, err := enc.NewUser(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	_, group2, _, err := enc.NewUser(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	_, token := newTestUser(t, &enc, id.ScopeEncrypt, id.ScopeModifyAccessGroups, id.ScopeGetAccessGroups)
+	group := newTestGroup(t, &enc, token, id.ScopeNone)
 
 	plainObject := data.Object{
 		Plaintext:      []byte("plaintext"),
 		AssociatedData: []byte("associated_data"),
 	}
 
-	id, err := enc.Encrypt(&user1, &plainObject)
+	id, err := enc.Encrypt(token, &plainObject)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if err = enc.AddGroupsToAccess(&user1, id, &group2); err != nil {
+	if err = enc.AddGroupsToAccess(token, id, group); err != nil {
 		t.Fatal(err)
 	}
 
-	accessGroups, err := enc.GetAccessGroups(&user1, id)
+	accessGroups, err := enc.GetAccessGroups(token, id)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := accessGroups[group2.ID]; !ok {
+	if _, ok := accessGroups[group]; !ok {
 		t.Fatal("User not able to add groups to access object. User is not member of all groups, but is part of access object.")
 	}
 
-	if err = enc.RemoveGroupsFromAccess(&user1, id, &group2); err != nil {
+	if err = enc.RemoveGroupsFromAccess(token, id, group); err != nil {
 		t.Fatal(err)
 	}
 
-	accessGroups, err = enc.GetAccessGroups(&user1, id)
+	accessGroups, err = enc.GetAccessGroups(token, id)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := accessGroups[group2.ID]; ok {
+	if _, ok := accessGroups[group]; ok {
 		t.Fatal("User not able to remove groups from access object. User is not member of all groups, but is part of access object.")
-	}
-}
-
-// It is verified that it is not possible to add invalid groups to access.
-func TestAddInvalidGroupsToAccess(t *testing.T) {
-	enc := newTestEncryptonize(t)
-
-	user, _, _, err := enc.NewUser(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	group, err := enc.NewGroup(&user, []byte("group_data"))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	plainObject := data.Object{
-		Plaintext:      []byte("plaintext"),
-		AssociatedData: []byte("associated_data"),
-	}
-
-	id, err := enc.Encrypt(&user, &plainObject)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Make group invalid by changing its ciphertext
-	copy(group.Ciphertext[:5], make([]byte, 5))
-
-	if err = enc.AddGroupsToAccess(&user, id, &group); err == nil {
-		t.Fatal("User able to add invalid groups to access")
-	}
-}
-
-// It is verified that it is not possible to remove invalid groups from access.
-func TestRemoveInvalidGroupsFromAccess(t *testing.T) {
-	enc := newTestEncryptonize(t)
-
-	user, _, _, err := enc.NewUser(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	group, err := enc.NewGroup(&user, []byte("group_data"))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	plainObject := data.Object{
-		Plaintext:      []byte("plaintext"),
-		AssociatedData: []byte("associated_data"),
-	}
-
-	id, err := enc.Encrypt(&user, &plainObject)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if err = enc.AddGroupsToAccess(&user, id, &group); err != nil {
-		t.Fatal(err)
-	}
-
-	// Make group invalid by changing its ciphertext
-	copy(group.Ciphertext[:5], make([]byte, 5))
-
-	if err = enc.RemoveGroupsFromAccess(&user, id, &group); err == nil {
-		t.Fatal("User able to remove invalid groups from access")
-	}
-}
-
-// Scenario:
-// 1) Two users are created, user1 and user2.
-// 2) user1 encrypts an object.
-// 3) It is verified that only user1 is authorized.
-// 4) It is verified that if user1's ciphertext is changed, then user1 is not authorized anymore.
-func TestAuthorizeUser(t *testing.T) {
-	enc := newTestEncryptonize(t)
-
-	user1, _, _, err := enc.NewUser(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	user2, _, _, err := enc.NewUser(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	plainObject := data.Object{
-		Plaintext:      []byte("plaintext"),
-		AssociatedData: []byte("associated_data"),
-	}
-
-	id, err := enc.Encrypt(&user1, &plainObject)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if err = enc.AuthorizeUser(&user1, id); err != nil {
-		t.Fatal(err)
-	}
-
-	if err = enc.AuthorizeUser(&user2, id); err == nil {
-		t.Fatal("Unauthorized user is authorized anyway")
-	}
-
-	// Make user1 unauthorized by changing its first 5 ciphertext bytes to 0
-	copy(user1.Ciphertext[:5], make([]byte, 5))
-
-	if err = enc.AuthorizeUser(&user1, id); err == nil {
-		t.Fatal("Unauthorized user is authorized anyway")
-	}
-}
-
-// Scenario:
-// 1) user1 is created.
-// 2) user1 creates two additional groups, group1 and group2.
-// 3) group2 is made invalid by changing some of its ciphertext.
-// 4) It is verified that a user can be created and added to its own group and group1 simultaneously.
-// 5) It is verified that a user cannot be created and added to its own group and group2 simultaneously (because of step 3) ).
-func TestNewUser(t *testing.T) {
-	enc := newTestEncryptonize(t)
-
-	user1, _, _, err := enc.NewUser(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	group1, err := enc.NewGroup(&user1, []byte("group_data_1"))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	group2, err := enc.NewGroup(&user1, []byte("group_data_2"))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	copy(group2.Ciphertext[:5], make([]byte, 5))
-
-	if _, _, _, err = enc.NewUser([]byte("data"), &group1); err != nil {
-		t.Fatal(err)
-	}
-
-	user2, _, _, err := enc.NewUser([]byte("data"), &group2)
-	if err == nil {
-		t.Fatal("User added to invalid group")
-	}
-	if !reflect.DeepEqual(user2, data.SealedUser{}) {
-		t.Fatal("NewUser failed, but returned data anyway")
-	}
-}
-
-// It is verified that GetUserGroups returns all the groups that the user is a member of.
-func TestGetUserGroups(t *testing.T) {
-	enc := newTestEncryptonize(t)
-
-	_, group1, _, err := enc.NewUser(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	user, group2, _, err := enc.NewUser([]byte("data"), &group1)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	userGroups, err := enc.GetUserGroups(&user)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, ok := userGroups[group1.ID]; !ok {
-		t.Fatal("GetUserGroups does not return all groups that the user is member of")
-	}
-	if _, ok := userGroups[group2.ID]; !ok {
-		t.Fatal("GetUserGroups does not return all groups that the user is member of")
-	}
-}
-
-// It is verified that it is not possible to get user groups from invalid user.
-func TestGetUserGroupsInvalidUser(t *testing.T) {
-	enc := newTestEncryptonize(t)
-
-	user, _, _, err := enc.NewUser(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Make user invalid by changing its ciphertext
-	copy(user.Ciphertext[:5], make([]byte, 5))
-
-	userGroups, err := enc.GetUserGroups(&user)
-	if err == nil {
-		t.Fatal("User able to get user groups of invalid user")
-	}
-	if userGroups != nil {
-		t.Fatal("GetUserGroups failed, but returned data anyway")
-	}
-}
-
-// It is verified that both empty and non-empty group data is accepted when provided through NewUser.
-func TestGroupDataNewUser(t *testing.T) {
-	enc := newTestEncryptonize(t)
-
-	user1, group1, _, err := enc.NewUser(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	data, err := enc.GetGroupData(&user1, &group1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if data != nil {
-		t.Fatal("GetGroupData returns wrong group data when provided through NewUser.")
-	}
-
-	groupData := []byte("group_data")
-
-	user2, group2, _, err := enc.NewUser(groupData)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	data, err = enc.GetGroupData(&user2, &group2)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !reflect.DeepEqual(data, groupData) {
-		t.Fatal("GetGroupData returns wrong group data when provided through NewUser.")
-	}
-}
-
-// It is verified that both empty and non-empty group data is accepted when provided through NewGroup.
-func TestGroupDataNewGroup(t *testing.T) {
-	enc := newTestEncryptonize(t)
-
-	user, _, _, err := enc.NewUser(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	group1, err := enc.NewGroup(&user, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	data, err := enc.GetGroupData(&user, &group1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if data != nil {
-		t.Fatal("GetGroupData returns wrong group data when provided through NewGroup.")
-	}
-
-	groupData := []byte("group_data")
-
-	group2, err := enc.NewGroup(&user, groupData)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	data, err = enc.GetGroupData(&user, &group2)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !reflect.DeepEqual(data, groupData) {
-		t.Fatal("GetGroupData returns wrong group data when provided through NewGroup.")
-	}
-}
-
-// Scenario:
-// 1) Two users are created, user1 and user2.
-// 2) It is verified that only user1 is authenticated with user1's password.
-// 3) It is verified that a user is not authenticated with a mistyped password.
-func TestAuthenticateUser(t *testing.T) {
-	enc := newTestEncryptonize(t)
-
-	user1, _, pwd1, err := enc.NewUser(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	user2, _, _, err := enc.NewUser(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if err = enc.AuthenticateUser(&user1, pwd1); err != nil {
-		t.Fatal(err)
-	}
-
-	if err = enc.AuthenticateUser(&user2, pwd1); err == nil {
-		t.Fatal("User authenticated with wrong password")
-	}
-
-	pwd1Short := pwd1[:len(pwd1)-1]
-	pwd1Long := pwd1 + "0"
-
-	if err = enc.AuthenticateUser(&user1, pwd1Short); err == nil {
-		t.Fatal("User authenticated with wrong password")
-	}
-
-	if err = enc.AuthenticateUser(&user1, pwd1Long); err == nil {
-		t.Fatal("User authenticated with wrong password")
-	}
-}
-
-// It is verified that it is not possible to authenticate an invalid user.
-func TestAuthenticateInvalidUser(t *testing.T) {
-	enc := newTestEncryptonize(t)
-
-	user, _, pwd, err := enc.NewUser(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Make user invalid by changing its ciphertext
-	copy(user.Ciphertext[:5], make([]byte, 5))
-
-	if err = enc.AuthenticateUser(&user, pwd); err == nil {
-		t.Fatal("Invalid user authenticated")
-	}
-}
-
-// Verify that after a password change, the new user can be authenticated with the new password and
-// can no longer be authenticated with the old one.
-func TestChangeUserPassword(t *testing.T) {
-	enc := newTestEncryptonize(t)
-
-	user, _, pwd, err := enc.NewUser(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	newPwd, err := enc.ChangeUserPassword(&user, pwd)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if err := enc.AuthenticateUser(&user, newPwd); err != nil {
-		t.Fatal(err)
-	}
-
-	if err := enc.AuthenticateUser(&user, pwd); err == nil {
-		t.Fatal("User should not be able to authenticate with his old password after it was changed")
-	}
-}
-
-// It is verified that a user can add/remove another user to/from groups that he is member of himself.
-func TestAddRemoveUserFromGroupsAuthorized(t *testing.T) {
-	enc := newTestEncryptonize(t)
-
-	user1, group, _, err := enc.NewUser(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	user2, _, _, err := enc.NewUser(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if err = enc.AddUserToGroups(&user1, &user2, &group); err != nil {
-		t.Fatal(err)
-	}
-
-	userGroups, err := enc.GetUserGroups(&user2)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, ok := userGroups[group.ID]; !ok {
-		t.Fatal("User not correctly added to group")
-	}
-
-	if err = enc.RemoveUserFromGroups(&user1, &user2, &group); err != nil {
-		t.Fatal(err)
-	}
-
-	userGroups, err = enc.GetUserGroups(&user2)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, ok := userGroups[group.ID]; ok {
-		t.Fatal("User not correctly removed from group")
-	}
-}
-
-// It is verified that a user cannot add/remove another user to/from groups that he is not member of himself.
-func TestAddRemoveUserFromGroupsUnauthorized(t *testing.T) {
-	enc := newTestEncryptonize(t)
-
-	numUsers := 3
-	users := make([]data.SealedUser, 0, numUsers)
-	for i := 0; i < numUsers; i++ {
-		newUser, _, _, err := enc.NewUser(nil)
-		if err != nil {
-			t.Fatal(err)
-		}
-		users = append(users, newUser)
-	}
-
-	group, err := enc.NewGroup(&users[0], nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if err = enc.AddUserToGroups(&users[2], &users[1], &group); err == nil {
-		t.Fatal("User able to add another user to groups without being member itself")
-	}
-
-	if err = enc.AddUserToGroups(&users[0], &users[1], &group); err != nil {
-		t.Fatal(err)
-	}
-
-	if err = enc.RemoveUserFromGroups(&users[2], &users[1], &group); err == nil {
-		t.Fatal("User able to remove another user from groups without being member itself")
-	}
-}
-
-// It is verified that it is not possible to add an invalid user to a group
-func TestAddInvalidUserToGroups(t *testing.T) {
-	enc := newTestEncryptonize(t)
-
-	user1, _, _, err := enc.NewUser(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	user2, _, _, err := enc.NewUser(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	group, err := enc.NewGroup(&user1, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Make user2 invalid by changing its ciphertext
-	copy(user2.Ciphertext[:5], make([]byte, 5))
-
-	if err = enc.AddUserToGroups(&user1, &user2, &group); err == nil {
-		t.Fatal("User able to add an invalid user to group")
-	}
-}
-
-// It is verified that it is not possible to remove an invalid user from a group
-func TestRemoveInvalidUserFromGroups(t *testing.T) {
-	enc := newTestEncryptonize(t)
-
-	user1, _, _, err := enc.NewUser(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	user2, _, _, err := enc.NewUser(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	group, err := enc.NewGroup(&user1, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if err = enc.AddUserToGroups(&user1, &user2, &group); err != nil {
-		t.Fatal(err)
-	}
-
-	// Make user2 invalid by changing its ciphertext
-	copy(user2.Ciphertext[:5], make([]byte, 5))
-
-	if err = enc.RemoveUserFromGroups(&user1, &user2, &group); err == nil {
-		t.Fatal("User able to remove an invalid user from group")
-	}
-}
-
-// Scenario:
-// 1) Two users are created, user1 and user2.
-// 2) user1 creates a group.
-// 3) It is verified that only user1 who is a member of the group is able to call GetGroupData.
-func TestGetGroupData(t *testing.T) {
-	enc := newTestEncryptonize(t)
-
-	user1, _, _, err := enc.NewUser(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	user2, _, _, err := enc.NewUser(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	group, err := enc.NewGroup(&user1, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if _, err = enc.GetGroupData(&user1, &group); err != nil {
-		t.Fatal(err)
-	}
-
-	groupData, err := enc.GetGroupData(&user2, &group)
-	if err == nil {
-		t.Fatal("User able to get group data without being member")
-	}
-	if groupData != nil {
-		t.Fatal("GetGroupData failed, but returned data anyway")
-	}
-}
-
-// It is verified that it is not possible to get any group data from an invalid group.
-func TestGetGroupDataInvalidGroup(t *testing.T) {
-	enc := newTestEncryptonize(t)
-
-	user, group, _, err := enc.NewUser(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Make group invalid by changing its ciphertext
-	copy(group.Ciphertext[:5], make([]byte, 5))
-
-	groupData, err := enc.GetGroupData(&user, &group)
-	if err == nil {
-		t.Fatal("User able to get group data from invalid group")
-	}
-	if groupData != nil {
-		t.Fatal("GetGroupData failed, but returned data anyway")
-	}
-}
-
-// It is verified that an invalid user cannot get group data.
-func TestGetGroupDataInvalidUser(t *testing.T) {
-	enc := newTestEncryptonize(t)
-
-	user, group, _, err := enc.NewUser(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Make user invalid by changing its ciphertext
-	copy(user.Ciphertext[:5], make([]byte, 5))
-
-	groupData, err := enc.GetGroupData(&user, &group)
-	if err == nil {
-		t.Fatal("Invalid user able to get group data")
-	}
-	if groupData != nil {
-		t.Fatal("GetGroupData failed, but returned data anyway")
-	}
-}
-
-// It is verified that an invalid user cannot create a new group.
-func TestNewGroupInvalidUser(t *testing.T) {
-	enc := newTestEncryptonize(t)
-
-	user, _, _, err := enc.NewUser(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Make user invalid by changing its ciphertext
-	copy(user.Ciphertext[:5], make([]byte, 5))
-
-	group, err := enc.NewGroup(&user, []byte("group_data"))
-	if err == nil {
-		t.Fatal("Invalid user able to create a new group")
-	}
-	if !reflect.DeepEqual(group, data.SealedGroup{}) {
-		t.Fatal("NewGroup failed, but returned sealed group anyway")
-	}
-}
-
-// Scenario:
-// 1) A user is created.
-// 2) The user creates a group.
-// 3) It is verified that if the user is removed from the group, then no one can add new members to the group and hence the group is lost.
-func TestRemoveAllUsers(t *testing.T) {
-	enc := newTestEncryptonize(t)
-
-	user1, group, _, err := enc.NewUser(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if err = enc.RemoveUserFromGroups(&user1, &user1, &group); err != nil {
-		t.Fatal(err)
-	}
-
-	user2, _, _, err := enc.NewUser(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// user1 cannot add user2 to the group
-	if err = enc.AddUserToGroups(&user1, &user2, &group); err == nil {
-		t.Fatal("User able to add another user to groups without being member itself")
-	}
-}
-
-// Scenario:
-// 1) Two users are created, user1 and user2.
-// 2) user1 creates two groups.
-// 3) It is verified that user1 can add user2 to both groups simultaneously.
-// 4) It is verified that user1 can remove user2 from both groups simultaneously.
-func TestMultipleGroups(t *testing.T) {
-	enc := newTestEncryptonize(t)
-
-	user1, _, _, err := enc.NewUser(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	user2, _, _, err := enc.NewUser(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	group1, err := enc.NewGroup(&user1, []byte("group_data_1"))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	group2, err := enc.NewGroup(&user1, []byte("group_data_2"))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if err = enc.AddUserToGroups(&user1, &user2, &group1, &group2); err != nil {
-		t.Fatal(err)
-	}
-
-	userGroups, err := enc.GetUserGroups(&user2)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, ok := userGroups[group1.ID]; !ok {
-		t.Fatal("User not correctly added to group")
-	}
-	if _, ok := userGroups[group2.ID]; !ok {
-		t.Fatal("User not correctly added to group")
-	}
-
-	if err = enc.RemoveUserFromGroups(&user1, &user2, &group1, &group2); err != nil {
-		t.Fatal(err)
-	}
-
-	userGroups, err = enc.GetUserGroups(&user2)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, ok := userGroups[group1.ID]; ok {
-		t.Fatal("User not correctly removed from group")
-	}
-	if _, ok := userGroups[group2.ID]; ok {
-		t.Fatal("User not correctly removed from group")
-	}
-}
-
-// Scenario:
-// 1) A user is created.
-// 2) The user encrypts an object.
-// 3) The user removes its own group from the access object.
-// 4) It is verified that the user is no longer part of the access object even though he created it.
-func TestRemoveAccess(t *testing.T) {
-	enc := newTestEncryptonize(t)
-
-	user, group, _, err := enc.NewUser(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	plainObject := data.Object{
-		Plaintext:      []byte("plaintext"),
-		AssociatedData: []byte("associated_data"),
-	}
-
-	id, err := enc.Encrypt(&user, &plainObject)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if err = enc.RemoveUserFromGroups(&user, &user, &group); err != nil {
-		t.Fatal(err)
-	}
-
-	if err = enc.AuthorizeUser(&user, id); err == nil {
-		t.Fatal("Unauthorized user is authorized anyway")
 	}
 }
 
 // user1 creates an object, adds user2, and it is verified that user2 is able to decrypt the object.
 func TestSharingObjectPart1(t *testing.T) {
 	enc := newTestEncryptonize(t)
-
-	user1, group, _, err := enc.NewUser(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	_, token1 := newTestUser(t, &enc, id.ScopeEncrypt, id.ScopeModifyAccessGroups)
+	id2, token2 := newTestUser(t, &enc, id.ScopeDecrypt)
 
 	plainObject := data.Object{
 		Plaintext:      []byte("plaintext"),
 		AssociatedData: []byte("associated_data"),
 	}
 
-	id, err := enc.Encrypt(&user1, &plainObject)
+	oid, err := enc.Encrypt(token1, &plainObject)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	user2, _, _, err := enc.NewUser(nil)
-	if err != nil {
+	if _, err = enc.Decrypt(token2, oid); err == nil {
+		t.Fatal("Unauthorized user was able to decrypt")
+	}
+
+	if err = enc.AddGroupsToAccess(token1, oid, id2); err != nil {
 		t.Fatal(err)
 	}
 
-	if err = enc.AddUserToGroups(&user1, &user2, &group); err != nil {
-		t.Fatal(err)
-	}
-
-	if _, err = enc.Decrypt(&user2, id); err != nil {
+	if _, err = enc.Decrypt(token2, oid); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -1196,36 +781,26 @@ func TestSharingObjectPart1(t *testing.T) {
 // user1 creates an object and adds user2. User2 removes user1, and it is verified that user1 is not able to decrypt the object.
 func TestSharingObjectPart2(t *testing.T) {
 	enc := newTestEncryptonize(t)
-
-	user1, group, _, err := enc.NewUser(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	id1, token1 := newTestUser(t, &enc, id.ScopeEncrypt, id.ScopeModifyAccessGroups)
+	id2, token2 := newTestUser(t, &enc, id.ScopeModifyAccessGroups)
 
 	plainObject := data.Object{
 		Plaintext:      []byte("plaintext"),
 		AssociatedData: []byte("associated_data"),
 	}
 
-	id, err := enc.Encrypt(&user1, &plainObject)
+	oid, err := enc.Encrypt(token1, &plainObject)
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	user2, _, _, err := enc.NewUser(nil)
-	if err != nil {
+	if err = enc.AddGroupsToAccess(token1, oid, id2); err != nil {
+		t.Fatal(err)
+	}
+	if err = enc.RemoveGroupsFromAccess(token2, oid, id1); err != nil {
 		t.Fatal(err)
 	}
 
-	if err = enc.AddUserToGroups(&user1, &user2, &group); err != nil {
-		t.Fatal(err)
-	}
-
-	if err = enc.RemoveUserFromGroups(&user2, &user1, &group); err != nil {
-		t.Fatal(err)
-	}
-
-	if _, err = enc.Decrypt(&user1, id); err == nil {
+	if _, err = enc.Decrypt(token1, oid); err == nil {
 		t.Fatal("Unauthorized user able to decrypt")
 	}
 }
@@ -1233,41 +808,28 @@ func TestSharingObjectPart2(t *testing.T) {
 // User1 creates an object, adds user2, user2 adds user3, and it is verified that user3 is able to decrypt the object.
 func TestSharingObjectPart3(t *testing.T) {
 	enc := newTestEncryptonize(t)
-
-	user1, group, _, err := enc.NewUser(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	_, token1 := newTestUser(t, &enc, id.ScopeEncrypt, id.ScopeModifyAccessGroups)
+	id2, token2 := newTestUser(t, &enc, id.ScopeModifyAccessGroups)
+	id3, token3 := newTestUser(t, &enc, id.ScopeDecrypt)
 
 	plainObject := data.Object{
 		Plaintext:      []byte("plaintext"),
 		AssociatedData: []byte("associated_data"),
 	}
 
-	id, err := enc.Encrypt(&user1, &plainObject)
+	oid, err := enc.Encrypt(token1, &plainObject)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	user2, _, _, err := enc.NewUser(nil)
-	if err != nil {
+	if err = enc.AddGroupsToAccess(token1, oid, id2); err != nil {
+		t.Fatal(err)
+	}
+	if err = enc.AddGroupsToAccess(token2, oid, id3); err != nil {
 		t.Fatal(err)
 	}
 
-	if err = enc.AddUserToGroups(&user1, &user2, &group); err != nil {
-		t.Fatal(err)
-	}
-
-	user3, _, _, err := enc.NewUser(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if err = enc.AddUserToGroups(&user2, &user3, &group); err != nil {
-		t.Fatal(err)
-	}
-
-	if _, err = enc.Decrypt(&user3, id); err != nil {
+	if _, err = enc.Decrypt(token3, oid); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -1278,27 +840,52 @@ func TestSharingObjectPart3(t *testing.T) {
 // 3) user1 encrypts an object and adds the group to the access object.
 // 4) It is verified that all five users are able to decrypt the object.
 func TestSharingObjectPart4(t *testing.T) {
-	enc := newTestEncryptonize(t)
-
 	numUsers := 5
-	users := make([]data.SealedUser, 0, numUsers)
+
+	enc := newTestEncryptonize(t)
+	uids := make([]uuid.UUID, 0, numUsers)
+	tokens := make([]string, 0, numUsers)
+
 	for i := 0; i < numUsers; i++ {
-		newUser, _, _, err := enc.NewUser(nil)
-		if err != nil {
-			t.Fatal(err)
-		}
-		users = append(users, newUser)
+		uid, token := newTestUser(t, &enc, id.ScopeEncrypt, id.ScopeDecrypt, id.ScopeModifyAccessGroups)
+		uids = append(uids, uid)
+		tokens = append(tokens, token)
 	}
 
-	group, err := enc.NewGroup(&users[0], []byte("data"))
+	gid := newTestGroup(t, &enc, tokens[0], id.ScopeDecrypt, uids...)
+
+	plainObject := data.Object{
+		Plaintext:      []byte("plaintext"),
+		AssociatedData: []byte("associated_data"),
+	}
+
+	oid, err := enc.Encrypt(tokens[0], &plainObject)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	for i := 1; i < len(users); i++ {
-		if err = enc.AddUserToGroups(&users[0], &users[i], &group); err != nil {
+	if err = enc.AddGroupsToAccess(tokens[0], oid, gid); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, token := range tokens {
+		if _, err = enc.Decrypt(token, oid); err != nil {
 			t.Fatal(err)
 		}
+	}
+}
+
+// Scenario:
+// 1) A user is created.
+// 2) The user encrypts an object.
+// 3) The user removes its own group from the access object.
+// 4) It is verified that the user is no longer part of the access object even though he created it.
+func TestRemoveAccess(t *testing.T) {
+	enc := newTestEncryptonize(t)
+	_, token := newTestUser(t, &enc, id.ScopeEncrypt, id.ScopeModifyAccessGroups)
+	identity, err := enc.idProvider.GetIdentity(token)
+	if err != nil {
+		t.Fatal(err)
 	}
 
 	plainObject := data.Object{
@@ -1306,21 +893,99 @@ func TestSharingObjectPart4(t *testing.T) {
 		AssociatedData: []byte("associated_data"),
 	}
 
-	id, err := enc.Encrypt(&users[0], &plainObject)
+	id, err := enc.Encrypt(token, &plainObject)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if err = enc.AddGroupsToAccess(&users[0], id, &group); err != nil {
+	if err = enc.RemoveGroupsFromAccess(token, id, identity.ID); err != nil {
 		t.Fatal(err)
 	}
 
-	for i := range users {
-		if _, err = enc.Decrypt(&users[i], id); err != nil {
-			t.Fatal(err)
-		}
+	if err = enc.AuthorizeUser(token, id); err == nil {
+		t.Fatal("Unauthorized user is authorized anyway")
 	}
 }
+
+////////////////////////////////////////////////////////
+//                    AuthorizeUser                   //
+////////////////////////////////////////////////////////
+
+// Scenario:
+// 1) Two users are created, user1 and user2.
+// 2) user1 encrypts an object.
+// 3) It is verified that only user1 is authorized.
+func TestAuthorizeUser(t *testing.T) {
+	enc := newTestEncryptonize(t)
+	_, token1 := newTestUser(t, &enc, id.ScopeEncrypt, id.ScopeGetAccessGroups)
+	_, token2 := newTestUser(t, &enc, id.ScopeGetAccessGroups)
+
+	plainObject := data.Object{
+		Plaintext:      []byte("plaintext"),
+		AssociatedData: []byte("associated_data"),
+	}
+
+	id, err := enc.Encrypt(token1, &plainObject)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err = enc.AuthorizeUser(token1, id); err != nil {
+		t.Fatal(err)
+	}
+
+	if err = enc.AuthorizeUser(token2, id); err == nil {
+		t.Fatal("Unauthorized user is authorized anyway")
+	}
+}
+
+func TestAuthorizeUserUnauthenticated(t *testing.T) {
+	enc := newTestEncryptonize(t)
+	err := enc.AuthorizeUser("bad token", uuid.Must(uuid.NewV4()))
+	if !errors.Is(err, ErrNotAuthenticated) {
+		t.Fatalf("Expected error '%s' but got '%s'", ErrNotAuthenticated, err)
+	}
+}
+
+// Test that a user without the GetAccessGroups scope cannot check if a user is authorized.
+func TestAuthorizeUserWrongAPIScope(t *testing.T) {
+	enc := newTestEncryptonize(t)
+	scope := id.ScopeAll ^ id.ScopeGetAccessGroups // All scopes except GetAccessGroups
+	_, token := newTestUser(t, &enc, scope)
+	err := enc.AuthorizeUser(token, uuid.Must(uuid.NewV4()))
+	if !errors.Is(err, ErrNotAuthorized) {
+		t.Fatalf("Expected error '%s' but got '%s'", ErrNotAuthorized, err)
+	}
+}
+
+// Test that a user whose group does not have the AuthorizeUser scope cannot check if a user is authorized.
+func TestAuthorizeUserWrongGroupScope(t *testing.T) {
+	enc := newTestEncryptonize(t)
+	_, token1 := newTestUser(t, &enc, id.ScopeAll)
+	user2, token2 := newTestUser(t, &enc, id.ScopeAll)
+
+	// User2 has all scopes themselves, but get access to the object through a group with a missing
+	// scope.
+	scope := id.ScopeAll ^ id.ScopeGetAccessGroups // All scopes except GetAccessGroups
+	gid := newTestGroup(t, &enc, token1, scope, user2)
+
+	oid, err := enc.Encrypt(token1, &data.Object{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := enc.AddGroupsToAccess(token1, oid, gid); err != nil {
+		t.Fatal(err)
+	}
+
+	err = enc.AuthorizeUser(token2, oid)
+	if !errors.Is(err, ErrNotAuthorized) {
+		t.Fatalf("Expected error '%s' but got '%s'", ErrNotAuthorized, err)
+	}
+}
+
+////////////////////////////////////////////////////////
+//                 NewIndex/Add/Search                //
+////////////////////////////////////////////////////////
 
 func TestAddToIndex(t *testing.T) {
 	enc := newTestEncryptonize(t)
@@ -1342,7 +1007,6 @@ func TestAddToIndex(t *testing.T) {
 		t.Fatal("Keyword/ID pairs not correctly added.")
 	}
 }
-
 func TestSearchInIndex(t *testing.T) {
 	enc := newTestEncryptonize(t)
 

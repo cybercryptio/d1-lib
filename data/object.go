@@ -39,13 +39,13 @@ type SealedObject struct {
 	AssociatedData []byte
 
 	// A unique ID which identifies the object. The ID is authenticated upon decryption.
-	ID uuid.UUID
+	OID uuid.UUID
 }
 
 // Seal encrypts the object and returns the wrapped encryption key and the sealed object.
-func (o *Object) Seal(id uuid.UUID, cryptor crypto.CryptorInterface) ([]byte, SealedObject, error) {
+func (o *Object) Seal(oid uuid.UUID, cryptor crypto.CryptorInterface) ([]byte, SealedObject, error) {
 	associatedData := make([]byte, 0, uuid.Size+len(o.AssociatedData))
-	associatedData = append(associatedData, id.Bytes()...)
+	associatedData = append(associatedData, oid.Bytes()...)
 	associatedData = append(associatedData, o.AssociatedData...)
 
 	wrappedKey, ciphertext, err := cryptor.Encrypt(o.Plaintext, associatedData)
@@ -56,7 +56,7 @@ func (o *Object) Seal(id uuid.UUID, cryptor crypto.CryptorInterface) ([]byte, Se
 	sealed := SealedObject{
 		Ciphertext:     ciphertext,
 		AssociatedData: o.AssociatedData,
-		ID:             id,
+		OID:            oid,
 	}
 
 	return wrappedKey, sealed, nil
@@ -65,7 +65,7 @@ func (o *Object) Seal(id uuid.UUID, cryptor crypto.CryptorInterface) ([]byte, Se
 // Unseal uses the wrapped key to decrypt the sealed object.
 func (o *SealedObject) Unseal(wrappedKey []byte, cryptor crypto.CryptorInterface) (Object, error) {
 	associatedData := make([]byte, 0, uuid.Size+len(o.AssociatedData))
-	associatedData = append(associatedData, o.ID.Bytes()...)
+	associatedData = append(associatedData, o.OID.Bytes()...)
 	associatedData = append(associatedData, o.AssociatedData...)
 
 	plaintext := []byte{}

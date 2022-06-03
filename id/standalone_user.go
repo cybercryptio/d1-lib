@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package data
+package id
 
 import (
 	"errors"
@@ -25,20 +25,22 @@ import (
 // Error returned if a user cannot be authenticated, e.g. if they provide a wrong password.
 var ErrNotAuthenticated = errors.New("user not authenticated")
 
-// User contains data about an Encryptonize user. Note: All fields need to be exported in order for
-// gob to serialize them.
+// User contains data about a user. Note: All fields need to be exported in order for gob to
+// serialize them.
 type User struct {
 	// Salt and password hash for the user's password.
 	SaltAndHash []byte
+
+	Scopes Scope
 
 	// A list of groups the user is a member of.
 	Groups map[uuid.UUID]struct{}
 }
 
-// SealedUser is an encrypted structure which contains data about an Encryptonize user.
+// SealedUser is an encrypted structure which contains data about a user.
 type SealedUser struct {
 	// The unique ID of the user.
-	ID uuid.UUID
+	UID uuid.UUID
 
 	Ciphertext []byte
 	WrappedKey []byte
@@ -46,22 +48,17 @@ type SealedUser struct {
 
 var defaultPwdHasher = crypto.NewPasswordHasher()
 
-// NewUser creates a new user with a random password. All the provided groups are added to the
-// user's group list.
-func NewUser(groups ...uuid.UUID) (User, string, error) {
+// NewUser creates a new user with a random password and the provided scopes.
+func NewUser(scopes ...Scope) (User, string, error) {
 	pwd, saltAndHash, err := defaultPwdHasher.GeneratePassword()
 	if err != nil {
 		return User{}, "", err
 	}
 
-	groupMap := make(map[uuid.UUID]struct{})
-	for _, g := range groups {
-		groupMap[g] = struct{}{}
-	}
-
 	user := User{
 		SaltAndHash: saltAndHash,
-		Groups:      groupMap,
+		Scopes:      ScopeUnion(scopes...),
+		Groups:      make(map[uuid.UUID]struct{}),
 	}
 
 	return user, pwd, nil
@@ -93,33 +90,33 @@ func (u *User) ChangePassword(oldPassword string) (string, error) {
 }
 
 // Seal encrypts the user.
-func (u *User) Seal(id uuid.UUID, cryptor crypto.CryptorInterface) (SealedUser, error) {
-	wrappedKey, ciphertext, err := cryptor.Encrypt(u, id.Bytes())
+func (u *User) Seal(uid uuid.UUID, cryptor crypto.CryptorInterface) (SealedUser, error) {
+	wrappedKey, ciphertext, err := cryptor.Encrypt(u, uid.Bytes())
 	if err != nil {
 		return SealedUser{}, err
 	}
-	return SealedUser{id, ciphertext, wrappedKey}, nil
+	return SealedUser{uid, ciphertext, wrappedKey}, nil
 }
 
 // AddGroups appends the provided group IDs to the user's group list.
-func (u *User) AddGroups(ids ...uuid.UUID) {
-	for _, id := range ids {
-		u.Groups[id] = struct{}{}
+func (u *User) AddGroups(gids ...uuid.UUID) {
+	for _, gid := range gids {
+		u.Groups[gid] = struct{}{}
 	}
 }
 
 // RemoveGroups removes the provided group IDs from the user's group list.
-func (u *User) RemoveGroups(ids ...uuid.UUID) {
-	for _, id := range ids {
-		delete(u.Groups, id)
+func (u *User) RemoveGroups(gids ...uuid.UUID) {
+	for _, gid := range gids {
+		delete(u.Groups, gid)
 	}
 }
 
 // ContainsGroups returns true if all provided group IDs are contained in the user's group list, and
 // false otherwise.
-func (u *User) ContainsGroups(ids ...uuid.UUID) bool {
-	for _, id := range ids {
-		if _, exists := u.Groups[id]; !exists {
+func (u *User) ContainsGroups(gids ...uuid.UUID) bool {
+	for _, gid := range gids {
+		if _, exists := u.Groups[gid]; !exists {
 			return false
 		}
 	}
@@ -134,7 +131,7 @@ func (u *User) GetGroups() map[uuid.UUID]struct{} {
 // Unseal decrypts the sealed user.
 func (u *SealedUser) Unseal(cryptor crypto.CryptorInterface) (User, error) {
 	plainUser := User{}
-	if err := cryptor.Decrypt(&plainUser, u.ID.Bytes(), u.WrappedKey, u.Ciphertext); err != nil {
+	if err := cryptor.Decrypt(&plainUser, u.UID.Bytes(), u.WrappedKey, u.Ciphertext); err != nil {
 		return User{}, err
 	}
 	return plainUser, nil
