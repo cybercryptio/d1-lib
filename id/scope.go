@@ -23,6 +23,7 @@ const (
 	ScopeEnd
 )
 
+// ScopeUnion returns the union of all the input scopes.
 func ScopeUnion(scopes ...Scope) Scope {
 	result := ScopeNone
 	for _, scope := range scopes {
@@ -31,6 +32,7 @@ func ScopeUnion(scopes ...Scope) Scope {
 	return result
 }
 
+// Contains checks wether the scope contains a specific scope.
 func (s Scope) Contains(scope Scope) bool {
 	return (s & scope) == scope
 }

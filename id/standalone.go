@@ -20,6 +20,7 @@ const (
 	DataTypeSealedGroup
 )
 
+// Standalone is an ID Provider that manages its own data.
 type Standalone struct {
 	userCryptor  crypto.CryptorInterface
 	groupCryptor crypto.CryptorInterface
@@ -28,6 +29,8 @@ type Standalone struct {
 	ioProvider io.Provider
 }
 
+// NewStandalone creates an ID Provider that uses the provided key material and stores data in the
+// given IO provider.
 func NewStandalone(uek, gek, tek []byte, ioProvider io.Provider) (Standalone, error) {
 	userCryptor, err := crypto.NewAESCryptor(uek)
 	if err != nil {
@@ -88,12 +91,7 @@ func (s *Standalone) GetIdentity(token string) (Identity, error) {
 	}, nil
 }
 
-// NewUser creates a new Encryptonize user as well as an initial group for that user. The newly
-// created user and group has the same ID. The user's own group contains the provided data, and the
-// user is added to any additional groups provided. A randomly generated password is also created
-// and returned to the caller.
-//
-// The sealed user and group are not sensitive  The generated password is sensitive
+// NewUser creates a new user with a randomly generated ID and password.
 func (s *Standalone) NewUser(scopes ...Scope) (uuid.UUID, string, error) {
 	uid, err := uuid.NewV4()
 	if err != nil {
@@ -111,8 +109,8 @@ func (s *Standalone) NewUser(scopes ...Scope) (uuid.UUID, string, error) {
 	return uid, password, nil
 }
 
-// AuthenticateUser checks whether the password provided matches the user. If not, an error is
-// returned.
+// LoginUser checks whether the password provided matches the user. If authentication is successful
+// a token is generated.
 func (s *Standalone) LoginUser(uid uuid.UUID, password string) (string, error) {
 	user, err := s.getUser(uid)
 	if err != nil {
@@ -137,10 +135,8 @@ func (s *Standalone) LoginUser(uid uuid.UUID, password string) (string, error) {
 	return tokenString, nil
 }
 
-// ChangeUserPassword authenticates the provided sealed user with the given password and generates a new password for the user.
-// It modifies the user object in place and returns the generated password.
-//
-// Any copies of the old sealed user must be disposed of.
+// ChangeUserPassword authenticates the provided user with the given password and generates a new
+// password for the user.
 func (s *Standalone) ChangeUserPassword(uid uuid.UUID, oldPassword string) (string, error) {
 	user, err := s.getUser(uid)
 	if err != nil {
@@ -159,7 +155,7 @@ func (s *Standalone) ChangeUserPassword(uid uuid.UUID, oldPassword string) (stri
 }
 
 // AddUserToGroups adds the user to the provided groups. The authorizing user must be a member of
-// all the groups. The user is modified in-place.
+// all the groups.
 func (s *Standalone) AddUserToGroups(token string, uid uuid.UUID, gids ...uuid.UUID) error {
 	// Authenticate calling user
 	identity, err := s.GetIdentity(token)
@@ -190,7 +186,7 @@ func (s *Standalone) AddUserToGroups(token string, uid uuid.UUID, gids ...uuid.U
 }
 
 // RemoveUserFromGroups removes the user from the provided groups. The authorizing user must be a
-// member of all the groups. The user is modified in-place.
+// member of all the groups.
 func (s *Standalone) RemoveUserFromGroups(token string, uid uuid.UUID, gids ...uuid.UUID) error {
 	// Authenticate calling user
 	identity, err := s.GetIdentity(token)
@@ -219,10 +215,7 @@ func (s *Standalone) RemoveUserFromGroups(token string, uid uuid.UUID, gids ...u
 	return nil
 }
 
-// NewGroup creates a new Encryptonize group containing the provided  The provided user is
-// automatically added to the newly created group. The user is modified in-place.
-//
-// The sealed group is not sensitive
+// NewGroup creates a new group and adds the calling user to it.
 func (s *Standalone) NewGroup(token string, scopes Scope) (uuid.UUID, error) {
 	identity, err := s.GetIdentity(token)
 	if err != nil {

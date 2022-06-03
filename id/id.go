@@ -15,6 +15,7 @@ type Identity struct {
 	Groups map[uuid.UUID]AccessGroup
 }
 
+// GetIDs returns all IDs related to the identity, i.e. the identity ID and all its group IDs.
 func (i *Identity) GetIDs() map[uuid.UUID]struct{} {
 	ids := make(map[uuid.UUID]struct{}, len(i.Groups)+1)
 	ids[i.ID] = struct{}{}
@@ -24,6 +25,7 @@ func (i *Identity) GetIDs() map[uuid.UUID]struct{} {
 	return ids
 }
 
+// GetIDScope returns the scopes associated with a given ID (identity or group ID).
 func (i *Identity) GetIDScope(id uuid.UUID) Scope {
 	if id == i.ID {
 		return i.Scopes

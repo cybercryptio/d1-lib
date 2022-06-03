@@ -20,13 +20,13 @@ import (
 	"github.com/cyber-crypt-com/encryptonize-lib/crypto"
 )
 
-// Group contains data about an Encryptonize group. Note: All fields need to exported in order for
+// Group contains data about a group of users. Note: All fields need to exported in order for
 // gob to serialize them.
 type Group struct {
 	Scopes Scope
 }
 
-// SealedGroup is an encrypted structure which contains data about an Encryptonize group.
+// SealedGroup is an encrypted structure which contains data about a user group.
 type SealedGroup struct {
 	// The unique ID of the group.
 	GID uuid.UUID
@@ -35,7 +35,7 @@ type SealedGroup struct {
 	WrappedKey []byte
 }
 
-// NewGroup creates a new group which contains the provided data.
+// NewGroup creates a new group which has the given scopes.
 func NewGroup(scopes Scope) Group {
 	return Group{scopes}
 }

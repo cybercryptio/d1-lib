@@ -25,8 +25,8 @@ import (
 // Error returned if a user cannot be authenticated, e.g. if they provide a wrong password.
 var ErrNotAuthenticated = errors.New("user not authenticated")
 
-// User contains data about an Encryptonize user. Note: All fields need to be exported in order for
-// gob to serialize them.
+// User contains data about a user. Note: All fields need to be exported in order for gob to
+// serialize them.
 type User struct {
 	// Salt and password hash for the user's password.
 	SaltAndHash []byte
@@ -37,7 +37,7 @@ type User struct {
 	Groups map[uuid.UUID]struct{}
 }
 
-// SealedUser is an encrypted structure which contains data about an Encryptonize user.
+// SealedUser is an encrypted structure which contains data about a user.
 type SealedUser struct {
 	// The unique ID of the user.
 	UID uuid.UUID
@@ -48,8 +48,7 @@ type SealedUser struct {
 
 var defaultPwdHasher = crypto.NewPasswordHasher()
 
-// NewUser creates a new user with a random password. All the provided groups are added to the
-// user's group list.
+// NewUser creates a new user with a random password and the provided scopes.
 func NewUser(scopes ...Scope) (User, string, error) {
 	pwd, saltAndHash, err := defaultPwdHasher.GeneratePassword()
 	if err != nil {
