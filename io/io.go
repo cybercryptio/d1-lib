@@ -13,6 +13,9 @@ import (
 // Error returned if data is not found during a "Get" or "Update" call.
 var ErrNotFound = errors.New("not found")
 
+// Error returned if data is found during a "Put" call.
+var ErrAlreadyExists = errors.New("already exists")
+
 // Types of data supported by an IO Provider.
 type DataType uint16
 
