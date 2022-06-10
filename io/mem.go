@@ -18,6 +18,10 @@ func NewMem() Mem {
 }
 
 func (m *Mem) Put(id uuid.UUID, dataType DataType, data []byte) error {
+	_, ok := m.data.Load(fmt.Sprintf("%s:%s", id.String(), dataType.String()))
+	if ok {
+		return ErrAlreadyExists
+	}
 	m.data.Store(fmt.Sprintf("%s:%s", id.String(), dataType.String()), data)
 	return nil
 }
@@ -31,11 +35,12 @@ func (m *Mem) Get(id uuid.UUID, dataType DataType) ([]byte, error) {
 }
 
 func (m *Mem) Update(id uuid.UUID, dataType DataType, data []byte) error {
-	_, err := m.Get(id, dataType)
-	if err != nil {
-		return err
+	_, ok := m.data.Load(fmt.Sprintf("%s:%s", id.String(), dataType.String()))
+	if !ok {
+		return ErrNotFound
 	}
-	return m.Put(id, dataType, data)
+	m.data.Store(fmt.Sprintf("%s:%s", id.String(), dataType.String()), data)
+	return nil
 }
 
 func (m *Mem) Delete(id uuid.UUID, dataType DataType) error {
