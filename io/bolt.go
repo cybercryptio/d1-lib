@@ -39,6 +39,9 @@ func NewBolt(path string) (Bolt, error) {
 func (b *Bolt) Put(id uuid.UUID, dataType DataType, data []byte) error {
 	return b.store.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket(dataType.Bytes())
+		if b.Get(id.Bytes()) != nil {
+			return ErrAlreadyExists
+		}
 		return b.Put(id.Bytes(), data)
 	})
 }
