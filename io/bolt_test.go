@@ -37,6 +37,30 @@ func TestBoltPutAndGet(t *testing.T) {
 	}
 }
 
+// Test that putting existing data returns the right error.
+func TestBoltPutAlreadyExists(t *testing.T) {
+	bolt, err := NewBolt(t.TempDir() + "test.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	data := []byte("mock data")
+	id := uuid.Must(uuid.NewV4())
+
+	for dt := DataType(0); dt < DataTypeEnd; dt++ {
+		testData := append(data, dt.Bytes()...)
+		err := bolt.Put(id, dt, testData)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		err = bolt.Put(id, dt, testData)
+		if !errors.Is(err, ErrAlreadyExists) {
+			t.Fatalf("Expected %v but got %v", ErrAlreadyExists, err)
+		}
+	}
+}
+
 // Test that getting non-existing data returns the right error.
 func TestBoltNotFound(t *testing.T) {
 	bolt, err := NewBolt(t.TempDir() + "test.db")
