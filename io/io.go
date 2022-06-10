@@ -40,13 +40,14 @@ func (d DataType) String() string {
 // Provider is the interface an IO Provider must implement to handle data from Encryptonize.
 type Provider interface {
 	// Put sends bytes to the IO Provider. The data is identified by an ID and a data type.
+	// Should error if the data already exists in the IO Provider.
 	Put(id uuid.UUID, dataType DataType, data []byte) error
 
 	// Get fetches data from the IO Provider. The data is identified by an ID and a data type.
 	Get(id uuid.UUID, dataType DataType) ([]byte, error)
 
-	// Update is similar to Put but updates data previously sent to the IO Provider. Should error if
-	// the data does not exist in the IO Provider.
+	// Update is similar to Put but updates data previously sent to the IO Provider.
+	// Should error if the data does not exist in the IO Provider.
 	Update(id uuid.UUID, dataType DataType, data []byte) error
 
 	// Delete removes data previously sent to the IO Provider.
