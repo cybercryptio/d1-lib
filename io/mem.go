@@ -24,8 +24,7 @@ func newKey(id uuid.UUID, dataType DataType) string {
 
 func (m *Mem) Put(id uuid.UUID, dataType DataType, data []byte) error {
 	key := newKey(id, dataType)
-	_, ok := m.data.Load(key)
-	if ok {
+	if _, ok := m.data.Load(key); ok {
 		return ErrAlreadyExists
 	}
 	m.data.Store(key, data)
@@ -44,8 +43,7 @@ func (m *Mem) Get(id uuid.UUID, dataType DataType) ([]byte, error) {
 
 func (m *Mem) Update(id uuid.UUID, dataType DataType, data []byte) error {
 	key := newKey(id, dataType)
-	_, ok := m.data.Load(key)
-	if !ok {
+	if _, ok := m.data.Load(key); !ok {
 		return ErrNotFound
 	}
 	m.data.Store(key, data)
