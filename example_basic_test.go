@@ -18,10 +18,10 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/cyber-crypt-com/encryptonize-lib"
-	"github.com/cyber-crypt-com/encryptonize-lib/data"
-	"github.com/cyber-crypt-com/encryptonize-lib/io"
-	"github.com/cyber-crypt-com/encryptonize-lib/key"
+	"github.com/cybercryptio/d1-lib"
+	"github.com/cybercryptio/d1-lib/data"
+	"github.com/cybercryptio/d1-lib/io"
+	"github.com/cybercryptio/d1-lib/key"
 )
 
 // These are insecure keys used only for demonstration purposes.

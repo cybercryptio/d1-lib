@@ -20,7 +20,7 @@ import (
 
 	"github.com/gofrs/uuid"
 
-	"github.com/cyber-crypt-com/encryptonize-lib/crypto"
+	"github.com/cybercryptio/d1-lib/crypto"
 )
 
 var userGroups = []uuid.UUID{

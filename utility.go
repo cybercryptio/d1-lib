@@ -21,8 +21,8 @@ import (
 
 	"github.com/gofrs/uuid"
 
-	"github.com/cyber-crypt-com/encryptonize-lib/data"
-	"github.com/cyber-crypt-com/encryptonize-lib/io"
+	"github.com/cybercryptio/d1-lib/data"
+	"github.com/cybercryptio/d1-lib/io"
 )
 
 // authorizeAccess checks whether the authorizing user is allowed to access the provided access
