@@ -24,12 +24,12 @@ The Encryptonize&reg; library provides cryptographic functions for data encrypti
 ## Installation
 To use the library in your Go project, you first need to add it to your `go.mod` file by running the following command in the root folder of the project:
 ```
-go get -u github.com/cyber-crypt-com/encryptonize-lib@latest
+go get -u github.com/cybercryptio/d1-lib@latest
 ```
 
 Then, you can access the Encryptonize&reg; library functions by importing the library in your application code:
 ```
-import github.com/cyber-crypt-com/encryptonize-lib
+import github.com/cybercryptio/d1-lib
 ```
 
 ## Usage

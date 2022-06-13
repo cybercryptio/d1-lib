@@ -1,4 +1,4 @@
-module github.com/cyber-crypt-com/encryptonize-lib
+module github.com/cybercryptio/d1-lib
 
 go 1.17
 
