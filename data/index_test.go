@@ -17,7 +17,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/cyber-crypt-com/encryptonize-lib/crypto"
+	"github.com/cybercryptio/d1-lib/crypto"
 )
 
 func TestNewSearchIndex(t *testing.T) {

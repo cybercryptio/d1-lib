@@ -7,7 +7,7 @@ import (
 
 	"github.com/gofrs/uuid"
 
-	"github.com/cyber-crypt-com/encryptonize-lib/io"
+	"github.com/cybercryptio/d1-lib/io"
 )
 
 func newTestStandalone(t *testing.T) *Standalone {

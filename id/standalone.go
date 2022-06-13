@@ -7,9 +7,9 @@ import (
 
 	"github.com/gofrs/uuid"
 
-	"github.com/cyber-crypt-com/encryptonize-lib/crypto"
-	"github.com/cyber-crypt-com/encryptonize-lib/data"
-	"github.com/cyber-crypt-com/encryptonize-lib/io"
+	"github.com/cybercryptio/d1-lib/crypto"
+	"github.com/cybercryptio/d1-lib/data"
+	"github.com/cybercryptio/d1-lib/io"
 )
 
 var ErrNotFound = errors.New("not found")

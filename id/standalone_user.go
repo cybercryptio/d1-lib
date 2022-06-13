@@ -19,7 +19,7 @@ import (
 
 	"github.com/gofrs/uuid"
 
-	"github.com/cyber-crypt-com/encryptonize-lib/crypto"
+	"github.com/cybercryptio/d1-lib/crypto"
 )
 
 // Error returned if a user cannot be authenticated, e.g. if they provide a wrong password.

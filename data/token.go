@@ -21,7 +21,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/cyber-crypt-com/encryptonize-lib/crypto"
+	"github.com/cybercryptio/d1-lib/crypto"
 )
 
 // Validity period of tokens created with Encryptonize.CreateToken.

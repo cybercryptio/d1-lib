@@ -20,7 +20,7 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/cyber-crypt-com/encryptonize-lib/crypto"
+	"github.com/cybercryptio/d1-lib/crypto"
 )
 
 func TestTokenSeal(t *testing.T) {
