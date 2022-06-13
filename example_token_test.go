@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/cyber-crypt-com/encryptonize-lib"
+	"github.com/cybercryptio/d1-lib"
 )
 
 func ExampleEncryptonize_CreateToken() {

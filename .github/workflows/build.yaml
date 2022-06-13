@@ -14,7 +14,7 @@ jobs:
         fetch-depth: 0
 
     - name: Setup and cache dependencies
-      uses: cyber-crypt-com/build-setup-action@master
+      uses: cybercryptio/build-setup-action@master
 
     - name: Lint
       run: make lint

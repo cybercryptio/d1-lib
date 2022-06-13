@@ -19,7 +19,7 @@ import (
 	"encoding/binary"
 	"fmt"
 
-	"github.com/cyber-crypt-com/encryptonize-lib/crypto"
+	"github.com/cybercryptio/d1-lib/crypto"
 )
 
 // The length of the master key used for searchable encryption.
