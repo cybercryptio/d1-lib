@@ -32,7 +32,7 @@ func manipulateUser(t *testing.T, uid uuid.UUID, standalone *Standalone) {
 	}
 
 	copy(userBytes[:5], make([]byte, 5))
-	if err := standalone.ioProvider.Put(uid, DataTypeSealedUser, userBytes); err != nil {
+	if err := standalone.ioProvider.Update(uid, DataTypeSealedUser, userBytes); err != nil {
 		t.Fatal(err)
 	}
 }
