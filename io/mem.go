@@ -17,28 +17,41 @@ func NewMem() Mem {
 	return Mem{sync.Map{}}
 }
 
+func newKey(id uuid.UUID, dataType DataType) string {
+	key := fmt.Sprintf("%s:%s", id.String(), dataType.String())
+	return key
+}
+
 func (m *Mem) Put(id uuid.UUID, dataType DataType, data []byte) error {
-	m.data.Store(fmt.Sprintf("%s:%s", id.String(), dataType.String()), data)
+	key := newKey(id, dataType)
+	if _, ok := m.data.Load(key); ok {
+		return ErrAlreadyExists
+	}
+	m.data.Store(key, data)
 	return nil
 }
 
 func (m *Mem) Get(id uuid.UUID, dataType DataType) ([]byte, error) {
-	out, ok := m.data.Load(fmt.Sprintf("%s:%s", id.String(), dataType.String()))
+	key := newKey(id, dataType)
+	out, ok := m.data.Load(key)
 	if !ok {
 		return nil, ErrNotFound
 	}
-	return out.([]byte), nil
+	data := out.([]byte)
+	return data, nil
 }
 
 func (m *Mem) Update(id uuid.UUID, dataType DataType, data []byte) error {
-	_, err := m.Get(id, dataType)
-	if err != nil {
-		return err
+	key := newKey(id, dataType)
+	if _, ok := m.data.Load(key); !ok {
+		return ErrNotFound
 	}
-	return m.Put(id, dataType, data)
+	m.data.Store(key, data)
+	return nil
 }
 
 func (m *Mem) Delete(id uuid.UUID, dataType DataType) error {
-	m.data.Delete(fmt.Sprintf("%s:%s", id.String(), dataType.String()))
+	key := newKey(id, dataType)
+	m.data.Delete(key)
 	return nil
 }

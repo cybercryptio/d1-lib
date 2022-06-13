@@ -34,6 +34,27 @@ func TestMemPutAndGet(t *testing.T) {
 	}
 }
 
+// Test that putting existing data returns the right error.
+func TestMemPutAlreadyExists(t *testing.T) {
+	mem := NewMem()
+
+	data := []byte("mock data")
+	id := uuid.Must(uuid.NewV4())
+
+	for dt := DataType(0); dt < DataTypeEnd; dt++ {
+		testData := append(data, dt.Bytes()...)
+		err := mem.Put(id, dt, testData)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		err = mem.Put(id, dt, testData)
+		if !errors.Is(err, ErrAlreadyExists) {
+			t.Fatalf("Expected %v but got %v", ErrAlreadyExists, err)
+		}
+	}
+}
+
 // Test that getting non-existing data returns the right error.
 func TestMemNotFound(t *testing.T) {
 	mem := NewMem()
