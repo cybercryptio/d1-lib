@@ -35,13 +35,13 @@ type SealedGroup struct {
 	WrappedKey []byte
 }
 
-// NewGroup creates a new group which has the given scopes.
-func NewGroup(scopes ...Scope) Group {
+// newGroup creates a new group which has the given scopes.
+func newGroup(scopes ...Scope) Group {
 	return Group{Scopes: ScopeUnion(scopes...)}
 }
 
-// Seal encrypts the group.
-func (g *Group) Seal(gid uuid.UUID, cryptor crypto.CryptorInterface) (SealedGroup, error) {
+// seal encrypts the group.
+func (g *Group) seal(gid uuid.UUID, cryptor crypto.CryptorInterface) (SealedGroup, error) {
 	wrappedKey, ciphertext, err := cryptor.Encrypt(g, gid.Bytes())
 	if err != nil {
 		return SealedGroup{}, err
@@ -50,8 +50,8 @@ func (g *Group) Seal(gid uuid.UUID, cryptor crypto.CryptorInterface) (SealedGrou
 	return SealedGroup{gid, ciphertext, wrappedKey}, nil
 }
 
-// Unseal decrypts the sealed group.
-func (g *SealedGroup) Unseal(cryptor crypto.CryptorInterface) (Group, error) {
+// unseal decrypts the sealed group.
+func (g *SealedGroup) unseal(cryptor crypto.CryptorInterface) (Group, error) {
 	plainGroup := Group{}
 	if err := cryptor.Decrypt(&plainGroup, g.GID.Bytes(), g.WrappedKey, g.Ciphertext); err != nil {
 		return Group{}, err
@@ -59,8 +59,8 @@ func (g *SealedGroup) Unseal(cryptor crypto.CryptorInterface) (Group, error) {
 	return plainGroup, nil
 }
 
-// Verify checks the integrity of the sealed group.
-func (g *SealedGroup) Verify(cryptor crypto.CryptorInterface) bool {
-	_, err := g.Unseal(cryptor)
+// verify checks the integrity of the sealed group.
+func (g *SealedGroup) verify(cryptor crypto.CryptorInterface) bool {
+	_, err := g.unseal(cryptor)
 	return err == nil
 }

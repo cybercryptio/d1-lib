@@ -75,7 +75,7 @@ func (s *Standalone) GetIdentity(token string) (Identity, error) {
 	}
 
 	groups := make(map[uuid.UUID]AccessGroup, len(user.Groups))
-	for gid := range user.GetGroups() {
+	for gid := range user.getGroups() {
 		group, err := s.getGroup(gid)
 		if err != nil {
 			return Identity{}, err
@@ -98,7 +98,7 @@ func (s *Standalone) NewUser(scopes ...Scope) (uuid.UUID, string, error) {
 		return uuid.Nil, "", err
 	}
 
-	user, password, err := NewUser(scopes...)
+	user, password, err := newUser(scopes...)
 	if err != nil {
 		return uuid.Nil, "", err
 	}
@@ -117,7 +117,7 @@ func (s *Standalone) LoginUser(uid uuid.UUID, password string) (string, error) {
 		return "", ErrNotAuthenticated
 	}
 
-	if err := user.Authenticate(password); err != nil {
+	if err := user.authenticate(password); err != nil {
 		return "", ErrNotAuthenticated
 	}
 
@@ -143,7 +143,7 @@ func (s *Standalone) ChangeUserPassword(uid uuid.UUID, oldPassword string) (stri
 		return "", err
 	}
 
-	newPwd, err := user.ChangePassword(oldPassword)
+	newPwd, err := user.changePassword(oldPassword)
 	if err != nil {
 		return "", err
 	}
@@ -177,7 +177,7 @@ func (s *Standalone) AddUserToGroups(token string, uid uuid.UUID, gids ...uuid.U
 		return err
 	}
 
-	user.AddGroups(gids...)
+	user.addGroups(gids...)
 	if err := s.putUser(uid, user, true); err != nil {
 		return err
 	}
@@ -207,7 +207,7 @@ func (s *Standalone) RemoveUserFromGroups(token string, uid uuid.UUID, gids ...u
 		return err
 	}
 
-	user.RemoveGroups(gids...)
+	user.removeGroups(gids...)
 	if err := s.putUser(uid, user, true); err != nil {
 		return err
 	}
@@ -227,7 +227,7 @@ func (s *Standalone) NewGroup(token string, scopes ...Scope) (uuid.UUID, error) 
 		return uuid.Nil, err
 	}
 
-	group := NewGroup(scopes...)
+	group := newGroup(scopes...)
 	if err := s.putGroup(gid, &group); err != nil {
 		return uuid.Nil, err
 	}
@@ -238,7 +238,7 @@ func (s *Standalone) NewGroup(token string, scopes ...Scope) (uuid.UUID, error) 
 		return uuid.Nil, err
 	}
 
-	user.AddGroups(gid)
+	user.addGroups(gid)
 	if err := s.putUser(identity.ID, user, true); err != nil {
 		return uuid.Nil, err
 	}
@@ -249,7 +249,7 @@ func (s *Standalone) NewGroup(token string, scopes ...Scope) (uuid.UUID, error) 
 // putUser seals the user, encodes the sealed user, and sends it to the IO Provider, either as a
 // "Put" or an "Update".
 func (s *Standalone) putUser(uid uuid.UUID, user *User, update bool) error {
-	sealedUser, err := user.Seal(uid, s.userCryptor)
+	sealedUser, err := user.seal(uid, s.userCryptor)
 	if err != nil {
 		return err
 	}
@@ -281,7 +281,7 @@ func (s *Standalone) getUser(uid uuid.UUID) (*User, error) {
 	}
 
 	user.UID = uid
-	plainUser, err := user.Unseal(s.userCryptor)
+	plainUser, err := user.unseal(s.userCryptor)
 	if err != nil {
 		return nil, err
 	}
@@ -291,7 +291,7 @@ func (s *Standalone) getUser(uid uuid.UUID) (*User, error) {
 
 // putGroup seals a group, encodes the sealed group, and sends it to the IO Provider.
 func (s *Standalone) putGroup(gid uuid.UUID, group *Group) error {
-	sealedGroup, err := group.Seal(gid, s.groupCryptor)
+	sealedGroup, err := group.seal(gid, s.groupCryptor)
 	if err != nil {
 		return err
 	}
@@ -320,7 +320,7 @@ func (s *Standalone) getGroup(gid uuid.UUID) (*Group, error) {
 	}
 
 	group.GID = gid
-	plainGroup, err := group.Unseal(s.groupCryptor)
+	plainGroup, err := group.unseal(s.groupCryptor)
 	if err != nil {
 		return nil, err
 	}
