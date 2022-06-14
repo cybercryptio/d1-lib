@@ -216,7 +216,7 @@ func (s *Standalone) RemoveUserFromGroups(token string, uid uuid.UUID, gids ...u
 }
 
 // NewGroup creates a new group and adds the calling user to it.
-func (s *Standalone) NewGroup(token string, scopes Scope) (uuid.UUID, error) {
+func (s *Standalone) NewGroup(token string, scopes ...Scope) (uuid.UUID, error) {
 	identity, err := s.GetIdentity(token)
 	if err != nil {
 		return uuid.Nil, err
@@ -227,7 +227,7 @@ func (s *Standalone) NewGroup(token string, scopes Scope) (uuid.UUID, error) {
 		return uuid.Nil, err
 	}
 
-	group := NewGroup(scopes)
+	group := NewGroup(scopes...)
 	if err := s.putGroup(gid, &group); err != nil {
 		return uuid.Nil, err
 	}
