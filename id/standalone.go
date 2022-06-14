@@ -125,29 +125,29 @@ func (s *Standalone) NewUser(scopes ...Scope) (uuid.UUID, string, error) {
 }
 
 // LoginUser checks whether the password provided matches the user. If authentication is successful
-// a token is generated.
-func (s *Standalone) LoginUser(uid uuid.UUID, password string) (string, error) {
+// a token is generated and returned alongside its expiry time in Unix time.
+func (s *Standalone) LoginUser(uid uuid.UUID, password string) (string, int64, error) {
 	user, err := s.getUser(uid)
 	if err != nil {
-		return "", ErrNotAuthenticated
+		return "", 0, ErrNotAuthenticated
 	}
 
 	if err := user.authenticate(password); err != nil {
-		return "", ErrNotAuthenticated
+		return "", 0, ErrNotAuthenticated
 	}
 
 	token := data.NewToken(uid.Bytes(), data.TokenValidity)
 	sealedToken, err := token.Seal(s.tokenCryptor)
 	if err != nil {
-		return "", ErrNotAuthenticated
+		return "", 0, ErrNotAuthenticated
 	}
 
 	tokenString, err := sealedToken.String()
 	if err != nil {
-		return "", ErrNotAuthenticated
+		return "", 0, ErrNotAuthenticated
 	}
 
-	return tokenString, nil
+	return tokenString, sealedToken.ExpiryTime.Unix(), nil
 }
 
 // ChangeUserPassword authenticates the provided user with the given password and generates a new
@@ -228,6 +228,16 @@ func (s *Standalone) RemoveUserFromGroups(token string, uid uuid.UUID, gids ...u
 	}
 
 	return nil
+}
+
+// DeleteUser deletes the user from the IO Provider.
+func (s *Standalone) DeleteUser(token string, uid uuid.UUID) error {
+	// Authenticate calling user
+	if _, err := s.GetIdentity(token); err != nil {
+		return err
+	}
+
+	return s.ioProvider.Delete(uid, DataTypeSealedUser)
 }
 
 // NewGroup creates a new group and adds the calling user to it.
