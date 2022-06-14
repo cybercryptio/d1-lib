@@ -233,8 +233,7 @@ func (s *Standalone) RemoveUserFromGroups(token string, uid uuid.UUID, gids ...u
 // DeleteUser deletes the user from the IO Provider.
 func (s *Standalone) DeleteUser(token string, uid uuid.UUID) error {
 	// Authenticate calling user
-	_, err := s.GetIdentity(token)
-	if err != nil {
+	if _, err := s.GetIdentity(token); err != nil {
 		return err
 	}
 
