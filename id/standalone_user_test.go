@@ -31,85 +31,85 @@ var userGroups = []uuid.UUID{
 }
 
 func TestGetGroupIDs(t *testing.T) {
-	user, _, err := NewUser(ScopeEncrypt)
+	user, _, err := newUser(ScopeEncrypt)
 	if err != nil {
 		t.Fatal(err)
 	}
 	groupID := uuid.Must(uuid.NewV4())
-	user.AddGroups(groupID)
+	user.addGroups(groupID)
 
-	uuids := user.GetGroups()
+	uuids := user.getGroups()
 	if _, ok := uuids[groupID]; len(uuids) == 0 || !ok {
 		t.Error("Expected GetGroups to return a group ID")
 	}
 }
 
 func TestGetZeroGroupIDs(t *testing.T) {
-	user, _, err := NewUser(ScopeEncrypt)
+	user, _, err := newUser(ScopeEncrypt)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	uuids := user.GetGroups()
+	uuids := user.getGroups()
 	if len(uuids) != 0 {
 		t.Error("GetGroups should have returned empty array")
 	}
 }
 
 func TestUserContainsGroup(t *testing.T) {
-	user, _, err := NewUser(ScopeEncrypt)
+	user, _, err := newUser(ScopeEncrypt)
 	if err != nil {
 		t.Fatal(err)
 	}
-	user.AddGroups(userGroups...)
+	user.addGroups(userGroups...)
 
-	if !user.ContainsGroups(userGroups...) {
+	if !user.containsGroups(userGroups...) {
 		t.Error("ContainsGroup returned false")
 	}
 
-	if user.ContainsGroups(uuid.Must(uuid.NewV4())) {
+	if user.containsGroups(uuid.Must(uuid.NewV4())) {
 		t.Error("ContainsGroup returned true")
 	}
 }
 
 func TestUserAdd(t *testing.T) {
-	user, _, err := NewUser(ScopeEncrypt)
+	user, _, err := newUser(ScopeEncrypt)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	for i := 0; i < 256; i++ {
 		g := uuid.Must(uuid.NewV4())
-		user.AddGroups(g)
-		if !user.ContainsGroups(g) {
+		user.addGroups(g)
+		if !user.containsGroups(g) {
 			t.Error("AddGroup failed")
 		}
 	}
 }
 
 func TestUserAddDuplicate(t *testing.T) {
-	user, _, err := NewUser(ScopeEncrypt)
+	user, _, err := newUser(ScopeEncrypt)
 	if err != nil {
 		t.Fatal(err)
 	}
 	g := uuid.Must(uuid.NewV4())
-	user.AddGroups(g)
-	user.AddGroups(g)
-	if !user.ContainsGroups(g) {
+	user.addGroups(g)
+	user.addGroups(g)
+	if !user.containsGroups(g) {
 		t.Error("calling AddGroup twice with same ID failed")
 	}
 }
 
 func TestUserRemoveGroup(t *testing.T) {
-	user, _, err := NewUser(ScopeEncrypt)
+	user, _, err := newUser(ScopeEncrypt)
 	if err != nil {
 		t.Fatal(err)
 	}
-	user.AddGroups(userGroups...)
+	user.addGroups(userGroups...)
 
 	for _, g := range userGroups {
-		user.RemoveGroups(g)
-		if user.ContainsGroups(g) {
+		user.removeGroups(g)
+		if user.containsGroups(g) {
 			t.Error("RemoveGroup failed")
 		}
 	}
@@ -122,14 +122,14 @@ func TestUserSeal(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	user, _, err := NewUser(ScopeEncrypt)
+	user, _, err := newUser(ScopeEncrypt)
 	if err != nil {
 		t.Fatal(err)
 	}
-	user.AddGroups(userGroups...)
+	user.addGroups(userGroups...)
 
 	id := uuid.Must(uuid.NewV4())
-	sealed, err := user.Seal(id, &cryptor)
+	sealed, err := user.seal(id, &cryptor)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -137,7 +137,7 @@ func TestUserSeal(t *testing.T) {
 		t.Fatalf("Wrong ID: %s != %s", sealed.UID, id)
 	}
 
-	unsealed, err := sealed.Unseal(&cryptor)
+	unsealed, err := sealed.unseal(&cryptor)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -153,23 +153,23 @@ func TestUserVerifyCiphertext(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	user, _, err := NewUser(ScopeEncrypt)
+	user, _, err := newUser(ScopeEncrypt)
 	if err != nil {
 		t.Fatal(err)
 	}
-	user.AddGroups(userGroups...)
+	user.addGroups(userGroups...)
 
 	id := uuid.Must(uuid.NewV4())
-	sealed, err := user.Seal(id, &cryptor)
+	sealed, err := user.seal(id, &cryptor)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if !sealed.Verify(&cryptor) {
+	if !sealed.verify(&cryptor) {
 		t.Fatal("Verification failed")
 	}
 	sealed.Ciphertext[0] = sealed.Ciphertext[0] ^ 1
-	if sealed.Verify(&cryptor) {
+	if sealed.verify(&cryptor) {
 		t.Fatal("Verification should have failed")
 	}
 }
@@ -181,88 +181,88 @@ func TestUserVerifyID(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	user, _, err := NewUser(ScopeEncrypt)
+	user, _, err := newUser(ScopeEncrypt)
 	if err != nil {
 		t.Fatal(err)
 	}
-	user.AddGroups(userGroups...)
+	user.addGroups(userGroups...)
 
 	id := uuid.Must(uuid.NewV4())
-	sealed, err := user.Seal(id, &cryptor)
+	sealed, err := user.seal(id, &cryptor)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if !sealed.Verify(&cryptor) {
+	if !sealed.verify(&cryptor) {
 		t.Fatal("Verification failed")
 	}
 	sealed.UID = uuid.Must(uuid.NewV4())
-	if sealed.Verify(&cryptor) {
+	if sealed.verify(&cryptor) {
 		t.Fatal("Verification should have failed")
 	}
 }
 
 func TestUserAuth(t *testing.T) {
-	user, pwd, err := NewUser(ScopeEncrypt)
+	user, pwd, err := newUser(ScopeEncrypt)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if err := user.Authenticate(pwd); err != nil {
+	if err := user.authenticate(pwd); err != nil {
 		t.Fatal(err)
 	}
 }
 
 func TestUserAuthWrongPwd(t *testing.T) {
-	user, _, err := NewUser(ScopeEncrypt)
+	user, _, err := newUser(ScopeEncrypt)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if err := user.Authenticate("wrong password"); err == nil {
+	if err := user.authenticate("wrong password"); err == nil {
 		t.Fatal("User authentication with a wrong password should fail")
 	}
 }
 
 func TestChangePwd(t *testing.T) {
-	user, pwd, err := NewUser(ScopeEncrypt)
+	user, pwd, err := newUser(ScopeEncrypt)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	newPwd, err := user.ChangePassword(pwd)
+	newPwd, err := user.changePassword(pwd)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if err := user.Authenticate(newPwd); err != nil {
+	if err := user.authenticate(newPwd); err != nil {
 		t.Fatal(err)
 	}
 }
 
 func TestChangePwdWrongPwd(t *testing.T) {
-	user, _, err := NewUser(ScopeEncrypt)
+	user, _, err := newUser(ScopeEncrypt)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if _, err := user.ChangePassword("wrong password"); err == nil {
+	if _, err := user.changePassword("wrong password"); err == nil {
 		t.Fatal("User must provide his correct password in order to change it")
 	}
 }
 
 func TestChangePwdAuthWithOldPwd(t *testing.T) {
-	user, pwd, err := NewUser(ScopeEncrypt)
+	user, pwd, err := newUser(ScopeEncrypt)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	_, err = user.ChangePassword(pwd)
+	_, err = user.changePassword(pwd)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if err := user.Authenticate(pwd); err == nil {
+	if err := user.authenticate(pwd); err == nil {
 		t.Fatal("User authentication with old password after password change should fail")
 	}
 }

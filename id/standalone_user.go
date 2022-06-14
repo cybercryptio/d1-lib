@@ -48,8 +48,8 @@ type SealedUser struct {
 
 var defaultPwdHasher = crypto.NewPasswordHasher()
 
-// NewUser creates a new user with a random password and the provided scopes.
-func NewUser(scopes ...Scope) (User, string, error) {
+// newUser creates a new user with a random password and the provided scopes.
+func newUser(scopes ...Scope) (User, string, error) {
 	pwd, saltAndHash, err := defaultPwdHasher.GeneratePassword()
 	if err != nil {
 		return User{}, "", err
@@ -64,18 +64,18 @@ func NewUser(scopes ...Scope) (User, string, error) {
 	return user, pwd, nil
 }
 
-// Authenticate authenticates the calling user with the provided password.
-func (u *User) Authenticate(password string) error {
+// authenticate authenticates the calling user with the provided password.
+func (u *User) authenticate(password string) error {
 	if !defaultPwdHasher.Compare(password, u.SaltAndHash) {
 		return ErrNotAuthenticated
 	}
 	return nil
 }
 
-// ChangePassword authenticates the calling user with the provided password and generates a new
+// changePassword authenticates the calling user with the provided password and generates a new
 // password for the user. It updates the calling user in place and returns the new password.
-func (u *User) ChangePassword(oldPassword string) (string, error) {
-	if err := u.Authenticate(oldPassword); err != nil {
+func (u *User) changePassword(oldPassword string) (string, error) {
+	if err := u.authenticate(oldPassword); err != nil {
 		return "", err
 	}
 
@@ -89,8 +89,8 @@ func (u *User) ChangePassword(oldPassword string) (string, error) {
 	return newPwd, nil
 }
 
-// Seal encrypts the user.
-func (u *User) Seal(uid uuid.UUID, cryptor crypto.CryptorInterface) (SealedUser, error) {
+// seal encrypts the user.
+func (u *User) seal(uid uuid.UUID, cryptor crypto.CryptorInterface) (SealedUser, error) {
 	wrappedKey, ciphertext, err := cryptor.Encrypt(u, uid.Bytes())
 	if err != nil {
 		return SealedUser{}, err
@@ -98,23 +98,23 @@ func (u *User) Seal(uid uuid.UUID, cryptor crypto.CryptorInterface) (SealedUser,
 	return SealedUser{uid, ciphertext, wrappedKey}, nil
 }
 
-// AddGroups appends the provided group IDs to the user's group list.
-func (u *User) AddGroups(gids ...uuid.UUID) {
+// addGroups appends the provided group IDs to the user's group list.
+func (u *User) addGroups(gids ...uuid.UUID) {
 	for _, gid := range gids {
 		u.Groups[gid] = struct{}{}
 	}
 }
 
-// RemoveGroups removes the provided group IDs from the user's group list.
-func (u *User) RemoveGroups(gids ...uuid.UUID) {
+// removeGroups removes the provided group IDs from the user's group list.
+func (u *User) removeGroups(gids ...uuid.UUID) {
 	for _, gid := range gids {
 		delete(u.Groups, gid)
 	}
 }
 
-// ContainsGroups returns true if all provided group IDs are contained in the user's group list, and
+// containsGroups returns true if all provided group IDs are contained in the user's group list, and
 // false otherwise.
-func (u *User) ContainsGroups(gids ...uuid.UUID) bool {
+func (u *User) containsGroups(gids ...uuid.UUID) bool {
 	for _, gid := range gids {
 		if _, exists := u.Groups[gid]; !exists {
 			return false
@@ -123,13 +123,13 @@ func (u *User) ContainsGroups(gids ...uuid.UUID) bool {
 	return true
 }
 
-// GetGroups returns the set of group IDs contained in the user's group list.
-func (u *User) GetGroups() map[uuid.UUID]struct{} {
+// getGroups returns the set of group IDs contained in the user's group list.
+func (u *User) getGroups() map[uuid.UUID]struct{} {
 	return u.Groups
 }
 
-// Unseal decrypts the sealed user.
-func (u *SealedUser) Unseal(cryptor crypto.CryptorInterface) (User, error) {
+// unseal decrypts the sealed user.
+func (u *SealedUser) unseal(cryptor crypto.CryptorInterface) (User, error) {
 	plainUser := User{}
 	if err := cryptor.Decrypt(&plainUser, u.UID.Bytes(), u.WrappedKey, u.Ciphertext); err != nil {
 		return User{}, err
@@ -137,8 +137,8 @@ func (u *SealedUser) Unseal(cryptor crypto.CryptorInterface) (User, error) {
 	return plainUser, nil
 }
 
-// Verify checks the integrity of the sealed user.
-func (u *SealedUser) Verify(cryptor crypto.CryptorInterface) bool {
-	_, err := u.Unseal(cryptor)
+// verify checks the integrity of the sealed user.
+func (u *SealedUser) verify(cryptor crypto.CryptorInterface) bool {
+	_, err := u.unseal(cryptor)
 	return err == nil
 }

@@ -30,13 +30,13 @@ func TestGroupSeal(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	group := NewGroup(ScopeEncrypt)
-	sealed, err := group.Seal(uuid.Must(uuid.NewV4()), &cryptor)
+	group := newGroup(ScopeEncrypt)
+	sealed, err := group.seal(uuid.Must(uuid.NewV4()), &cryptor)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	unsealed, err := sealed.Unseal(&cryptor)
+	unsealed, err := sealed.unseal(&cryptor)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -52,17 +52,17 @@ func TestGroupVerifyCiphertext(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	group := NewGroup(ScopeEncrypt)
-	sealed, err := group.Seal(uuid.Must(uuid.NewV4()), &cryptor)
+	group := newGroup(ScopeEncrypt)
+	sealed, err := group.seal(uuid.Must(uuid.NewV4()), &cryptor)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if !sealed.Verify(&cryptor) {
+	if !sealed.verify(&cryptor) {
 		t.Fatal("Verification failed")
 	}
 	sealed.Ciphertext[0] = sealed.Ciphertext[0] ^ 1
-	if sealed.Verify(&cryptor) {
+	if sealed.verify(&cryptor) {
 		t.Fatal("Verification should have failed")
 	}
 }
@@ -74,17 +74,17 @@ func TestGroupVerifyID(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	group := NewGroup(ScopeEncrypt)
-	sealed, err := group.Seal(uuid.Must(uuid.NewV4()), &cryptor)
+	group := newGroup(ScopeEncrypt)
+	sealed, err := group.seal(uuid.Must(uuid.NewV4()), &cryptor)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if !sealed.Verify(&cryptor) {
+	if !sealed.verify(&cryptor) {
 		t.Fatal("Verification failed")
 	}
 	sealed.GID = uuid.Must(uuid.NewV4())
-	if sealed.Verify(&cryptor) {
+	if sealed.verify(&cryptor) {
 		t.Fatal("Verification should have failed")
 	}
 }
@@ -96,12 +96,12 @@ func TestGroupID(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	group := NewGroup(ScopeEncrypt)
-	sealed1, err := group.Seal(uuid.Must(uuid.NewV4()), &cryptor)
+	group := newGroup(ScopeEncrypt)
+	sealed1, err := group.seal(uuid.Must(uuid.NewV4()), &cryptor)
 	if err != nil {
 		t.Fatal(err)
 	}
-	sealed2, err := group.Seal(uuid.Must(uuid.NewV4()), &cryptor)
+	sealed2, err := group.seal(uuid.Must(uuid.NewV4()), &cryptor)
 	if err != nil {
 		t.Fatal(err)
 	}
