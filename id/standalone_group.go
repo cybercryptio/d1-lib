@@ -36,8 +36,8 @@ type SealedGroup struct {
 }
 
 // NewGroup creates a new group which has the given scopes.
-func NewGroup(scopes Scope) Group {
-	return Group{scopes}
+func NewGroup(scopes ...Scope) Group {
+	return Group{Scopes: ScopeUnion(scopes...)}
 }
 
 // Seal encrypts the group.
