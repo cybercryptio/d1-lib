@@ -61,7 +61,7 @@ func newTestUser(t *testing.T, encryptonize *Encryptonize, scopes ...id.Scope) (
 		t.Fatal(err)
 	}
 
-	token, err := idProvider.LoginUser(id, password)
+	token, _, err := idProvider.LoginUser(id, password)
 	if err != nil {
 		t.Fatal(err)
 	}

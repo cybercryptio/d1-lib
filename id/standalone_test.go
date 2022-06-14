@@ -50,7 +50,7 @@ func TestGetIdentity(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	token, err := standalone.LoginUser(user, pwd)
+	token, _, err := standalone.LoginUser(user, pwd)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -85,7 +85,7 @@ func TestGetIdentityInvalidUser(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	token, err := standalone.LoginUser(user, pwd)
+	token, _, err := standalone.LoginUser(user, pwd)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -127,7 +127,7 @@ func TestGetIdentityInvalidToken(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	token, err := standalone.LoginUser(user, pwd)
+	token, _, err := standalone.LoginUser(user, pwd)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -169,22 +169,22 @@ func TestLoginUser(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err = standalone.LoginUser(user1, pwd1); err != nil {
+	if _, _, err = standalone.LoginUser(user1, pwd1); err != nil {
 		t.Fatal(err)
 	}
 
-	if _, err = standalone.LoginUser(user2, pwd1); err == nil {
+	if _, _, err = standalone.LoginUser(user2, pwd1); err == nil {
 		t.Fatal("User authenticated with wrong password")
 	}
 
 	pwd1Short := pwd1[:len(pwd1)-1]
 	pwd1Long := pwd1 + "0"
 
-	if _, err = standalone.LoginUser(user1, pwd1Short); err == nil {
+	if _, _, err = standalone.LoginUser(user1, pwd1Short); err == nil {
 		t.Fatal("User authenticated with wrong password")
 	}
 
-	if _, err = standalone.LoginUser(user1, pwd1Long); err == nil {
+	if _, _, err = standalone.LoginUser(user1, pwd1Long); err == nil {
 		t.Fatal("User authenticated with wrong password")
 	}
 }
@@ -199,7 +199,7 @@ func TestLoginManipulatedUser(t *testing.T) {
 
 	manipulateUser(t, user, standalone)
 
-	if _, err = standalone.LoginUser(user, pwd); err == nil {
+	if _, _, err = standalone.LoginUser(user, pwd); err == nil {
 		t.Fatal("Invalid user able to log in")
 	}
 }
@@ -223,11 +223,11 @@ func TestChangeUserPassword(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err := standalone.LoginUser(user, newPwd); err != nil {
+	if _, _, err := standalone.LoginUser(user, newPwd); err != nil {
 		t.Fatal(err)
 	}
 
-	if _, err := standalone.LoginUser(user, pwd); err == nil {
+	if _, _, err := standalone.LoginUser(user, pwd); err == nil {
 		t.Fatal("User should not be able to authenticate with his old password after it was changed")
 	}
 }
@@ -244,7 +244,7 @@ func TestAddRemoveUserFromGroupsAuthorized(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	token1, err := standalone.LoginUser(user1, pwd1)
+	token1, _, err := standalone.LoginUser(user1, pwd1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -253,7 +253,7 @@ func TestAddRemoveUserFromGroupsAuthorized(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	token2, err := standalone.LoginUser(user2, pwd2)
+	token2, _, err := standalone.LoginUser(user2, pwd2)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -306,7 +306,7 @@ func TestAddRemoveUserFromGroupsUnauthorized(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	token1, err := standalone.LoginUser(user1, pwd1)
+	token1, _, err := standalone.LoginUser(user1, pwd1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -315,7 +315,7 @@ func TestAddRemoveUserFromGroupsUnauthorized(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	token2, err := standalone.LoginUser(user2, pwd2)
+	token2, _, err := standalone.LoginUser(user2, pwd2)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -341,7 +341,7 @@ func TestAddInvalidUserToGroups(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	token1, err := standalone.LoginUser(user1, pwd1)
+	token1, _, err := standalone.LoginUser(user1, pwd1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -371,7 +371,7 @@ func TestRemoveInvalidUserFromGroups(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	token1, err := standalone.LoginUser(user1, pwd1)
+	token1, _, err := standalone.LoginUser(user1, pwd1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -408,7 +408,7 @@ func TestRemoveAllUsers(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	token1, err := standalone.LoginUser(user1, pwd1)
+	token1, _, err := standalone.LoginUser(user1, pwd1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -445,7 +445,7 @@ func TestNewGroupInvalidUser(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	token1, err := standalone.LoginUser(user1, pwd1)
+	token1, _, err := standalone.LoginUser(user1, pwd1)
 	if err != nil {
 		t.Fatal(err)
 	}

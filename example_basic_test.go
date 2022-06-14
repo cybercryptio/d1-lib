@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/cybercryptio/d1-lib"
+	encryptonize "github.com/cybercryptio/d1-lib"
 	"github.com/cybercryptio/d1-lib/data"
 	"github.com/cybercryptio/d1-lib/id"
 	"github.com/cybercryptio/d1-lib/io"
@@ -50,7 +50,7 @@ func NewUser() (uuid.UUID, uuid.UUID, string) {
 		log.Fatalf("Error creating user: %v", err)
 	}
 
-	token, err := (&idProvider).LoginUser(uid, password)
+	token, _, err := (&idProvider).LoginUser(uid, password)
 	if err != nil {
 		log.Fatalf("Error logging in user: %v", err)
 	}
