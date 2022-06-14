@@ -40,3 +40,6 @@ For more details about the security guarantees offered by the Encryptonize&reg; 
 
 ## High level overview
 For a high level overview of the main concepts and use cases of the Encryptonize® library [see our Explainer Document](documentation/explainer.md).
+
+# License
+The software in the CYBERCRYPT D1-Lib repository is dual-licensed under AGPL and a commercial license. If you wish to use the library under a commercial license please visit [cybercrypt.io](https://cybercrypt.io) for details on how to obtain a commercial license.
