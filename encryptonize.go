@@ -209,6 +209,39 @@ func (e *Encryptonize) Decrypt(token string, oid uuid.UUID) (data.Object, error)
 	return object.Unseal(plainAccess.WrappedOEK, e.objectCryptor)
 }
 
+// Delete deletes a sealed object. The authorizing user must be part of
+// the provided access list, either directly or through group membership.
+//
+// The input ID is the identifier obtained by previously calling Encrypt.
+func (e *Encryptonize) Delete(token string, oid uuid.UUID) error {
+	identity, err := e.idProvider.GetIdentity(token)
+	if err != nil {
+		return ErrNotAuthenticated
+	}
+	if !identity.Scopes.Contains(id.ScopeDelete) {
+		return ErrNotAuthorized
+	}
+
+	access, err := e.getSealedAccess(oid)
+	if err != nil {
+		return err
+	}
+
+	if _, err = e.authorizeAccess(&identity, id.ScopeDelete, access); err != nil {
+		return err
+	}
+
+	// Delete data from IO Provider
+	if err = e.deleteSealedAccess(oid); err != nil {
+		return err
+	}
+	if err = e.deleteSealedObject(oid); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 ////////////////////////////////////////////////////////
 //                       Token                        //
 ////////////////////////////////////////////////////////
