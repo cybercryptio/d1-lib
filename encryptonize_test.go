@@ -420,6 +420,7 @@ func TestDelete(t *testing.T) {
 		t.Fatal("Data was returned from failed call")
 	}
 
+	// Double-check with the IO Provider that the sealed access is gone.
 	sealedAccess, err := enc.ioProvider.Get(id, io.DataTypeSealedAccess)
 	if !errors.Is(err, io.ErrNotFound) {
 		t.Fatalf("Expected error '%s' but got '%s'", io.ErrNotFound, err)
@@ -428,6 +429,7 @@ func TestDelete(t *testing.T) {
 		t.Fatal("Data was returned from failed call")
 	}
 
+	// Double-check with the IO Provider that the sealed object is gone.
 	sealedObject, err := enc.ioProvider.Get(id, io.DataTypeSealedObject)
 	if !errors.Is(err, io.ErrNotFound) {
 		t.Fatalf("Expected error '%s' but got '%s'", io.ErrNotFound, err)
