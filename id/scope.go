@@ -19,14 +19,7 @@ type Scope uint64
 
 const ScopeNone Scope = 0
 
-const ScopeAll Scope = ScopeEncrypt |
-	ScopeDecrypt |
-	ScopeUpdate |
-	ScopeDelete |
-	ScopeCreateToken |
-	ScopeGetTokenContents |
-	ScopeGetAccessGroups |
-	ScopeModifyAccessGroups
+const ScopeAll Scope = ScopeEnd - 1
 
 const (
 	ScopeEncrypt Scope = 1 << iota
