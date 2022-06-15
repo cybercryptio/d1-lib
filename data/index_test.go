@@ -256,3 +256,158 @@ func TestCountWrongKeyword(t *testing.T) {
 		t.Fatal("Count returned wrong count when given wrong keyword.")
 	}
 }
+
+func TestDelete(t *testing.T) {
+	index := NewIndex()
+
+	rand := &crypto.NativeRandom{}
+	masterKey, _ := rand.GetBytes(32)
+
+	keyword := "first keyword"
+	id := "first id"
+
+	if err := index.Add(masterKey, keyword, id); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := index.Delete(masterKey, keyword, id); err != nil {
+		t.Fatal(err)
+	}
+
+	IDs, err := index.Search(masterKey, keyword)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(IDs) != 0 {
+		t.Fatal("Search returned decrypted ID for which the keyword/ID pair has been deleted.")
+	}
+}
+
+func TestDeleteAdd(t *testing.T) {
+	index := NewIndex()
+
+	rand := &crypto.NativeRandom{}
+	masterKey, _ := rand.GetBytes(32)
+
+	keyword := "first keyword"
+	id := "first id"
+
+	if err := index.Add(masterKey, keyword, id); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := index.Delete(masterKey, keyword, id); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := index.Add(masterKey, keyword, id); err != nil {
+		t.Fatal(err)
+	}
+
+	IDs, err := index.Search(masterKey, keyword)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(IDs[0], id) {
+		t.Fatal("Keyword/ID pair not correctly added after it has been deleted.")
+	}
+}
+
+func TestDeleteAddDelete(t *testing.T) {
+	index := NewIndex()
+
+	rand := &crypto.NativeRandom{}
+	masterKey, _ := rand.GetBytes(32)
+
+	keyword := "first keyword"
+	id := "first id"
+
+	if err := index.Add(masterKey, keyword, id); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := index.Delete(masterKey, keyword, id); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := index.Add(masterKey, keyword, id); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := index.Delete(masterKey, keyword, id); err != nil {
+		t.Fatal(err)
+	}
+
+	IDs, err := index.Search(masterKey, keyword)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(IDs) != 0 {
+		t.Fatal("Keyword/ID pair not correctly deleted after it has been deleted and then added.")
+	}
+}
+
+func TestCountAfterDelete(t *testing.T) {
+	index := NewIndex()
+
+	rand := &crypto.NativeRandom{}
+	masterKey, _ := rand.GetBytes(32)
+
+	keywords := [3]string{"keyword1", "keyword2", "keyword3"}
+	ids := [5]string{"id1", "id2", "id3", "id4", "id5"}
+
+	for i := 0; i < len(keywords); i++ {
+		for j := 0; j < len(ids); j++ {
+			if err := index.Add(masterKey, keywords[i], ids[j]); err != nil {
+				t.Fatal(err)
+			}
+
+			if err := index.Delete(masterKey, keywords[i], ids[j]); err != nil {
+				t.Fatal(err)
+			}
+
+			count, err := index.count(masterKey, keywords[i])
+			if err != nil {
+				t.Fatal(err)
+			}
+			if count != uint64(j+1) {
+				t.Fatal("Count returned wrong count after deletion. Deleted keyword/ID pairs should still be counted.")
+			}
+		}
+	}
+}
+
+func TestDeleteMultiple(t *testing.T) {
+	index := NewIndex()
+
+	rand := &crypto.NativeRandom{}
+	masterKey, _ := rand.GetBytes(32)
+
+	keywords := [2]string{"keyword1", "keyword2"}
+	ids := [2]string{"id1", "id2"}
+
+	for i := 0; i < len(keywords); i++ {
+		for j := 0; j < len(ids); j++ {
+			if err := index.Add(masterKey, keywords[i], ids[j]); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+
+	if err := index.Delete(masterKey, keywords[0], ids[1]); err != nil {
+		t.Fatal(err)
+	}
+	if err := index.Delete(masterKey, keywords[1], ids[0]); err != nil {
+		t.Fatal(err)
+	}
+
+	for i := 0; i < len(keywords); i++ {
+		IDs, err := index.Search(masterKey, keywords[i])
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(IDs) != 1 {
+			t.Fatal("Keyword/ID pair not correctly deleted.")
+		}
+	}
+}

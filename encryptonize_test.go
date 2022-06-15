@@ -16,6 +16,7 @@
 package encryptonize
 
 import (
+	"fmt"
 	"testing"
 
 	"errors"
@@ -1003,7 +1004,7 @@ func TestAddToIndex(t *testing.T) {
 			}
 		}
 	}
-
+	fmt.Println(index.Size())
 	if index.Size() != len(keywords)*len(ids) {
 		t.Fatal("Keyword/ID pairs not correctly added.")
 	}
@@ -1029,6 +1030,39 @@ func TestSearchInIndex(t *testing.T) {
 			if !reflect.DeepEqual(IDs[:i], ids[:i]) {
 				t.Fatal("Search returned wrong decrypted IDs.")
 			}
+		}
+	}
+}
+
+func TestDeleteFromIndex(t *testing.T) {
+	enc := newTestEncryptonize(t)
+
+	index := enc.NewIndex()
+
+	keywords := [5]string{"keyword1", "keyword2", "keyword3", "keyword4", "keyword5"}
+	ids := [5]string{"id1", "id2", "id3", "id4", "id5"}
+
+	for k := 0; k < len(keywords); k++ {
+		for i := 0; i < len(ids); i++ {
+			if err := enc.Add(keywords[k], ids[i], &index); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+
+	for k := 0; k < len(keywords); k++ {
+		if err := enc.Delete(keywords[k], ids[k], &index); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	for k := 0; k < len(keywords); k++ {
+		IDs, err := enc.Search(keywords[k], &index)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(IDs) != len(ids)-1 {
+			t.Fatal("Delete did not delete keyword/ID pair.")
 		}
 	}
 }

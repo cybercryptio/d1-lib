@@ -380,3 +380,12 @@ func (e *Encryptonize) Search(keyword string, i *data.Index) ([]string, error) {
 
 	return decryptedIDs, nil
 }
+
+// Delete deletes the keyword/ID pair from index i.
+func (e *Encryptonize) Delete(keyword, id string, i *data.Index) error {
+	if err := i.Delete(e.indexKey, keyword, id); err != nil {
+		return err
+	}
+
+	return nil
+}
