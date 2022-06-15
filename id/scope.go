@@ -22,6 +22,7 @@ const ScopeNone Scope = 0
 const ScopeAll Scope = ScopeEncrypt |
 	ScopeDecrypt |
 	ScopeUpdate |
+	ScopeDelete |
 	ScopeCreateToken |
 	ScopeGetTokenContents |
 	ScopeGetAccessGroups |
@@ -31,6 +32,7 @@ const (
 	ScopeEncrypt Scope = 1 << iota
 	ScopeDecrypt
 	ScopeUpdate
+	ScopeDelete
 	ScopeCreateToken
 	ScopeGetTokenContents
 	ScopeGetAccessGroups
