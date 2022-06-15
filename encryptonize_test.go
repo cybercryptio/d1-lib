@@ -134,6 +134,7 @@ func TestPlainObject(t *testing.T) {
 	}
 }
 
+// It is verified that an unauthenticated user is not able to encrypt.
 func TestEncryptUnauthenticated(t *testing.T) {
 	enc := newTestEncryptonize(t)
 	oid, err := enc.Encrypt("bad token", &data.Object{})
@@ -187,6 +188,7 @@ func TestDecrypt(t *testing.T) {
 	}
 }
 
+// It is verified that an unauthenticated user is not able to decrypt.
 func TestDecryptUnauthenticated(t *testing.T) {
 	enc := newTestEncryptonize(t)
 	object, err := enc.Decrypt("bad token", uuid.Must(uuid.NewV4()))
@@ -198,6 +200,7 @@ func TestDecryptUnauthenticated(t *testing.T) {
 	}
 }
 
+// It is verified that an unauthorized user is not able to decrypt.
 func TestDecryptUnauthorizedUser(t *testing.T) {
 	enc := newTestEncryptonize(t)
 	_, token1 := newTestUser(t, &enc, id.ScopeEncrypt)
@@ -298,6 +301,7 @@ func TestUpdate(t *testing.T) {
 	}
 }
 
+// It is verified that an unauthenticated user is not able to update.
 func TestUpdateUnauthenticated(t *testing.T) {
 	enc := newTestEncryptonize(t)
 	err := enc.Update("bad token", uuid.Must(uuid.NewV4()), &data.Object{})
@@ -366,6 +370,151 @@ func TestUpdateWrongGroupScope(t *testing.T) {
 	err = enc.Update(token2, oid, &data.Object{})
 	if !errors.Is(err, ErrNotAuthorized) {
 		t.Fatalf("Expected error '%s' but got '%s'", ErrNotAuthorized, err)
+	}
+}
+
+// Test that an appropriate error is returned when a user tries to update an object that does not exist.
+func TestUpdateNotFound(t *testing.T) {
+	enc := newTestEncryptonize(t)
+	_, token := newTestUser(t, &enc, id.ScopeUpdate)
+
+	plainObjectUpdated := data.Object{
+		Plaintext:      []byte("plaintext_updated"),
+		AssociatedData: []byte("associated_data_updated"),
+	}
+
+	err := enc.Update(token, uuid.Must(uuid.NewV4()), &plainObjectUpdated)
+	if !errors.Is(err, io.ErrNotFound) {
+		t.Fatalf("Expected error '%s' but got '%s'", io.ErrNotFound, err)
+	}
+}
+
+////////////////////////////////////////////////////////
+//                       Delete                       //
+////////////////////////////////////////////////////////
+
+// It is verified that an object is correctly encrypted and deleted.
+func TestDelete(t *testing.T) {
+	enc := newTestEncryptonize(t)
+	_, token := newTestUser(t, &enc, id.ScopeEncrypt, id.ScopeDecrypt, id.ScopeDelete)
+
+	plainObject := data.Object{
+		Plaintext:      []byte("plaintext"),
+		AssociatedData: []byte("associated_data"),
+	}
+
+	id, err := enc.Encrypt(token, &plainObject)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = enc.Delete(token, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	object, err := enc.Decrypt(token, id)
+	if !errors.Is(err, io.ErrNotFound) {
+		t.Fatalf("Expected error '%s' but got '%s'", io.ErrNotFound, err)
+	}
+	if !reflect.DeepEqual(object, data.Object{}) {
+		t.Fatal("Data was returned from failed call")
+	}
+
+	// Double-check with the IO Provider that the sealed access is gone.
+	sealedAccess, err := enc.ioProvider.Get(id, io.DataTypeSealedAccess)
+	if !errors.Is(err, io.ErrNotFound) {
+		t.Fatalf("Expected error '%s' but got '%s'", io.ErrNotFound, err)
+	}
+	if sealedAccess != nil {
+		t.Fatal("Data was returned from failed call")
+	}
+
+	// Double-check with the IO Provider that the sealed object is gone.
+	sealedObject, err := enc.ioProvider.Get(id, io.DataTypeSealedObject)
+	if !errors.Is(err, io.ErrNotFound) {
+		t.Fatalf("Expected error '%s' but got '%s'", io.ErrNotFound, err)
+	}
+	if sealedObject != nil {
+		t.Fatal("Data was returned from failed call")
+	}
+}
+
+// It is verified that an unauthenticated user is not able to delete.
+func TestDeleteUnauthenticated(t *testing.T) {
+	enc := newTestEncryptonize(t)
+
+	err := enc.Delete("bad token", uuid.Must(uuid.NewV4()))
+	if !errors.Is(err, ErrNotAuthenticated) {
+		t.Fatalf("Expected error '%s' but got '%s'", ErrNotAuthenticated, err)
+	}
+}
+
+// It is verified that an unauthorized user is not able to delete.
+func TestDeleteUnauthorizedUser(t *testing.T) {
+	enc := newTestEncryptonize(t)
+	_, token1 := newTestUser(t, &enc, id.ScopeEncrypt)
+	_, token2 := newTestUser(t, &enc, id.ScopeDecrypt)
+
+	plainObject := data.Object{
+		Plaintext:      []byte("plaintext"),
+		AssociatedData: []byte("associated_data"),
+	}
+
+	oid, err := enc.Encrypt(token1, &plainObject)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err = enc.Delete(token2, oid); err == nil {
+		t.Fatal("Unauthorized user was able to delete")
+	}
+}
+
+// Test that a user without the Delete scope cannot delete.
+func TestDeleteWrongAPIScope(t *testing.T) {
+	enc := newTestEncryptonize(t)
+	scope := id.ScopeAll ^ id.ScopeDelete // All scopes except Decrypt
+	_, token := newTestUser(t, &enc, scope)
+
+	err := enc.Delete(token, uuid.Must(uuid.NewV4()))
+	if !errors.Is(err, ErrNotAuthorized) {
+		t.Fatalf("Expected error '%s' but got '%s'", ErrNotAuthorized, err)
+	}
+}
+
+// Test that a user whose group does not have the Delete scope cannot delete.
+func TestDeleteWrongGroupScope(t *testing.T) {
+	enc := newTestEncryptonize(t)
+	_, token1 := newTestUser(t, &enc, id.ScopeAll)
+	user2, token2 := newTestUser(t, &enc, id.ScopeAll)
+
+	// User2 has all scopes themselves, but get access to the object through a group with a missing
+	// scope.
+	scope := id.ScopeAll ^ id.ScopeDelete // All scopes except Decrypt
+	gid := newTestGroup(t, &enc, token1, scope, user2)
+
+	oid, err := enc.Encrypt(token1, &data.Object{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := enc.AddGroupsToAccess(token1, oid, gid); err != nil {
+		t.Fatal(err)
+	}
+
+	err = enc.Delete(token2, oid)
+	if !errors.Is(err, ErrNotAuthorized) {
+		t.Fatalf("Expected error '%s' but got '%s'", ErrNotAuthorized, err)
+	}
+}
+
+// Test that an appropriate error is returned when a user tries to delete an object that does not exist.
+func TestDeleteNotFound(t *testing.T) {
+	enc := newTestEncryptonize(t)
+	_, token := newTestUser(t, &enc, id.ScopeDelete)
+
+	err := enc.Delete(token, uuid.Must(uuid.NewV4()))
+	if !errors.Is(err, io.ErrNotFound) {
+		t.Fatalf("Expected error '%s' but got '%s'", io.ErrNotFound, err)
 	}
 }
 
