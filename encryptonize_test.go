@@ -134,6 +134,7 @@ func TestPlainObject(t *testing.T) {
 	}
 }
 
+// It is verified that an unauthenticated user is not able to encrypt.
 func TestEncryptUnauthenticated(t *testing.T) {
 	enc := newTestEncryptonize(t)
 	oid, err := enc.Encrypt("bad token", &data.Object{})
@@ -187,6 +188,7 @@ func TestDecrypt(t *testing.T) {
 	}
 }
 
+// It is verified that an unauthenticated user is not able to decrypt.
 func TestDecryptUnauthenticated(t *testing.T) {
 	enc := newTestEncryptonize(t)
 	object, err := enc.Decrypt("bad token", uuid.Must(uuid.NewV4()))
@@ -198,6 +200,7 @@ func TestDecryptUnauthenticated(t *testing.T) {
 	}
 }
 
+// It is verified that an unauthorized user is not able to decrypt.
 func TestDecryptUnauthorizedUser(t *testing.T) {
 	enc := newTestEncryptonize(t)
 	_, token1 := newTestUser(t, &enc, id.ScopeEncrypt)
@@ -298,6 +301,7 @@ func TestUpdate(t *testing.T) {
 	}
 }
 
+// It is verified that an unauthenticated user is not able to update.
 func TestUpdateUnauthenticated(t *testing.T) {
 	enc := newTestEncryptonize(t)
 	err := enc.Update("bad token", uuid.Must(uuid.NewV4()), &data.Object{})
