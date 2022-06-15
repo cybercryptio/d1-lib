@@ -36,7 +36,7 @@ jobs:
       id: gitversion
       uses: gittools/actions/gitversion/execute@v0.9.13
       with:
-        additionalArguments: '/overrideconfig mode=Mainline'
+        additionalArguments: '/overrideconfig mode=ContinuousDeployment'
 
     - name: Create tag
       if: github.ref_name == 'master'
