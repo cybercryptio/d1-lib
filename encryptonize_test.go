@@ -369,6 +369,22 @@ func TestUpdateWrongGroupScope(t *testing.T) {
 	}
 }
 
+// Test that an appropriate error is returned when a user tries to update an object that does not exist.
+func TestUpdateNotFound(t *testing.T) {
+	enc := newTestEncryptonize(t)
+	_, token := newTestUser(t, &enc, id.ScopeUpdate)
+
+	plainObjectUpdated := data.Object{
+		Plaintext:      []byte("plaintext_updated"),
+		AssociatedData: []byte("associated_data_updated"),
+	}
+
+	err := enc.Update(token, uuid.Must(uuid.NewV4()), &plainObjectUpdated)
+	if !errors.Is(err, io.ErrNotFound) {
+		t.Fatalf("Expected error '%s' but got '%s'", io.ErrNotFound, err)
+	}
+}
+
 ////////////////////////////////////////////////////////
 //                       Delete                       //
 ////////////////////////////////////////////////////////
