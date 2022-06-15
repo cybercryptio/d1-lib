@@ -83,8 +83,7 @@ func (e *Encryptonize) getSealedObject(oid uuid.UUID) (*data.SealedObject, error
 
 // deleteSealedObject deletes a sealed object from the IO Provider.
 func (e *Encryptonize) deleteSealedObject(oid uuid.UUID) error {
-	err := e.ioProvider.Delete(oid, io.DataTypeSealedObject)
-	return err
+return e.ioProvider.Delete(oid, io.DataTypeSealedObject)
 }
 
 // putSealedAccess encodes a sealed access and sends it to the IO Provider, either as a "Put" or an
@@ -122,6 +121,5 @@ func (e *Encryptonize) getSealedAccess(oid uuid.UUID) (*data.SealedAccess, error
 
 // deleteSealedAccess deletes a sealed object from the IO Provider.
 func (e *Encryptonize) deleteSealedAccess(oid uuid.UUID) error {
-	err := e.ioProvider.Delete(oid, io.DataTypeSealedAccess)
-	return err
+return e.ioProvider.Delete(oid, io.DataTypeSealedAccess)
 }
