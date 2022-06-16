@@ -94,6 +94,9 @@ func New(keyProvider key.Provider, ioProvider io.Provider, idProvider id.Provide
 //
 // For all practical purposes, the size of the ciphertext in the SealedObject is len(plaintext) + 48
 // bytes.
+//
+// Required scopes:
+// - Encrypt
 func (e *Encryptonize) Encrypt(token string, object *data.Object) (uuid.UUID, error) {
 	identity, err := e.idProvider.GetIdentity(token)
 	if err != nil {
@@ -136,6 +139,9 @@ func (e *Encryptonize) Encrypt(token string, object *data.Object) (uuid.UUID, er
 // provided access list, either directly or through group membership.
 //
 // The input ID is the identifier obtained by previously calling Encrypt.
+//
+// Required scopes:
+// - Update
 func (e *Encryptonize) Update(token string, oid uuid.UUID, object *data.Object) error {
 	identity, err := e.idProvider.GetIdentity(token)
 	if err != nil {
@@ -183,6 +189,9 @@ func (e *Encryptonize) Update(token string, oid uuid.UUID, object *data.Object) 
 // The input ID is the identifier obtained by previously calling Encrypt.
 //
 // The unsealed object may contain sensitive data.
+//
+// Required scopes:
+// - Decrypt
 func (e *Encryptonize) Decrypt(token string, oid uuid.UUID) (data.Object, error) {
 	identity, err := e.idProvider.GetIdentity(token)
 	if err != nil {
@@ -207,6 +216,42 @@ func (e *Encryptonize) Decrypt(token string, oid uuid.UUID) (data.Object, error)
 		return data.Object{}, err
 	}
 	return object.Unseal(plainAccess.WrappedOEK, e.objectCryptor)
+}
+
+// Delete deletes a sealed object. The authorizing user must be part of
+// the provided access list, either directly or through group membership.
+//
+// The input ID is the identifier obtained by previously calling Encrypt.
+//
+// Required scopes:
+// - Delete
+func (e *Encryptonize) Delete(token string, oid uuid.UUID) error {
+	identity, err := e.idProvider.GetIdentity(token)
+	if err != nil {
+		return ErrNotAuthenticated
+	}
+	if !identity.Scopes.Contains(id.ScopeDelete) {
+		return ErrNotAuthorized
+	}
+
+	access, err := e.getSealedAccess(oid)
+	if err != nil {
+		return err
+	}
+
+	if _, err = e.authorizeAccess(&identity, id.ScopeDelete, access); err != nil {
+		return err
+	}
+
+	// Delete data from IO Provider
+	if err = e.deleteSealedAccess(oid); err != nil {
+		return err
+	}
+	if err = e.deleteSealedObject(oid); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 ////////////////////////////////////////////////////////
@@ -243,6 +288,9 @@ func (e *Encryptonize) GetTokenContents(token *data.SealedToken) ([]byte, error)
 //
 // The set of group IDs is somewhat sensitive data, as it reveals what groups/users have access to
 // the associated object.
+//
+// Required scopes:
+// - GetAccessGroups
 func (e *Encryptonize) GetAccessGroups(token string, oid uuid.UUID) (map[uuid.UUID]struct{}, error) {
 	identity, err := e.idProvider.GetIdentity(token)
 	if err != nil {
@@ -269,6 +317,9 @@ func (e *Encryptonize) GetAccessGroups(token string, oid uuid.UUID) (map[uuid.UU
 // the associated object. The authorizing user must be part of the access list.
 //
 // The input ID is the identifier obtained by previously calling Encrypt.
+//
+// Required scopes:
+// - ModifyAccessGroups
 func (e *Encryptonize) AddGroupsToAccess(token string, oid uuid.UUID, groups ...uuid.UUID) error {
 	identity, err := e.idProvider.GetIdentity(token)
 	if err != nil {
@@ -301,6 +352,9 @@ func (e *Encryptonize) AddGroupsToAccess(token string, oid uuid.UUID, groups ...
 // from accessing the associated object. The authorizing user must be part of the access object.
 //
 // The input ID is the identifier obtained by previously calling Encrypt.
+//
+// Required scopes:
+// - ModifyAccessGroups
 func (e *Encryptonize) RemoveGroupsFromAccess(token string, oid uuid.UUID, groups ...uuid.UUID) error {
 	identity, err := e.idProvider.GetIdentity(token)
 	if err != nil {
@@ -334,6 +388,9 @@ func (e *Encryptonize) RemoveGroupsFromAccess(token string, oid uuid.UUID, group
 // authorized.
 //
 // The input ID is the identifier obtained by previously calling Encrypt.
+//
+// Required scopes:
+// - GetAccessGroups
 func (e *Encryptonize) AuthorizeUser(token string, oid uuid.UUID) error {
 	identity, err := e.idProvider.GetIdentity(token)
 	if err != nil {
