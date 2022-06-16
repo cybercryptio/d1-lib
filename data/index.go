@@ -68,44 +68,44 @@ func (i *Index) Add(key []byte, keyword, id string) error {
 	k3 := crypto.KMACKDF(RevocationKeyLength, key, []byte("revokeKey"), []byte(keyword))
 	revid := crypto.KMACKDF(RevocationIdentifierLength, k3, []byte("revokeId"), []byte(id))
 
-	if i.revocationList[base64.StdEncoding.EncodeToString(revid)] == true {
+	if i.revocationList[base64.StdEncoding.EncodeToString(revid)] {
 		i.revocationList[base64.StdEncoding.EncodeToString(revid)] = false
-		return nil
-	} else {
-		tagger, err := crypto.NewKMAC256Tagger(k1)
-		if err != nil {
-			return err
-		}
-		cryptor, err := crypto.NewAESCryptor(k2)
-		if err != nil {
-			return err
-		}
-
-		// Compute label based on count which is equal to the number of keyword/ID pairs
-		// in which the keyword already exists.
-		count, err := i.count(key, keyword)
-		if err != nil {
-			return err
-		}
-		label, err := tagger.Tag(uint64Encode(count))
-		if err != nil {
-			return err
-		}
-
-		// Encrypt id and wrap it into SealedID.
-		wrappedKey, encryptedID, err := cryptor.Encrypt(&id, "")
-		if err != nil {
-			return err
-		}
-		sealedID := sealedID{ciphertext: encryptedID, wrappedKey: wrappedKey}
-
-		// Add label/SealedID pair to Index.
-		i.mapping[base64.StdEncoding.EncodeToString(label)] = sealedID
-
-		i.revocationList[base64.StdEncoding.EncodeToString(revid)] = false
-
 		return nil
 	}
+
+	tagger, err := crypto.NewKMAC256Tagger(k1)
+	if err != nil {
+		return err
+	}
+	cryptor, err := crypto.NewAESCryptor(k2)
+	if err != nil {
+		return err
+	}
+
+	// Compute label based on count which is equal to the number of keyword/ID pairs
+	// in which the keyword already exists.
+	count, err := i.count(key, keyword)
+	if err != nil {
+		return err
+	}
+	label, err := tagger.Tag(uint64Encode(count))
+	if err != nil {
+		return err
+	}
+
+	// Encrypt id and wrap it into SealedID.
+	wrappedKey, encryptedID, err := cryptor.Encrypt(&id, "")
+	if err != nil {
+		return err
+	}
+	sealedID := sealedID{ciphertext: encryptedID, wrappedKey: wrappedKey}
+
+	// Add label/SealedID pair to Index.
+	i.mapping[base64.StdEncoding.EncodeToString(label)] = sealedID
+
+	i.revocationList[base64.StdEncoding.EncodeToString(revid)] = false
+
+	return nil
 }
 
 // Delete deletes a keyword/ID pair from the Index.
@@ -167,7 +167,7 @@ func (i *Index) Search(key []byte, keyword string) ([]string, error) {
 		}
 
 		revid := crypto.KMACKDF(RevocationIdentifierLength, k3, []byte("revokeId"), []byte(plaintext))
-		if i.revocationList[base64.StdEncoding.EncodeToString(revid)] == false {
+		if !i.revocationList[base64.StdEncoding.EncodeToString(revid)] {
 			decryptedIDs = append(decryptedIDs, plaintext)
 		}
 	}
