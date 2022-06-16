@@ -419,8 +419,8 @@ func (e *Encryptonize) NewIndex() data.Index {
 	return data.NewIndex()
 }
 
-// Add adds the keyword/ID pair to index i.
-func (e *Encryptonize) Add(keyword, id string, i *data.Index) error {
+// AddtoIndex adds the keyword/ID pair to index i.
+func (e *Encryptonize) AddToIndex(keyword, id string, i *data.Index) error {
 	if err := i.Add(e.indexKey, keyword, id); err != nil {
 		return err
 	}
@@ -428,8 +428,8 @@ func (e *Encryptonize) Add(keyword, id string, i *data.Index) error {
 	return nil
 }
 
-// Search finds all IDs that contain the given keyword and returns them in plaintext.
-func (e *Encryptonize) Search(keyword string, i *data.Index) ([]string, error) {
+// SearchInIndex finds all IDs that contain the given keyword and returns them in plaintext.
+func (e *Encryptonize) SearchInIndex(keyword string, i *data.Index) ([]string, error) {
 	decryptedIDs, err := i.Search(e.indexKey, keyword)
 	if err != nil {
 		return nil, err
@@ -438,8 +438,8 @@ func (e *Encryptonize) Search(keyword string, i *data.Index) ([]string, error) {
 	return decryptedIDs, nil
 }
 
-// Delete deletes the keyword/ID pair from index i.
-func (e *Encryptonize) Delete(keyword, id string, i *data.Index) error {
+// DeleteFromIndex deletes the keyword/ID pair from index i.
+func (e *Encryptonize) DeleteFromIndex(keyword, id string, i *data.Index) error {
 	if err := i.Delete(e.indexKey, keyword, id); err != nil {
 		return err
 	}

@@ -1148,7 +1148,7 @@ func TestAddToIndex(t *testing.T) {
 
 	for k := 0; k < len(keywords); k++ {
 		for i := 0; i < len(ids); i++ {
-			if err := enc.Add(keywords[k], ids[i], &index); err != nil {
+			if err := enc.AddToIndex(keywords[k], ids[i], &index); err != nil {
 				t.Fatal(err)
 			}
 		}
@@ -1168,11 +1168,11 @@ func TestSearchInIndex(t *testing.T) {
 
 	for k := 0; k < len(keywords); k++ {
 		for i := 0; i < len(ids); i++ {
-			if err := enc.Add(keywords[k], ids[i], &index); err != nil {
+			if err := enc.AddToIndex(keywords[k], ids[i], &index); err != nil {
 				t.Fatal(err)
 			}
 
-			IDs, err := enc.Search(keywords[k], &index)
+			IDs, err := enc.SearchInIndex(keywords[k], &index)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -1193,20 +1193,20 @@ func TestDeleteFromIndex(t *testing.T) {
 
 	for k := 0; k < len(keywords); k++ {
 		for i := 0; i < len(ids); i++ {
-			if err := enc.Add(keywords[k], ids[i], &index); err != nil {
+			if err := enc.AddToIndex(keywords[k], ids[i], &index); err != nil {
 				t.Fatal(err)
 			}
 		}
 	}
 
 	for k := 0; k < len(keywords); k++ {
-		if err := enc.Delete(keywords[k], ids[k], &index); err != nil {
+		if err := enc.DeleteFromIndex(keywords[k], ids[k], &index); err != nil {
 			t.Fatal(err)
 		}
 	}
 
 	for k := 0; k < len(keywords); k++ {
-		IDs, err := enc.Search(keywords[k], &index)
+		IDs, err := enc.SearchInIndex(keywords[k], &index)
 		if err != nil {
 			t.Fatal(err)
 		}
