@@ -421,7 +421,7 @@ func (e *Encryptonize) NewIndex() data.Index {
 
 // AddtoIndex adds the keyword/ID pair to index i.
 func (e *Encryptonize) AddToIndex(keyword, id string, i *data.Index) error {
-	if err := i.Add(e.indexKey, keyword, id); err != nil {
+	if err := i.Add(e.indexKey, keyword, id, e.ioProvider); err != nil {
 		return err
 	}
 
@@ -430,7 +430,7 @@ func (e *Encryptonize) AddToIndex(keyword, id string, i *data.Index) error {
 
 // SearchInIndex finds all IDs that contain the given keyword and returns them in plaintext.
 func (e *Encryptonize) SearchInIndex(keyword string, i *data.Index) ([]string, error) {
-	decryptedIDs, err := i.Search(e.indexKey, keyword)
+	decryptedIDs, err := i.Search(e.indexKey, keyword, e.ioProvider)
 	if err != nil {
 		return nil, err
 	}
