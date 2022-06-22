@@ -24,7 +24,8 @@ import (
 
 // Mem implements an IO Provider backed by the key/value database bolt..
 type Bolt struct {
-	store *bolt.DB
+	store        *bolt.DB
+	objectBucket []byte
 }
 
 // NewBolt creates a new IO Provider that stores its data in the specified file.
@@ -34,13 +35,13 @@ func NewBolt(path string) (Bolt, error) {
 		return Bolt{}, err
 	}
 
+	objectBucket := []byte("object")
+
 	// Create one bucket per data type
 	err = store.Update(func(tx *bolt.Tx) error {
-		for t := DataType(0); t < DataTypeEnd; t++ {
-			_, err := tx.CreateBucketIfNotExists(t.Bytes())
-			if err != nil {
-				return err
-			}
+		_, err := tx.CreateBucketIfNotExists(objectBucket)
+		if err != nil {
+			return err
 		}
 		return nil
 	})
@@ -48,24 +49,26 @@ func NewBolt(path string) (Bolt, error) {
 		return Bolt{}, err
 	}
 
-	return Bolt{store}, nil
+	return Bolt{store, objectBucket}, nil
 }
 
 func (b *Bolt) Put(id uuid.UUID, dataType DataType, data []byte) error {
+	key := append(id.Bytes(), dataType.Bytes()...)
 	return b.store.Update(func(tx *bolt.Tx) error {
-		b := tx.Bucket(dataType.Bytes())
-		if b.Get(id.Bytes()) != nil {
+		b := tx.Bucket(b.objectBucket)
+		if b.Get(key) != nil {
 			return ErrAlreadyExists
 		}
-		return b.Put(id.Bytes(), data)
+		return b.Put(key, data)
 	})
 }
 
 func (b *Bolt) Get(id uuid.UUID, dataType DataType) ([]byte, error) {
+	key := append(id.Bytes(), dataType.Bytes()...)
 	var out []byte
 	err := b.store.View(func(tx *bolt.Tx) error {
-		b := tx.Bucket(dataType.Bytes())
-		out = append(out, b.Get(id.Bytes())...)
+		b := tx.Bucket(b.objectBucket)
+		out = append(out, b.Get(key)...)
 		return nil
 	})
 	if err != nil {
@@ -78,18 +81,20 @@ func (b *Bolt) Get(id uuid.UUID, dataType DataType) ([]byte, error) {
 }
 
 func (b *Bolt) Update(id uuid.UUID, dataType DataType, data []byte) error {
+	key := append(id.Bytes(), dataType.Bytes()...)
 	return b.store.Update(func(tx *bolt.Tx) error {
-		b := tx.Bucket(dataType.Bytes())
-		if b.Get(id.Bytes()) == nil {
+		b := tx.Bucket(b.objectBucket)
+		if b.Get(key) == nil {
 			return ErrNotFound
 		}
-		return b.Put(id.Bytes(), data)
+		return b.Put(key, data)
 	})
 }
 
 func (b *Bolt) Delete(id uuid.UUID, dataType DataType) error {
+	key := append(id.Bytes(), dataType.Bytes()...)
 	return b.store.Update(func(tx *bolt.Tx) error {
-		b := tx.Bucket(dataType.Bytes())
-		return b.Delete(id.Bytes())
+		b := tx.Bucket(b.objectBucket)
+		return b.Delete(key)
 	})
 }

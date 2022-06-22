@@ -35,6 +35,13 @@ const (
 	DataTypeSealedGroup
 )
 
+// StandaloneConfig contains the keys with which the Standalone ID Provider will be configured.
+type StandaloneConfig struct {
+	UEK []byte `koanf:"uek"`
+	GEK []byte `koanf:"gek"`
+	TEK []byte `koanf:"tek"`
+}
+
 // Standalone is an ID Provider that manages its own data.
 type Standalone struct {
 	userCryptor  crypto.CryptorInterface
@@ -46,16 +53,16 @@ type Standalone struct {
 
 // NewStandalone creates an ID Provider that uses the provided key material and stores data in the
 // given IO provider.
-func NewStandalone(uek, gek, tek []byte, ioProvider io.Provider) (Standalone, error) {
-	userCryptor, err := crypto.NewAESCryptor(uek)
+func NewStandalone(config StandaloneConfig, ioProvider io.Provider) (Standalone, error) {
+	userCryptor, err := crypto.NewAESCryptor(config.UEK)
 	if err != nil {
 		return Standalone{}, err
 	}
-	groupCryptor, err := crypto.NewAESCryptor(gek)
+	groupCryptor, err := crypto.NewAESCryptor(config.GEK)
 	if err != nil {
 		return Standalone{}, err
 	}
-	tokenCryptor, err := crypto.NewAESCryptor(tek)
+	tokenCryptor, err := crypto.NewAESCryptor(config.TEK)
 	if err != nil {
 		return Standalone{}, err
 	}
