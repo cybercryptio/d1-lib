@@ -46,7 +46,6 @@ type Encryptonize struct {
 	objectCryptor crypto.CryptorInterface
 	accessCryptor crypto.CryptorInterface
 	tokenCryptor  crypto.CryptorInterface
-	indexKey      []byte
 }
 
 // New creates a new instance of Encryptonize configured with the given providers.
@@ -76,7 +75,6 @@ func New(keyProvider key.Provider, ioProvider io.Provider, idProvider id.Provide
 		objectCryptor: &objectCryptor,
 		accessCryptor: &accessCryptor,
 		tokenCryptor:  &tokenCryptor,
-		indexKey:      keys.IEK,
 	}, nil
 }
 
@@ -407,42 +405,4 @@ func (e *Encryptonize) AuthorizeUser(token string, oid uuid.UUID) error {
 
 	_, err = e.authorizeAccess(&identity, id.ScopeGetAccessGroups, access)
 	return err
-}
-
-////////////////////////////////////////////////////////
-//                       Index                        //
-////////////////////////////////////////////////////////
-
-// NewIndex creates a new index that can be used to map keywords to IDs (e.g. documents). This
-// means that the index can be used to keep track of which keywords are contained in which IDs.
-func (e *Encryptonize) NewIndex() data.Index {
-	return data.NewIndex()
-}
-
-// AddtoIndex adds the keyword/ID pair to index i.
-func (e *Encryptonize) AddToIndex(keyword, id string, i *data.Index) error {
-	if err := i.Add(e.indexKey, keyword, id, e.ioProvider); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// SearchInIndex finds all IDs that contain the given keyword and returns them in plaintext.
-func (e *Encryptonize) SearchInIndex(keyword string, i *data.Index) ([]string, error) {
-	decryptedIDs, err := i.Search(e.indexKey, keyword, e.ioProvider)
-	if err != nil {
-		return nil, err
-	}
-
-	return decryptedIDs, nil
-}
-
-// DeleteFromIndex deletes the keyword/ID pair from index i.
-func (e *Encryptonize) DeleteFromIndex(keyword, id string, i *data.Index) error {
-	if err := i.Delete(e.indexKey, keyword, id); err != nil {
-		return err
-	}
-
-	return nil
 }

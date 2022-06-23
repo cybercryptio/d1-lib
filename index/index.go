@@ -13,20 +13,23 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package data
+package index
 
 import (
 	"bytes"
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/gob"
+	"errors"
 	"fmt"
 
 	"github.com/gofrs/uuid"
 	"golang.org/x/crypto/sha3"
 
 	"github.com/cybercryptio/d1-lib/crypto"
+	"github.com/cybercryptio/d1-lib/id"
 	"github.com/cybercryptio/d1-lib/io"
+	"github.com/cybercryptio/d1-lib/key"
 )
 
 // The length of master key, revocation key, and revocation identifier used for searchable encryption.
@@ -37,14 +40,42 @@ const RevocationIdentifierLength = 32
 // Error returned if a key with invalid length is used for searchable encryption.
 var ErrInvalidMasterKeyLength = fmt.Errorf("invalid key length, accepted key length is %d bytes", MasterKeyLength)
 
+// Error returned if the caller cannot be authenticated by the Identity Provider.
+var ErrNotAuthenticated = errors.New("user not authenticated")
+
+// Error returned if a user tries to access data they are not authorized for.
+var ErrNotAuthorized = errors.New("user not authorized")
+
 // Index contains:
 //	- A revocation "list" used to keep track of deleted keyword/ID pairs. Each keyword/ID pair is mapped to a boolean.
 // If true, then the keyword/ID pair has been deleted. If false, the keyword/ID pair still exists.
-type Index struct {
+type SecureIndex struct {
 	revocationList map[string]bool
+
+	keyProvider key.Provider
+	ioProvider  io.Provider
+	idProvider  id.Provider
+
+	indexKey []byte
 }
 
-// SealedID is an encrypted structure which defines an occurrence of a specific keyword in a specific ID.
+// NewIndex creates an Index which is used to manage keyword/docID pairs.
+func NewSecureIndex(keyProvider key.Provider, ioProvider io.Provider, idProvider id.Provider) (SecureIndex, error) {
+	keys, err := keyProvider.GetKeys()
+	if err != nil {
+		return SecureIndex{}, err
+	}
+
+	return SecureIndex{
+		revocationList: make(map[string]bool),
+		keyProvider:    keyProvider,
+		ioProvider:     ioProvider,
+		idProvider:     idProvider,
+		indexKey:       keys.IEK,
+	}, nil
+}
+
+// SealedID is an encrypted structure which defines an occurrence of a specific keyword in a specific docID.
 type SealedID struct {
 	// The label that maps to this sealed ID.
 	Label uuid.UUID
@@ -53,19 +84,30 @@ type SealedID struct {
 	WrappedKey []byte
 }
 
-// NewIndex creates an Index which is used to manage keyword/ID pairs.
-func NewIndex() Index {
-	return Index{revocationList: make(map[string]bool)}
-}
-
 // Size returns the total number of entries in the index. Note that Size does not take deletions into account. Deleted
 // entries are still counted.
-func (i *Index) Size() int {
-	return len(i.revocationList)
+func (i *SecureIndex) Size(token string) (int, error) {
+	identity, err := i.idProvider.GetIdentity(token)
+	if err != nil {
+		return 0, ErrNotAuthenticated
+	}
+	if !identity.Scopes.Contains(id.ScopeIndex) {
+		return 0, ErrNotAuthorized
+	}
+
+	return len(i.revocationList), nil
 }
 
-// Add adds a keyword/ID pair to the Index.
-func (i *Index) Add(key []byte, keyword, id string, ioProvider io.Provider) error {
+// Add adds a keyword/docID pair to the Index.
+func (i *SecureIndex) Add(key []byte, token, keyword, docID string) error {
+	identity, err := i.idProvider.GetIdentity(token)
+	if err != nil {
+		return ErrNotAuthenticated
+	}
+	if !identity.Scopes.Contains(id.ScopeIndex) {
+		return ErrNotAuthorized
+	}
+
 	if len(key) != MasterKeyLength {
 		return ErrInvalidMasterKeyLength
 	}
@@ -77,7 +119,7 @@ func (i *Index) Add(key []byte, keyword, id string, ioProvider io.Provider) erro
 	k1 := crypto.KMACKDF(crypto.TaggerKeyLength, key, []byte("label"), []byte(keyword))
 	k2 := crypto.KMACKDF(crypto.EncryptionKeyLength, key, []byte("id"), []byte(keyword))
 	k3 := crypto.KMACKDF(RevocationKeyLength, key, []byte("revokeKey"), []byte(keyword))
-	revid := crypto.KMACKDF(RevocationIdentifierLength, k3, []byte("revokeId"), []byte(id))
+	revid := crypto.KMACKDF(RevocationIdentifierLength, k3, []byte("revokeId"), []byte(docID))
 
 	// Check if revid is true in revocationList. If yes, true should be changed to false, and the function can terminate.
 	if i.revocationList[base64.StdEncoding.EncodeToString(revid)] {
@@ -96,7 +138,7 @@ func (i *Index) Add(key []byte, keyword, id string, ioProvider io.Provider) erro
 
 	// Compute label based on count which is equal to the number of keyword/ID pairs
 	// in which the keyword already exists.
-	count, err := i.count(key, keyword, ioProvider)
+	count, err := i.count(key, keyword)
 	if err != nil {
 		return err
 	}
@@ -108,14 +150,14 @@ func (i *Index) Add(key []byte, keyword, id string, ioProvider io.Provider) erro
 	labelUUID := uuidFromString(baseUUID, base64.StdEncoding.EncodeToString(label))
 
 	// Encrypt id and wrap it into SealedID.
-	wrappedKey, encryptedID, err := cryptor.Encrypt(&id, "")
+	wrappedKey, encryptedID, err := cryptor.Encrypt(&docID, "")
 	if err != nil {
 		return err
 	}
 	sealedID := SealedID{Label: labelUUID, Ciphertext: encryptedID, WrappedKey: wrappedKey}
 
 	// Send sealed ID to the IO Provider.
-	if err = i.putSealedID(&sealedID, ioProvider, false); err != nil {
+	if err = i.putSealedID(&sealedID, false); err != nil {
 		return err
 	}
 
@@ -126,14 +168,22 @@ func (i *Index) Add(key []byte, keyword, id string, ioProvider io.Provider) erro
 }
 
 // Delete deletes a keyword/ID pair from the Index.
-func (i *Index) Delete(key []byte, keyword, id string) error {
+func (i *SecureIndex) Delete(key []byte, token, keyword, docID string) error {
+	identity, err := i.idProvider.GetIdentity(token)
+	if err != nil {
+		return ErrNotAuthenticated
+	}
+	if !identity.Scopes.Contains(id.ScopeIndex) {
+		return ErrNotAuthorized
+	}
+
 	if len(key) != MasterKeyLength {
 		return ErrInvalidMasterKeyLength
 	}
 
 	// Create key k3 for revocation identifier, revid.
 	k3 := crypto.KMACKDF(RevocationKeyLength, key, []byte("revokeKey"), []byte(keyword))
-	revid := crypto.KMACKDF(RevocationIdentifierLength, k3, []byte("revokeId"), []byte(id))
+	revid := crypto.KMACKDF(RevocationIdentifierLength, k3, []byte("revokeId"), []byte(docID))
 
 	// Set the revocation identifier to true in the revocation list.
 	i.revocationList[base64.StdEncoding.EncodeToString(revid)] = true
@@ -142,7 +192,15 @@ func (i *Index) Delete(key []byte, keyword, id string) error {
 }
 
 // Given a keyword, Search returns all decrypted ID's that the keyword is contained in.
-func (i *Index) Search(key []byte, keyword string, ioProvider io.Provider) ([]string, error) {
+func (i *SecureIndex) Search(key []byte, token, keyword string) ([]string, error) {
+	identity, err := i.idProvider.GetIdentity(token)
+	if err != nil {
+		return nil, ErrNotAuthenticated
+	}
+	if !identity.Scopes.Contains(id.ScopeIndex) {
+		return nil, ErrNotAuthorized
+	}
+
 	if len(key) != MasterKeyLength {
 		return nil, ErrInvalidMasterKeyLength
 	}
@@ -178,7 +236,7 @@ func (i *Index) Search(key []byte, keyword string, ioProvider io.Provider) ([]st
 		labelUUID := uuidFromString(baseUUID, base64.StdEncoding.EncodeToString(label))
 
 		// Get the sealed ID from the IO Provider.
-		sealedID, err := i.getSealedID(labelUUID, ioProvider)
+		sealedID, err := i.getSealedID(labelUUID)
 		if err != nil {
 			break
 		}
@@ -197,7 +255,7 @@ func (i *Index) Search(key []byte, keyword string, ioProvider io.Provider) ([]st
 	return decryptedIDs, nil
 }
 
-func (i *Index) count(key []byte, keyword string, ioProvider io.Provider) (uint64, error) {
+func (i *SecureIndex) count(key []byte, keyword string) (uint64, error) {
 	if len(key) != MasterKeyLength {
 		return 0, ErrInvalidMasterKeyLength
 	}
@@ -223,42 +281,42 @@ func (i *Index) count(key []byte, keyword string, ioProvider io.Provider) (uint6
 		// Convert label to a uuid.
 		labelUUID := uuidFromString(baseUUID, base64.StdEncoding.EncodeToString(label))
 
-		if _, err = i.getSealedID(labelUUID, ioProvider); err != nil {
+		if _, err = i.getSealedID(labelUUID); err != nil {
 			return uint64(count), nil
 		}
 	}
 }
 
 // putSealedID encodes a sealed ID and sends it to the IO Provider, either as a "Put" or an "Update".
-func (i *Index) putSealedID(id *SealedID, ioProvider io.Provider, update bool) error {
-	var idBuffer bytes.Buffer
-	enc := gob.NewEncoder(&idBuffer)
-	if err := enc.Encode(id); err != nil {
+func (i *SecureIndex) putSealedID(sealedID *SealedID, update bool) error {
+	var sealedIDBuffer bytes.Buffer
+	enc := gob.NewEncoder(&sealedIDBuffer)
+	if err := enc.Encode(sealedID); err != nil {
 		return err
 	}
 
 	if update {
-		return ioProvider.Update(id.Label, io.DataTypeSealedID, idBuffer.Bytes())
+		return i.ioProvider.Update(sealedID.Label, io.DataTypeSealedID, sealedIDBuffer.Bytes())
 	}
-	return ioProvider.Put(id.Label, io.DataTypeSealedID, idBuffer.Bytes())
+	return i.ioProvider.Put(sealedID.Label, io.DataTypeSealedID, sealedIDBuffer.Bytes())
 }
 
 // getSealedID fetches bytes from the IO Provider and decodes them into a sealed ID.
-func (i *Index) getSealedID(label uuid.UUID, ioProvider io.Provider) (*SealedID, error) {
-	idBytes, err := ioProvider.Get(label, io.DataTypeSealedID)
+func (i *SecureIndex) getSealedID(label uuid.UUID) (*SealedID, error) {
+	sealedIDBytes, err := i.ioProvider.Get(label, io.DataTypeSealedID)
 	if err != nil {
 		return nil, err
 	}
 
-	id := &SealedID{}
-	dec := gob.NewDecoder(bytes.NewReader(idBytes))
-	err = dec.Decode(id)
+	sealedID := &SealedID{}
+	dec := gob.NewDecoder(bytes.NewReader(sealedIDBytes))
+	err = dec.Decode(sealedID)
 	if err != nil {
 		return nil, err
 	}
 
-	id.Label = label
-	return id, nil
+	sealedID.Label = label
+	return sealedID, nil
 }
 
 // deleteSealedID deletes a sealed ID from the IO Provider. (Unused so far, but will soon be used.)

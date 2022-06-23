@@ -13,46 +13,83 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package data
+package index
 
 import (
 	"reflect"
 	"testing"
 
+	"github.com/gofrs/uuid"
+
 	"github.com/cybercryptio/d1-lib/crypto"
+	"github.com/cybercryptio/d1-lib/id"
 	"github.com/cybercryptio/d1-lib/io"
+	"github.com/cybercryptio/d1-lib/key"
 )
 
-func TestNewSearchIndex(t *testing.T) {
-	index := NewIndex()
-	if index.Size() != 0 {
-		t.Fatal("Index non-empty at initialization.")
+func newTestSecureIndex(t *testing.T) SecureIndex {
+	keyProvider := key.NewStatic(key.Keys{
+		KEK: []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+		AEK: []byte{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+		TEK: []byte{2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2},
+		IEK: []byte{3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3},
+	})
+	ioProvider := io.NewMem()
+	idProvider, err := id.NewStandalone(
+		[]byte{4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4},
+		[]byte{5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5},
+		[]byte{6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6},
+		&ioProvider,
+	)
+	if err != nil {
+		t.Fatal(err)
 	}
+
+	secureIndex, err := NewSecureIndex(&keyProvider, &ioProvider, &idProvider)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return secureIndex
+}
+
+func newTestUser(t *testing.T, secureIndex *SecureIndex, scopes ...id.Scope) (uuid.UUID, string) {
+	idProvider := secureIndex.idProvider.(*id.Standalone)
+
+	id, password, err := idProvider.NewUser(scopes...)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	token, _, err := idProvider.LoginUser(id, password)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return id, token
 }
 
 func TestAdd(t *testing.T) {
-	index := NewIndex()
-
-	mem := io.NewMem()
-
-	rand := &crypto.NativeRandom{}
-	masterKey, _ := rand.GetBytes(32)
+	index := newTestSecureIndex(t)
+	_, token := newTestUser(t, &index, id.ScopeIndex)
 
 	keyword := "first keyword"
-	id := "first id"
+	docID := "first id"
 
-	if err := index.Add(masterKey, keyword, id, &mem); err != nil {
+	if err := index.Add(index.indexKey, token, keyword, docID); err != nil {
 		t.Fatal(err)
 	}
-	if index.Size() != 1 {
+	size, err := index.Size(token)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if size != 1 {
 		t.Fatal("Keyword/id pair not correctly added to mapping")
 	}
 }
 
 func TestAddMultiple(t *testing.T) {
-	index := NewIndex()
-
-	mem := io.NewMem()
+	index := newTestSecureIndex(t)
+	_, token := newTestUser(t, &index, id.ScopeIndex)
 
 	rand := &crypto.NativeRandom{}
 	masterKey, _ := rand.GetBytes(32)
@@ -62,20 +99,23 @@ func TestAddMultiple(t *testing.T) {
 
 	for i := 0; i < len(keywords); i++ {
 		for j := 0; j < len(ids); j++ {
-			if err := index.Add(masterKey, keywords[i], ids[j], &mem); err != nil {
+			if err := index.Add(masterKey, token, keywords[i], ids[j]); err != nil {
 				t.Fatal(err)
 			}
 		}
 	}
-	if index.Size() != len(keywords)*len(ids) {
+	size, err := index.Size(token)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if size != len(keywords)*len(ids) {
 		t.Fatal("Multiple keyword/id pairs not correctly added to mapping")
 	}
 }
 
 func TestAddInvalidMasterkey(t *testing.T) {
-	index := NewIndex()
-
-	mem := io.NewMem()
+	index := newTestSecureIndex(t)
+	_, token := newTestUser(t, &index, id.ScopeIndex)
 
 	rand := &crypto.NativeRandom{}
 	masterKeyShort, _ := rand.GetBytes(31)
@@ -84,18 +124,17 @@ func TestAddInvalidMasterkey(t *testing.T) {
 	keyword := "first keyword"
 	id := "first id"
 
-	if err := index.Add(masterKeyShort, keyword, id, &mem); err == nil {
+	if err := index.Add(masterKeyShort, token, keyword, id); err == nil {
 		t.Fatal(ErrInvalidMasterKeyLength)
 	}
-	if err := index.Add(masterKeyLong, keyword, id, &mem); err == nil {
+	if err := index.Add(masterKeyLong, token, keyword, id); err == nil {
 		t.Fatal(ErrInvalidMasterKeyLength)
 	}
 }
 
 func TestSearch(t *testing.T) {
-	index := NewIndex()
-
-	mem := io.NewMem()
+	index := newTestSecureIndex(t)
+	_, token := newTestUser(t, &index, id.ScopeIndex)
 
 	rand := &crypto.NativeRandom{}
 	masterKey, _ := rand.GetBytes(32)
@@ -104,11 +143,11 @@ func TestSearch(t *testing.T) {
 	ids := []string{"id1", "id2", "id3", "id4", "id5"}
 
 	for i := 0; i < len(ids); i++ {
-		if err := index.Add(masterKey, keyword, ids[i], &mem); err != nil {
+		if err := index.Add(masterKey, token, keyword, ids[i]); err != nil {
 			t.Fatal(err)
 		}
 
-		IDs, err := index.Search(masterKey, keyword, &mem)
+		IDs, err := index.Search(masterKey, token, keyword)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -119,9 +158,8 @@ func TestSearch(t *testing.T) {
 }
 
 func TestSearchWrongMasterkey(t *testing.T) {
-	index := NewIndex()
-
-	mem := io.NewMem()
+	index := newTestSecureIndex(t)
+	_, token := newTestUser(t, &index, id.ScopeIndex)
 
 	rand := &crypto.NativeRandom{}
 	masterKey1, _ := rand.GetBytes(32)
@@ -130,11 +168,11 @@ func TestSearchWrongMasterkey(t *testing.T) {
 	keyword := "first keyword"
 	id := "first id"
 
-	if err := index.Add(masterKey1, keyword, id, &mem); err != nil {
+	if err := index.Add(masterKey1, token, keyword, id); err != nil {
 		t.Fatal(err)
 	}
 
-	IDs, err := index.Search(masterKey2, keyword, &mem)
+	IDs, err := index.Search(masterKey2, token, keyword)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -144,9 +182,8 @@ func TestSearchWrongMasterkey(t *testing.T) {
 }
 
 func TestSearchWrongKeyword(t *testing.T) {
-	index := NewIndex()
-
-	mem := io.NewMem()
+	index := newTestSecureIndex(t)
+	_, token := newTestUser(t, &index, id.ScopeIndex)
 
 	rand := &crypto.NativeRandom{}
 	masterKey, _ := rand.GetBytes(32)
@@ -154,14 +191,14 @@ func TestSearchWrongKeyword(t *testing.T) {
 	keyword := "first keyword"
 	id := "first id"
 
-	if err := index.Add(masterKey, keyword, id, &mem); err != nil {
+	if err := index.Add(masterKey, token, keyword, id); err != nil {
 		t.Fatal(err)
 	}
 
 	keywordShort := "first keywor"
 	keywordLong := "first keywordd"
 
-	IDs, err := index.Search(masterKey, keywordShort, &mem)
+	IDs, err := index.Search(masterKey, token, keywordShort)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -169,7 +206,7 @@ func TestSearchWrongKeyword(t *testing.T) {
 		t.Fatal("Search returned decrypted IDs when given wrong keyword")
 	}
 
-	IDs, err = index.Search(masterKey, keywordLong, &mem)
+	IDs, err = index.Search(masterKey, token, keywordLong)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -179,9 +216,8 @@ func TestSearchWrongKeyword(t *testing.T) {
 }
 
 func TestCount(t *testing.T) {
-	index := NewIndex()
-
-	mem := io.NewMem()
+	index := newTestSecureIndex(t)
+	_, token := newTestUser(t, &index, id.ScopeIndex)
 
 	rand := &crypto.NativeRandom{}
 	masterKey, _ := rand.GetBytes(32)
@@ -190,7 +226,7 @@ func TestCount(t *testing.T) {
 	ids := [5]string{"id1", "id2", "id3", "id4", "id5"}
 
 	for i := 0; i < len(keywords); i++ {
-		count, err := index.count(masterKey, keywords[i], &mem)
+		count, err := index.count(masterKey, keywords[i])
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -201,11 +237,11 @@ func TestCount(t *testing.T) {
 
 	for i := 0; i < len(keywords); i++ {
 		for j := 0; j < len(ids); j++ {
-			if err := index.Add(masterKey, keywords[i], ids[j], &mem); err != nil {
+			if err := index.Add(masterKey, token, keywords[i], ids[j]); err != nil {
 				t.Fatal(err)
 			}
 
-			count, err := index.count(masterKey, keywords[i], &mem)
+			count, err := index.count(masterKey, keywords[i])
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -217,9 +253,8 @@ func TestCount(t *testing.T) {
 }
 
 func TestCountWrongMasterkey(t *testing.T) {
-	index := NewIndex()
-
-	mem := io.NewMem()
+	index := newTestSecureIndex(t)
+	_, token := newTestUser(t, &index, id.ScopeIndex)
 
 	rand := &crypto.NativeRandom{}
 	masterKey1, _ := rand.GetBytes(32)
@@ -228,11 +263,11 @@ func TestCountWrongMasterkey(t *testing.T) {
 	keyword := "first keyword"
 	id := "first id"
 
-	if err := index.Add(masterKey1, keyword, id, &mem); err != nil {
+	if err := index.Add(masterKey1, token, keyword, id); err != nil {
 		t.Fatal(err)
 	}
 
-	count, err := index.count(masterKey2, keyword, &mem)
+	count, err := index.count(masterKey2, keyword)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -242,9 +277,8 @@ func TestCountWrongMasterkey(t *testing.T) {
 }
 
 func TestCountWrongKeyword(t *testing.T) {
-	index := NewIndex()
-
-	mem := io.NewMem()
+	index := newTestSecureIndex(t)
+	_, token := newTestUser(t, &index, id.ScopeIndex)
 
 	rand := &crypto.NativeRandom{}
 	masterKey, _ := rand.GetBytes(32)
@@ -252,14 +286,14 @@ func TestCountWrongKeyword(t *testing.T) {
 	keyword := "first keyword"
 	id := "first id"
 
-	if err := index.Add(masterKey, keyword, id, &mem); err != nil {
+	if err := index.Add(masterKey, token, keyword, id); err != nil {
 		t.Fatal(err)
 	}
 
 	keywordShort := "first keywor"
 	keywordLong := "first keywordd"
 
-	count, err := index.count(masterKey, keywordShort, &mem)
+	count, err := index.count(masterKey, keywordShort)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -267,7 +301,7 @@ func TestCountWrongKeyword(t *testing.T) {
 		t.Fatal("Count returned wrong count when given wrong keyword.")
 	}
 
-	count, err = index.count(masterKey, keywordLong, &mem)
+	count, err = index.count(masterKey, keywordLong)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -277,9 +311,8 @@ func TestCountWrongKeyword(t *testing.T) {
 }
 
 func TestDelete(t *testing.T) {
-	index := NewIndex()
-
-	mem := io.NewMem()
+	index := newTestSecureIndex(t)
+	_, token := newTestUser(t, &index, id.ScopeIndex)
 
 	rand := &crypto.NativeRandom{}
 	masterKey, _ := rand.GetBytes(32)
@@ -287,15 +320,15 @@ func TestDelete(t *testing.T) {
 	keyword := "first keyword"
 	id := "first id"
 
-	if err := index.Add(masterKey, keyword, id, &mem); err != nil {
+	if err := index.Add(masterKey, token, keyword, id); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := index.Delete(masterKey, keyword, id); err != nil {
+	if err := index.Delete(masterKey, token, keyword, id); err != nil {
 		t.Fatal(err)
 	}
 
-	IDs, err := index.Search(masterKey, keyword, &mem)
+	IDs, err := index.Search(masterKey, token, keyword)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -305,9 +338,8 @@ func TestDelete(t *testing.T) {
 }
 
 func TestDeleteAdd(t *testing.T) {
-	index := NewIndex()
-
-	mem := io.NewMem()
+	index := newTestSecureIndex(t)
+	_, token := newTestUser(t, &index, id.ScopeIndex)
 
 	rand := &crypto.NativeRandom{}
 	masterKey, _ := rand.GetBytes(32)
@@ -315,19 +347,19 @@ func TestDeleteAdd(t *testing.T) {
 	keyword := "first keyword"
 	id := "first id"
 
-	if err := index.Add(masterKey, keyword, id, &mem); err != nil {
+	if err := index.Add(masterKey, token, keyword, id); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := index.Delete(masterKey, keyword, id); err != nil {
+	if err := index.Delete(masterKey, token, keyword, id); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := index.Add(masterKey, keyword, id, &mem); err != nil {
+	if err := index.Add(masterKey, token, keyword, id); err != nil {
 		t.Fatal(err)
 	}
 
-	IDs, err := index.Search(masterKey, keyword, &mem)
+	IDs, err := index.Search(masterKey, token, keyword)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -337,9 +369,8 @@ func TestDeleteAdd(t *testing.T) {
 }
 
 func TestDeleteAddDelete(t *testing.T) {
-	index := NewIndex()
-
-	mem := io.NewMem()
+	index := newTestSecureIndex(t)
+	_, token := newTestUser(t, &index, id.ScopeIndex)
 
 	rand := &crypto.NativeRandom{}
 	masterKey, _ := rand.GetBytes(32)
@@ -347,23 +378,23 @@ func TestDeleteAddDelete(t *testing.T) {
 	keyword := "first keyword"
 	id := "first id"
 
-	if err := index.Add(masterKey, keyword, id, &mem); err != nil {
+	if err := index.Add(masterKey, token, keyword, id); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := index.Delete(masterKey, keyword, id); err != nil {
+	if err := index.Delete(masterKey, token, keyword, id); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := index.Add(masterKey, keyword, id, &mem); err != nil {
+	if err := index.Add(masterKey, token, keyword, id); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := index.Delete(masterKey, keyword, id); err != nil {
+	if err := index.Delete(masterKey, token, keyword, id); err != nil {
 		t.Fatal(err)
 	}
 
-	IDs, err := index.Search(masterKey, keyword, &mem)
+	IDs, err := index.Search(masterKey, token, keyword)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -373,9 +404,8 @@ func TestDeleteAddDelete(t *testing.T) {
 }
 
 func TestCountAfterDelete(t *testing.T) {
-	index := NewIndex()
-
-	mem := io.NewMem()
+	index := newTestSecureIndex(t)
+	_, token := newTestUser(t, &index, id.ScopeIndex)
 
 	rand := &crypto.NativeRandom{}
 	masterKey, _ := rand.GetBytes(32)
@@ -385,15 +415,15 @@ func TestCountAfterDelete(t *testing.T) {
 
 	for i := 0; i < len(keywords); i++ {
 		for j := 0; j < len(ids); j++ {
-			if err := index.Add(masterKey, keywords[i], ids[j], &mem); err != nil {
+			if err := index.Add(masterKey, token, keywords[i], ids[j]); err != nil {
 				t.Fatal(err)
 			}
 
-			if err := index.Delete(masterKey, keywords[i], ids[j]); err != nil {
+			if err := index.Delete(masterKey, token, keywords[i], ids[j]); err != nil {
 				t.Fatal(err)
 			}
 
-			count, err := index.count(masterKey, keywords[i], &mem)
+			count, err := index.count(masterKey, keywords[i])
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -405,9 +435,8 @@ func TestCountAfterDelete(t *testing.T) {
 }
 
 func TestDeleteMultiple(t *testing.T) {
-	index := NewIndex()
-
-	mem := io.NewMem()
+	index := newTestSecureIndex(t)
+	_, token := newTestUser(t, &index, id.ScopeIndex)
 
 	rand := &crypto.NativeRandom{}
 	masterKey, _ := rand.GetBytes(32)
@@ -417,21 +446,21 @@ func TestDeleteMultiple(t *testing.T) {
 
 	for i := 0; i < len(keywords); i++ {
 		for j := 0; j < len(ids); j++ {
-			if err := index.Add(masterKey, keywords[i], ids[j], &mem); err != nil {
+			if err := index.Add(masterKey, token, keywords[i], ids[j]); err != nil {
 				t.Fatal(err)
 			}
 		}
 	}
 
-	if err := index.Delete(masterKey, keywords[0], ids[1]); err != nil {
+	if err := index.Delete(masterKey, token, keywords[0], ids[1]); err != nil {
 		t.Fatal(err)
 	}
-	if err := index.Delete(masterKey, keywords[1], ids[0]); err != nil {
+	if err := index.Delete(masterKey, token, keywords[1], ids[0]); err != nil {
 		t.Fatal(err)
 	}
 
 	for i := 0; i < len(keywords); i++ {
-		IDs, err := index.Search(masterKey, keywords[i], &mem)
+		IDs, err := index.Search(masterKey, token, keywords[i])
 		if err != nil {
 			t.Fatal(err)
 		}
