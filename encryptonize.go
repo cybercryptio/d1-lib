@@ -235,7 +235,18 @@ func (e *Encryptonize) Delete(token string, oid uuid.UUID) error {
 	}
 
 	access, err := e.getSealedAccess(oid)
-	if err != nil {
+	switch err {
+	case nil:
+		// Ignore and proceed
+	case io.ErrNotFound:
+		// If we can't find the access, that should mean the sealed object
+		// doesn't exist, either because it never existed, or it has been completely deleted.
+		// Because the sealed access is deleted last as the step in a deletion
+		// (see further below) we know that a deleted access entry also implies a deleted object.
+		// In either case, what the client wanted has already
+		// been achieved, and so we return with no error.
+		return nil
+	default:
 		return err
 	}
 
@@ -244,10 +255,17 @@ func (e *Encryptonize) Delete(token string, oid uuid.UUID) error {
 	}
 
 	// Delete data from IO Provider
-	if err = e.deleteSealedAccess(oid); err != nil {
+	// NOTE: It is a conscious decision to delete the sealed object first,
+	// then the sealed access.
+	// This way, if the deletion of the sealed object succeeds, but the
+	// deletion of the sealed access fails, we can retry with another delete
+	// to get rid of the dangling access entry.
+	// If we deleted the access first, and then fail to delete the object,
+	// we would have a dangling object we can't access, and therefore can't delete.
+	if err = e.deleteSealedObject(oid); err != nil {
 		return err
 	}
-	if err = e.deleteSealedObject(oid); err != nil {
+	if err = e.deleteSealedAccess(oid); err != nil {
 		return err
 	}
 
