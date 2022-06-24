@@ -398,7 +398,6 @@ func TestUpdateNotFound(t *testing.T) {
 
 func checkDataIsDeleted(t *testing.T, ioProvider io.Provider, id uuid.UUID, dataTypes ...io.DataType) {
 	for _, dataType := range dataTypes {
-
 		sealedData, err := ioProvider.Get(id, dataType)
 		if !errors.Is(err, io.ErrNotFound) {
 			t.Fatalf("Expected error '%s' but got '%s'", io.ErrNotFound, err)
