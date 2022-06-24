@@ -621,17 +621,6 @@ func TestDeleteWrongGroupScope(t *testing.T) {
 	}
 }
 
-// Test that an appropriate error is returned when a user tries to delete an object that does not exist.
-func TestDeleteNotFound(t *testing.T) {
-	enc := newTestEncryptonize(t)
-	_, token := newTestUser(t, &enc, id.ScopeDelete)
-
-	err := enc.Delete(token, uuid.Must(uuid.NewV4()))
-	if !errors.Is(err, io.ErrNotFound) {
-		t.Fatalf("Expected error '%s' but got '%s'", io.ErrNotFound, err)
-	}
-}
-
 ////////////////////////////////////////////////////////
 //            CreateToken/GetTokenContents            //
 ////////////////////////////////////////////////////////
