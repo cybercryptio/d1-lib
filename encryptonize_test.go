@@ -482,25 +482,32 @@ func TestDeleteNonExisting(t *testing.T) {
 }
 
 // It is verified that data is correctly deleted after retry,
-// in cases where an error occurs when deleting different kinds
-// sealed data on the first attempt.
+// in cases where an error initially occurs when deleting data of type
+// 1) Sealed Access
+// 2) Sealed Object
 func TestDeleteFailureAndRetry(t *testing.T) {
-	testData := map[string]struct {
-		dataType io.DataType
-		err      error
-	}{
-		"sealed access": {
-			dataType: io.DataTypeSealedAccess,
-			err:      errors.New("unable to delete sealed access"),
+
+	type testData struct {
+		description string
+		dataType    io.DataType
+		err         error
+	}
+
+	tests := []testData{
+		{
+			description: "DataType=DataTypeSealedAccess",
+			dataType:    io.DataTypeSealedAccess,
+			err:         errors.New("unable to delete sealed access"),
 		},
-		"sealed object": {
-			dataType: io.DataTypeSealedObject,
-			err:      errors.New("unable to delete sealed object"),
+		{
+			description: "DataType=DataTypeSealedObject",
+			dataType:    io.DataTypeSealedObject,
+			err:         errors.New("unable to delete sealed object"),
 		},
 	}
 
-	for name, d := range testData {
-		t.Run(name, func(t *testing.T) {
+	for _, test := range tests {
+		t.Run(test.description, func(t *testing.T) {
 			enc := newTestEncryptonize(t)
 			ioProxy := enc.ioProvider.(*io.Proxy)
 
@@ -519,19 +526,19 @@ func TestDeleteFailureAndRetry(t *testing.T) {
 			// Temporarily inject failures into the delete function.
 			delete := ioProxy.DeleteFunc
 			ioProxy.DeleteFunc = func(id uuid.UUID, dataType io.DataType) error {
-				if dataType == d.dataType {
-					return d.err
+				if dataType == test.dataType {
+					return test.err
 				}
 				return delete(id, dataType)
 			}
 			err = enc.Delete(token, id)
-			if !errors.Is(err, d.err) {
-				t.Fatalf("Expected error '%s' but got '%s'", d.err, err)
+			if !errors.Is(err, test.err) {
+				t.Fatalf("Expected error '%s' but got '%s'", test.err, err)
 			}
 
 			// Double-check with the IO Provider that the sealed access/object is still there.
 			// NOTE: We don't check the other sealed entries, since they may or may not be gone at this point.
-			_, err = enc.ioProvider.Get(id, d.dataType)
+			_, err = enc.ioProvider.Get(id, test.dataType)
 			if err != nil {
 				t.Fatal(err)
 			}
