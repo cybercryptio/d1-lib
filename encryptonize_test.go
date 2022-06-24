@@ -396,6 +396,19 @@ func TestUpdateNotFound(t *testing.T) {
 //                       Delete                       //
 ////////////////////////////////////////////////////////
 
+func checkDataIsDeleted(t *testing.T, ioProvider io.Provider, id uuid.UUID, dataTypes ...io.DataType) {
+	for _, dataType := range dataTypes {
+
+		sealedData, err := ioProvider.Get(id, dataType)
+		if !errors.Is(err, io.ErrNotFound) {
+			t.Fatalf("Expected error '%s' but got '%s'", io.ErrNotFound, err)
+		}
+		if sealedData != nil {
+			t.Fatal("Data was returned from failed call")
+		}
+	}
+}
+
 // It is verified that an object is correctly encrypted and deleted.
 func TestDelete(t *testing.T) {
 	enc := newTestEncryptonize(t)
@@ -423,23 +436,11 @@ func TestDelete(t *testing.T) {
 		t.Fatal("Data was returned from failed call")
 	}
 
-	// Double-check with the IO Provider that the sealed access is gone.
-	sealedAccess, err := enc.ioProvider.Get(id, io.DataTypeSealedAccess)
-	if !errors.Is(err, io.ErrNotFound) {
-		t.Fatalf("Expected error '%s' but got '%s'", io.ErrNotFound, err)
-	}
-	if sealedAccess != nil {
-		t.Fatal("Data was returned from failed call")
-	}
-
-	// Double-check with the IO Provider that the sealed object is gone.
-	sealedObject, err := enc.ioProvider.Get(id, io.DataTypeSealedObject)
-	if !errors.Is(err, io.ErrNotFound) {
-		t.Fatalf("Expected error '%s' but got '%s'", io.ErrNotFound, err)
-	}
-	if sealedObject != nil {
-		t.Fatal("Data was returned from failed call")
-	}
+	// Double-check with the IO Provider that the sealed data is gone.
+	checkDataIsDeleted(t, enc.ioProvider, id,
+		io.DataTypeSealedAccess,
+		io.DataTypeSealedObject,
+	)
 }
 
 // It is verified that no errors are returned when deleting a deleted object.
@@ -478,6 +479,77 @@ func TestDeleteNonExisting(t *testing.T) {
 	err := enc.Delete(token, id)
 	if err != nil {
 		t.Fatal(err)
+	}
+}
+
+// It is verified that data is correctly deleted after retry,
+// in cases where an error occurs when deleting different kinds
+// sealed data on the first attempt.
+func TestDeleteFailureAndRetry(t *testing.T) {
+	testData := map[string]struct {
+		dataType io.DataType
+		err      error
+	}{
+		"sealed access": {
+			dataType: io.DataTypeSealedAccess,
+			err:      errors.New("unable to delete sealed access"),
+		},
+		"sealed object": {
+			dataType: io.DataTypeSealedObject,
+			err:      errors.New("unable to delete sealed object"),
+		},
+	}
+
+	for name, d := range testData {
+		t.Run(name, func(t *testing.T) {
+			enc := newTestEncryptonize(t)
+			ioProxy := enc.ioProvider.(*io.Proxy)
+
+			_, token := newTestUser(t, &enc, id.ScopeEncrypt, id.ScopeDecrypt, id.ScopeDelete)
+
+			plainObject := data.Object{
+				Plaintext:      []byte("plaintext"),
+				AssociatedData: []byte("associated_data"),
+			}
+
+			id, err := enc.Encrypt(token, &plainObject)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			// Temporarily inject failures into the delete function.
+			delete := ioProxy.DeleteFunc
+			ioProxy.DeleteFunc = func(id uuid.UUID, dataType io.DataType) error {
+				if dataType == d.dataType {
+					return d.err
+				}
+				return delete(id, dataType)
+			}
+			err = enc.Delete(token, id)
+			if !errors.Is(err, d.err) {
+				t.Fatalf("Expected error '%s' but got '%s'", d.err, err)
+			}
+
+			// Double-check with the IO Provider that the sealed access/object is still there.
+			// NOTE: We don't check the other sealed entries, since they may or may not be gone at this point.
+			_, err = enc.ioProvider.Get(id, d.dataType)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			// Reset the delete function back to the non-failing implementation.
+			ioProxy.DeleteFunc = delete
+			err = enc.Delete(token, id)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			// Double-check with the IO Provider that the sealed data is gone.
+			checkDataIsDeleted(t, enc.ioProvider, id,
+				io.DataTypeSealedAccess,
+				io.DataTypeSealedObject,
+			)
+		})
 	}
 }
 
