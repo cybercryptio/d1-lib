@@ -240,7 +240,10 @@ func (e *Encryptonize) Delete(token string, oid uuid.UUID) error {
 		// Ignore and proceed
 	case io.ErrNotFound:
 		// If we can't find the access, that should mean the sealed object
-		// doesn't exist. In which case, what the client wanted, has already
+		// doesn't exist, either because it never existed, or it has been completely deleted.
+		// Because the sealed access is deleted last as the step in a deletion
+		// (see further below) we know that a deleted access entry also implies a deleted object.
+		// In either case, what the client wanted has already
 		// been achieved, and so we return with no error.
 		return nil
 	default:
