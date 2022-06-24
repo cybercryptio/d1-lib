@@ -441,6 +441,32 @@ func TestDelete(t *testing.T) {
 	}
 }
 
+// It is verified that no errors are returned when deleting a deleted object.
+func TestDeleteTwice(t *testing.T) {
+	enc := newTestEncryptonize(t)
+	_, token := newTestUser(t, &enc, id.ScopeEncrypt, id.ScopeDecrypt, id.ScopeDelete)
+
+	plainObject := data.Object{
+		Plaintext:      []byte("plaintext"),
+		AssociatedData: []byte("associated_data"),
+	}
+
+	id, err := enc.Encrypt(token, &plainObject)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = enc.Delete(token, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = enc.Delete(token, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 // It is verified that an unauthenticated user is not able to delete.
 func TestDeleteUnauthenticated(t *testing.T) {
 	enc := newTestEncryptonize(t)
