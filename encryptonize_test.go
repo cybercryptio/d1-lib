@@ -486,7 +486,6 @@ func TestDeleteNonExisting(t *testing.T) {
 // 1) Sealed Access
 // 2) Sealed Object
 func TestDeleteFailureAndRetry(t *testing.T) {
-
 	type testData struct {
 		description string
 		dataType    io.DataType
