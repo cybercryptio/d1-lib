@@ -252,10 +252,17 @@ func (e *Encryptonize) Delete(token string, oid uuid.UUID) error {
 	}
 
 	// Delete data from IO Provider
-	if err = e.deleteSealedAccess(oid); err != nil {
+	// NOTE: It is a conscious decision to delete the sealed object first,
+	// then the sealed access.
+	// This way, if the deletion of the sealed object succeeds, but the
+	// deletion of the sealed access fails, we can retry with another delete
+	// to get rid of the dangling access entry.
+	// If we deleted the access first, and then fail to delete the object,
+	// we would have a dangling object we can't access, and therefore can't delete.
+	if err = e.deleteSealedObject(oid); err != nil {
 		return err
 	}
-	if err = e.deleteSealedObject(oid); err != nil {
+	if err = e.deleteSealedAccess(oid); err != nil {
 		return err
 	}
 
