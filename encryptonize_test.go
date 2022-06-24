@@ -467,6 +467,19 @@ func TestDeleteTwice(t *testing.T) {
 	}
 }
 
+// It is verified that no errors are returned when deleting an object that doesn't exist.
+func TestDeleteNonExisting(t *testing.T) {
+	enc := newTestEncryptonize(t)
+	_, token := newTestUser(t, &enc, id.ScopeEncrypt, id.ScopeDecrypt, id.ScopeDelete)
+
+	id := uuid.Must(uuid.NewV4())
+
+	err := enc.Delete(token, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 // It is verified that an unauthenticated user is not able to delete.
 func TestDeleteUnauthenticated(t *testing.T) {
 	enc := newTestEncryptonize(t)
