@@ -40,15 +40,15 @@ import github.com/cybercryptio/d1-lib
 
 ## Usage
 
-For examples on how to use the D1 library [see our Examples section in the documentation](notion://www.notion.so/TODO).
+For examples on how to use the D1 library [see our Examples section in the documentation](TODO).
 
 ## Security
 
-For more details about the security guarantees offered by the D1 library [see our Security Architecture Documentation](notion://www.notion.so/TODO).
+For more details about the security guarantees offered by the D1 library [see our Security Architecture Documentation](TODO).
 
 ## High level overview
 
-For a high level overview of the main concepts and use cases of the D1 library [see our Explainer Document](notion://www.notion.so/documentation/explainer.md).
+For a high level overview of the main concepts and use cases of the D1 library [see our Explainer Document](documentation/explainer.md).
 
 # License
 
