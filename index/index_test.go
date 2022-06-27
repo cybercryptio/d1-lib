@@ -70,6 +70,30 @@ func newTestUser(t *testing.T, secureIndex *SecureIndex, scopes ...id.Scope) (uu
 	return id, token
 }
 
+func TestIDSeal(t *testing.T) {
+	key := make([]byte, 32)
+	cryptor, err := crypto.NewAESCryptor(key)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	plainID := PlainID{DocID: "first id", NextCounter: 1}
+
+	label := uuid.Must(uuid.NewV4())
+	sealed, err := plainID.Seal(label, &cryptor)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	unsealed, err := sealed.Unseal(label, &cryptor)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(plainID, unsealed) {
+		t.Fatal("Unsealed object not equal to original")
+	}
+}
+
 func TestAdd(t *testing.T) {
 	index := newTestSecureIndex(t)
 	_, token := newTestUser(t, &index, id.ScopeIndex)
@@ -79,13 +103,6 @@ func TestAdd(t *testing.T) {
 
 	if err := index.Add(index.indexKey, token, keyword, docID); err != nil {
 		t.Fatal(err)
-	}
-	size, err := index.Size(token)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if size != 1 {
-		t.Fatal("Keyword/id pair not correctly added to mapping")
 	}
 }
 
@@ -97,7 +114,7 @@ func TestAddMultiple(t *testing.T) {
 	masterKey, _ := rand.GetBytes(32)
 
 	keywords := [2]string{"first keyword", "second keyword"}
-	ids := [2]string{"first id", "second id"}
+	ids := [4]string{"first id", "second id", "third id", "fourth id"}
 
 	for i := 0; i < len(keywords); i++ {
 		for j := 0; j < len(ids); j++ {
@@ -105,13 +122,6 @@ func TestAddMultiple(t *testing.T) {
 				t.Fatal(err)
 			}
 		}
-	}
-	size, err := index.Size(token)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if size != len(keywords)*len(ids) {
-		t.Fatal("Multiple keyword/id pairs not correctly added to mapping")
 	}
 }
 
@@ -179,7 +189,7 @@ func TestSearchWrongMasterkey(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(IDs) != 0 {
-		t.Fatal("Search returned decrypted IDs when given wrong masterkey")
+		t.Fatal("Search returned decrypted IDs when given wrong master key")
 	}
 }
 
@@ -217,7 +227,7 @@ func TestSearchWrongKeyword(t *testing.T) {
 	}
 }
 
-func TestCount(t *testing.T) {
+func TestLastID(t *testing.T) {
 	index := newTestSecureIndex(t)
 	_, token := newTestUser(t, &index, id.ScopeIndex)
 
@@ -228,12 +238,18 @@ func TestCount(t *testing.T) {
 	ids := [5]string{"id1", "id2", "id3", "id4", "id5"}
 
 	for i := 0; i < len(keywords); i++ {
-		count, err := index.count(masterKey, keywords[i])
+		lastCounter, lastID, err := index.lastID(masterKey, keywords[i])
 		if err != nil {
 			t.Fatal(err)
 		}
-		if count != 0 {
-			t.Fatal("Count returned wrong count.")
+		if lastCounter != 0 {
+			t.Fatal("lastID returned wrong counter.")
+		}
+		if lastID.DocID != "" {
+			t.Fatal("lastID returned non-empty plainID, but it should have been empty.")
+		}
+		if lastID.NextCounter != 0 {
+			t.Fatal("lastID returned non-empty plainID, but it should have been empty.")
 		}
 	}
 
@@ -243,18 +259,24 @@ func TestCount(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			count, err := index.count(masterKey, keywords[i])
+			lastCounter, lastID, err := index.lastID(masterKey, keywords[i])
 			if err != nil {
 				t.Fatal(err)
 			}
-			if count != uint64(j+1) {
-				t.Fatal("Count returned wrong count.")
+			if lastCounter != uint64(j) {
+				t.Fatal("lastID returned wrong counter.")
+			}
+			if lastID.DocID != ids[j] {
+				t.Fatal("lastID returned wrong last plainID.")
+			}
+			if lastID.NextCounter != uint64(0) {
+				t.Fatal("lastID returned wrong last plainID.")
 			}
 		}
 	}
 }
 
-func TestCountWrongMasterkey(t *testing.T) {
+func TestLastIDWrongMasterkey(t *testing.T) {
 	index := newTestSecureIndex(t)
 	_, token := newTestUser(t, &index, id.ScopeIndex)
 
@@ -269,16 +291,22 @@ func TestCountWrongMasterkey(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	count, err := index.count(masterKey2, keyword)
+	lastCounter, lastID, err := index.lastID(masterKey2, keyword)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if count != 0 {
-		t.Fatal("Count returned wrong count when given wrong masterkey.")
+	if lastCounter != 0 {
+		t.Fatal("lastID returned wrong counter when given wrong master key.")
+	}
+	if lastID.DocID != "" {
+		t.Fatal("lastID return non-empty plainID when given wrong master key.")
+	}
+	if lastID.NextCounter != 0 {
+		t.Fatal("lastID return non-empty plainID when given wrong master key.")
 	}
 }
 
-func TestCountWrongKeyword(t *testing.T) {
+func TestLastIDWrongKeyword(t *testing.T) {
 	index := newTestSecureIndex(t)
 	_, token := newTestUser(t, &index, id.ScopeIndex)
 
@@ -295,20 +323,32 @@ func TestCountWrongKeyword(t *testing.T) {
 	keywordShort := "first keywor"
 	keywordLong := "first keywordd"
 
-	count, err := index.count(masterKey, keywordShort)
+	lastCounter, lastID, err := index.lastID(masterKey, keywordShort)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if count != 0 {
-		t.Fatal("Count returned wrong count when given wrong keyword.")
+	if lastCounter != 0 {
+		t.Fatal("lastID returned wrong counter when given wrong keyword.")
+	}
+	if lastID.DocID != "" {
+		t.Fatal("lastID return non-empty plainID when given wrong keyword.")
+	}
+	if lastID.NextCounter != 0 {
+		t.Fatal("lastID return non-empty plainID when given wrong keyword.")
 	}
 
-	count, err = index.count(masterKey, keywordLong)
+	lastCounter, lastID, err = index.lastID(masterKey, keywordLong)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if count != 0 {
-		t.Fatal("Count returned wrong count when given wrong keyword.")
+	if lastCounter != 0 {
+		t.Fatal("lastID returned wrong counter when given wrong keyword.")
+	}
+	if lastID.DocID != "" {
+		t.Fatal("lastID return non-empty plainID when given wrong keyword.")
+	}
+	if lastID.NextCounter != 0 {
+		t.Fatal("lastID return non-empty plainID when given wrong keyword.")
 	}
 }
 
@@ -402,37 +442,6 @@ func TestDeleteAddDelete(t *testing.T) {
 	}
 	if len(IDs) != 0 {
 		t.Fatal("Keyword/ID pair not correctly deleted after it has been deleted and then added.")
-	}
-}
-
-func TestCountAfterDelete(t *testing.T) {
-	index := newTestSecureIndex(t)
-	_, token := newTestUser(t, &index, id.ScopeIndex)
-
-	rand := &crypto.NativeRandom{}
-	masterKey, _ := rand.GetBytes(32)
-
-	keywords := [3]string{"keyword1", "keyword2", "keyword3"}
-	ids := [5]string{"id1", "id2", "id3", "id4", "id5"}
-
-	for i := 0; i < len(keywords); i++ {
-		for j := 0; j < len(ids); j++ {
-			if err := index.Add(masterKey, token, keywords[i], ids[j]); err != nil {
-				t.Fatal(err)
-			}
-
-			if err := index.Delete(masterKey, token, keywords[i], ids[j]); err != nil {
-				t.Fatal(err)
-			}
-
-			count, err := index.count(masterKey, keywords[i])
-			if err != nil {
-				t.Fatal(err)
-			}
-			if count != uint64(j+1) {
-				t.Fatal("Count returned wrong count after deletion. Deleted keyword/ID pairs should still be counted.")
-			}
-		}
 	}
 }
 
