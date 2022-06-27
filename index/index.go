@@ -81,7 +81,7 @@ type SealedID struct {
 
 // Seal encrypts the plaintext ID.
 func (i *PlainID) Seal(label uuid.UUID, cryptor crypto.CryptorInterface) (SealedID, error) {
-	wrappedKey, ciphertext, err := cryptor.Encrypt(i, label.Bytes())
+	wrappedKey, ciphertext, err := cryptor.Encrypt(i, label)
 	if err != nil {
 		return SealedID{}, err
 	}
