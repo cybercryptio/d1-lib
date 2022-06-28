@@ -27,6 +27,7 @@ import (
 	"golang.org/x/crypto/sha3"
 
 	"github.com/cybercryptio/d1-lib/crypto"
+	"github.com/cybercryptio/d1-lib/data"
 	"github.com/cybercryptio/d1-lib/id"
 	"github.com/cybercryptio/d1-lib/io"
 	"github.com/cybercryptio/d1-lib/key"
@@ -52,11 +53,15 @@ type SecureIndex struct {
 	indexKey []byte
 }
 
-// NewSecureIndex creates a SecureIndex which is used to manage keyword/docID pairs.
+// NewSecureIndex creates a SecureIndex which is used to manage keyword/identifier pairs.
 func NewSecureIndex(keyProvider key.Provider, ioProvider io.Provider, idProvider id.Provider) (SecureIndex, error) {
 	keys, err := keyProvider.GetKeys()
 	if err != nil {
 		return SecureIndex{}, err
+	}
+
+	if len(keys.IEK) != MasterKeyLength {
+		return SecureIndex{}, ErrInvalidMasterKeyLength
 	}
 
 	return SecureIndex{
@@ -67,44 +72,8 @@ func NewSecureIndex(keyProvider key.Provider, ioProvider io.Provider, idProvider
 	}, nil
 }
 
-// PlainID contains a document ID and the counter used to compute the next sealed ID.
-type PlainID struct {
-	DocID       string
-	NextCounter uint64
-}
-
-// SealedID is an encrypted structure which defines an occurrence of a specific keyword in a specific DocID.
-type SealedID struct {
-	Ciphertext []byte
-	WrappedKey []byte
-}
-
-// Seal encrypts the plaintext ID.
-func (i *PlainID) Seal(label uuid.UUID, cryptor crypto.CryptorInterface) (SealedID, error) {
-	wrappedKey, ciphertext, err := cryptor.Encrypt(i, label.Bytes())
-	if err != nil {
-		return SealedID{}, err
-	}
-
-	sealed := SealedID{
-		Ciphertext: ciphertext,
-		WrappedKey: wrappedKey,
-	}
-
-	return sealed, nil
-}
-
-// Unseal decrypts the sealed ID.
-func (i *SealedID) Unseal(label uuid.UUID, cryptor crypto.CryptorInterface) (PlainID, error) {
-	plainID := PlainID{}
-	if err := cryptor.Decrypt(&plainID, label.Bytes(), i.WrappedKey, i.Ciphertext); err != nil {
-		return PlainID{}, err
-	}
-	return plainID, nil
-}
-
-// Add adds a keyword/docID pair to the secure index.
-func (i *SecureIndex) Add(key []byte, token, keyword, docID string) error {
+// Add adds a keyword/identifier pair to the secure index.
+func (i *SecureIndex) Add(token, keyword, identifier string) error {
 	identity, err := i.idProvider.GetIdentity(token)
 	if err != nil {
 		return ErrNotAuthenticated
@@ -113,160 +82,47 @@ func (i *SecureIndex) Add(key []byte, token, keyword, docID string) error {
 		return ErrNotAuthorized
 	}
 
-	if len(key) != MasterKeyLength {
-		return ErrInvalidMasterKeyLength
-	}
-
-	// Create two keys, k1 and k2: One for tagger and one for cryptor.
-	k1 := crypto.KMACKDF(crypto.TaggerKeyLength, key, []byte("label"), []byte(keyword))
-	k2 := crypto.KMACKDF(crypto.EncryptionKeyLength, key, []byte("id"), []byte(keyword))
-
-	tagger, err := crypto.NewKMAC256Tagger(k1)
-	if err != nil {
-		return err
-	}
-	cryptor, err := crypto.NewAESCryptor(k2)
+	tagger, cryptor, err := i.getTaggerAndCryptor(keyword)
 	if err != nil {
 		return err
 	}
 
-	// Compute the current last sealed ID with the given keyword, i.e. the sealed ID with
-	// the largest value of the counter.
-	lastCounter, lastID, err := i.lastID(key, keyword)
+	// Compute the current last sealed Identifier with the given keyword, i.e. the sealed
+	// Identifier with the largest value of the counter.
+	lastIdentifier, err := i.lastIdentifier(keyword)
 	if err != nil {
 		return err
 	}
 
 	counter := uint64(0)
 
-	// If the current last sealed ID, lastID, is not an empty sealed ID,
-	// i.e. the keyword has already been added to the secure index, do the following.
-	if lastID.DocID != "" {
-		// Compute the next counter.
-		counter = lastCounter + 1
-
-		// Update lastID's NextCounter.
-		lastLabelUUID, err := computeLabelUUID(lastCounter, &tagger)
-		if err != nil {
-			return err
-		}
-
-		lastID.NextCounter = counter
-
-		lastSealedID, err := lastID.Seal(lastLabelUUID, &cryptor)
-		if err != nil {
-			return err
-		}
-		if err = i.putSealedID(lastLabelUUID, &lastSealedID, true); err != nil {
-			return err
-		}
+	// If the current last sealed Identifier is not an empty sealed Identifier, i.e. the keyword
+	// has already been added to the secure index, update the counter.
+	if lastIdentifier.Identifier != "" {
+		counter = lastIdentifier.NextCounter
 	}
 
-	// Compute new labelUUID and plaintext ID, seal it, and send it to the IO Provider.
-	labelUUID, err := computeLabelUUID(counter, &tagger)
+	// Compute new labelUUID and plaintext Identifier, seal it, and send it to the IO Provider.
+	labelUUID, err := computeLabelUUID(counter, tagger)
 	if err != nil {
 		return err
 	}
 
-	plainID := PlainID{DocID: docID, NextCounter: 0}
+	plainID := data.Identifier{Identifier: identifier, NextCounter: counter + 1}
 
-	sealedID, err := plainID.Seal(labelUUID, &cryptor)
+	sealedID, err := plainID.Seal(labelUUID, cryptor)
 	if err != nil {
 		return err
 	}
-	if err = i.putSealedID(labelUUID, &sealedID, false); err != nil {
+	if err = i.putSealedIdentifier(labelUUID, &sealedID); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-// Delete deletes a keyword/docID pair from the secure index.
-func (i *SecureIndex) Delete(key []byte, token, keyword, docID string) error {
-	identity, err := i.idProvider.GetIdentity(token)
-	if err != nil {
-		return ErrNotAuthenticated
-	}
-	if !identity.Scopes.Contains(id.ScopeIndex) {
-		return ErrNotAuthorized
-	}
-
-	if len(key) != MasterKeyLength {
-		return ErrInvalidMasterKeyLength
-	}
-
-	// Create two keys, k1 and k2: One for tagger and one for cryptor.
-	k1 := crypto.KMACKDF(crypto.TaggerKeyLength, key, []byte("label"), []byte(keyword))
-	k2 := crypto.KMACKDF(crypto.EncryptionKeyLength, key, []byte("id"), []byte(keyword))
-
-	tagger, err := crypto.NewKMAC256Tagger(k1)
-	if err != nil {
-		return err
-	}
-	cryptor, err := crypto.NewAESCryptor(k2)
-	if err != nil {
-		return err
-	}
-
-	counter := uint64(0)
-
-	previousSealedID := SealedID{}
-	previousLabel := uuid.Nil
-
-	// Starting with counter = 0, compute the corresponding sealed ID, unseal it,
-	// and check if its DocID is equal to the docID given as input. Otherwise,
-	// update counter to the next counter and repeat.
-	for {
-		labelUUID, err := computeLabelUUID(counter, &tagger)
-		if err != nil {
-			return err
-		}
-
-		// Get the sealed ID from the IO Provider.
-		sealedID, err := i.getSealedID(labelUUID)
-		if err != nil {
-			return err
-		}
-
-		decryptedID, err := sealedID.Unseal(labelUUID, &cryptor)
-		if err != nil {
-			return err
-		}
-
-		// Check if the current DocID matches the docID given as input.
-		if decryptedID.DocID == docID {
-			// Delete the sealed ID.
-			if err = i.deleteSealedID(labelUUID); err != nil {
-				return err
-			}
-
-			if previousSealedID.Ciphertext != nil {
-				// In this case, there exists a previous sealed ID which should be updated:
-				// The previous sealed ID's next counter should be updated to the deleted sealed ID's next counter.
-				return i.updatePreviousAfterDelete(previousLabel, previousSealedID, decryptedID.NextCounter, &cryptor)
-			} else if decryptedID.NextCounter != 0 {
-				// In this case, there exists a next sealed ID which should be updated:
-				// The next sealed ID's counter should be updated to 0 as this sealed ID is now the first.
-				return i.updateNextAfterDelete(decryptedID.NextCounter, labelUUID, &cryptor, &tagger)
-			}
-			// Else, the sealed ID that was deleted was the only sealed ID containing the given keyword,
-			// hence nothing else has to be done.
-			return nil
-		}
-
-		// If there is no next sealed ID, an error should be returned.
-		if decryptedID.NextCounter == 0 {
-			return err
-		}
-
-		counter = decryptedID.NextCounter
-		previousSealedID = *sealedID
-		previousLabel = labelUUID
-	}
-}
-
-// Given a keyword, Search returns all decrypted ID's that the keyword is contained in.
-func (i *SecureIndex) Search(key []byte, token, keyword string) ([]string, error) {
+// Given a keyword, Search returns all decrypted Identifiers that the keyword is contained in.
+func (i *SecureIndex) Search(token, keyword string) ([]string, error) {
 	identity, err := i.idProvider.GetIdentity(token)
 	if err != nil {
 		return nil, ErrNotAuthenticated
@@ -275,19 +131,7 @@ func (i *SecureIndex) Search(key []byte, token, keyword string) ([]string, error
 		return nil, ErrNotAuthorized
 	}
 
-	if len(key) != MasterKeyLength {
-		return nil, ErrInvalidMasterKeyLength
-	}
-
-	// Create two keys, k1 and k2: One for tagger and one for cryptor.
-	k1 := crypto.KMACKDF(crypto.TaggerKeyLength, key, []byte("label"), []byte(keyword))
-	k2 := crypto.KMACKDF(crypto.EncryptionKeyLength, key, []byte("id"), []byte(keyword))
-
-	tagger, err := crypto.NewKMAC256Tagger(k1)
-	if err != nil {
-		return nil, err
-	}
-	cryptor, err := crypto.NewAESCryptor(k2)
+	tagger, cryptor, err := i.getTaggerAndCryptor(keyword)
 	if err != nil {
 		return nil, err
 	}
@@ -295,32 +139,29 @@ func (i *SecureIndex) Search(key []byte, token, keyword string) ([]string, error
 	decryptedIDs := []string{}
 
 	// Starting with counter = 0, check if the corresponding keyword label exists in the secure index.
-	// As long as the keyword label exists, decrypt the corresponding ID, append it to decryptedIDs,
+	// As long as the keyword label exists, decrypt the corresponding Identifier, append it to decryptedIDs,
 	// and update counter to the next counter.
 	counter := uint64(0)
 
 	for {
-		labelUUID, err := computeLabelUUID(counter, &tagger)
+		labelUUID, err := computeLabelUUID(counter, tagger)
 		if err != nil {
 			return nil, err
 		}
 
-		// Get the sealed ID from the IO Provider.
-		sealedID, err := i.getSealedID(labelUUID)
+		// Get the sealed ID from the IO Provider. If error, all the Identifiers have been found, and the
+		// function can return them.
+		sealedID, err := i.getSealedIdentifier(labelUUID)
 		if err != nil {
 			break
 		}
 
-		decryptedID, err := sealedID.Unseal(labelUUID, &cryptor)
+		decryptedID, err := sealedID.Unseal(labelUUID, cryptor)
 		if err != nil {
 			return nil, err
 		}
 
-		decryptedIDs = append(decryptedIDs, decryptedID.DocID)
-
-		if decryptedID.NextCounter == 0 {
-			break
-		}
+		decryptedIDs = append(decryptedIDs, decryptedID.Identifier)
 
 		counter = decryptedID.NextCounter
 	}
@@ -328,128 +169,87 @@ func (i *SecureIndex) Search(key []byte, token, keyword string) ([]string, error
 	return decryptedIDs, nil
 }
 
-// Compute the current last ID containing the given keyword, i.e. the current ID with the largest value of counter.
-func (i *SecureIndex) lastID(key []byte, keyword string) (uint64, PlainID, error) {
-	if len(key) != MasterKeyLength {
-		return 0, PlainID{}, ErrInvalidMasterKeyLength
-	}
-
-	// Create two keys, k1 and k2: One for tagger and one for cryptor.
-	k1 := crypto.KMACKDF(crypto.TaggerKeyLength, key, []byte("label"), []byte(keyword))
-	k2 := crypto.KMACKDF(crypto.EncryptionKeyLength, key, []byte("id"), []byte(keyword))
-
-	tagger, err := crypto.NewKMAC256Tagger(k1)
+// Delete deletes a keyword/identifier pair from the secure index.
+func (i *SecureIndex) Delete(token, keyword, identifier string) error {
+	identity, err := i.idProvider.GetIdentity(token)
 	if err != nil {
-		return 0, PlainID{}, err
+		return ErrNotAuthenticated
 	}
-	cryptor, err := crypto.NewAESCryptor(k2)
-	if err != nil {
-		return 0, PlainID{}, err
+	if !identity.Scopes.Contains(id.ScopeIndex) {
+		return ErrNotAuthorized
 	}
 
-	// Starting with counter = 0, check if the corresponding keyword label exists in the secure index.
-	// As long as the keyword label exists, update counter to the next counter.
+	tagger, cryptor, err := i.getTaggerAndCryptor(keyword)
+	if err != nil {
+		return err
+	}
+
+	// A map that keeps track of which labels should be updated after deletions.
+	// It is necessary to first update labels after deletions (as the same keyword/
+	// identifier pair can occur more than once in the secure index).
+	labelUpdates := make(map[uint64]uuid.UUID)
+
 	counter := uint64(0)
 
+	// Starting with counter = 0, compute the corresponding sealed Identifier, unseal it,
+	// and check if its Identifier is equal to the identifier given as input. Otherwise,
+	// update counter to the next counter and repeat.
 	for {
-		labelUUID, err := computeLabelUUID(counter, &tagger)
+		labelUUID, err := computeLabelUUID(counter, tagger)
 		if err != nil {
-			return 0, PlainID{}, err
+			return err
 		}
 
-		sealedID, err := i.getSealedID(labelUUID)
+		// Get the sealed ID from the IO Provider.
+		sealedID, err := i.getSealedIdentifier(labelUUID)
 		if err != nil {
-			return 0, PlainID{}, nil
+			// No more deletions, and hence the labels can be updated.
+			for counter, label := range labelUpdates {
+				if err = i.updateLabelOfNext(counter, label, cryptor, tagger); err != nil {
+					return err
+				}
+			}
+			return nil
 		}
 
-		decryptedID, err := sealedID.Unseal(labelUUID, &cryptor)
+		decryptedID, err := sealedID.Unseal(labelUUID, cryptor)
 		if err != nil {
-			return 0, PlainID{}, err
+			return err
 		}
 
-		if decryptedID.NextCounter == 0 {
-			return counter, decryptedID, nil
+		// Check if the current Identifier matches the identifier given as input.
+		if decryptedID.Identifier == identifier {
+			// Delete the sealed ID.
+			if err = i.deleteSealedIdentifier(labelUUID); err != nil {
+				return err
+			}
+
+			// Add the next counter and label such that the next label will be updated to current label later.
+			labelUpdates[decryptedID.NextCounter] = labelUUID
 		}
 
 		counter = decryptedID.NextCounter
 	}
 }
 
-// putSealedID encodes a sealed ID and sends it to the IO Provider, either as a "Put" or an "Update".
-func (i *SecureIndex) putSealedID(label uuid.UUID, sealedID *SealedID, update bool) error {
-	var sealedIDBuffer bytes.Buffer
-	enc := gob.NewEncoder(&sealedIDBuffer)
-	if err := enc.Encode(sealedID); err != nil {
-		return err
-	}
-
-	if update {
-		return i.ioProvider.Update(label, io.DataTypeSealedID, sealedIDBuffer.Bytes())
-	}
-	return i.ioProvider.Put(label, io.DataTypeSealedID, sealedIDBuffer.Bytes())
-}
-
-// getSealedID fetches bytes from the IO Provider and decodes them into a sealed ID.
-func (i *SecureIndex) getSealedID(label uuid.UUID) (*SealedID, error) {
-	sealedIDBytes, err := i.ioProvider.Get(label, io.DataTypeSealedID)
-	if err != nil {
-		return nil, err
-	}
-
-	sealedID := &SealedID{}
-	dec := gob.NewDecoder(bytes.NewReader(sealedIDBytes))
-	err = dec.Decode(sealedID)
-	if err != nil {
-		return nil, err
-	}
-
-	return sealedID, nil
-}
-
-// deleteSealedID deletes a sealed ID from the IO Provider.
-func (i *SecureIndex) deleteSealedID(label uuid.UUID) error {
-	return i.ioProvider.Delete(label, io.DataTypeSealedID)
-}
-
-// This is a subfunction of the Delete function. In case the deleted sealed ID is not the
-// first sealed ID, this function updates the previous sealed ID:It updates the NextCounter
-// of the previous sealed ID to the NextCounter of the sealed ID that was deleted.
-func (i *SecureIndex) updatePreviousAfterDelete(previousLabel uuid.UUID, previousSealedID SealedID, nextCounter uint64, cryptor crypto.CryptorInterface) error {
-	previousDecryptedID, err := previousSealedID.Unseal(previousLabel, cryptor)
-	if err != nil {
-		return err
-	}
-	previousDecryptedID.NextCounter = nextCounter
-
-	previousSealedID, err = previousDecryptedID.Seal(previousLabel, cryptor)
-	if err != nil {
-		return err
-	}
-	if err = i.putSealedID(previousLabel, &previousSealedID, true); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// This is a subfunction of the Delete function. In case the deleted sealed ID is not the
-// last sealed ID, this function updates the next sealed ID: It updates the counter of the
-// next sealed ID to 0. (It has already been verified that the deleted sealed ID had counter = 0).
-func (i *SecureIndex) updateNextAfterDelete(nextCounter uint64, currentLabel uuid.UUID, cryptor crypto.CryptorInterface, tagger crypto.TaggerInterface) error {
+// updateLabelOfNext updates the next label (with counter equal to nextCounter) to current label.
+// This operation is necessary after deletions.
+func (i *SecureIndex) updateLabelOfNext(nextCounter uint64, currentLabel uuid.UUID, cryptor crypto.CryptorInterface, tagger crypto.TaggerInterface) error {
 	nextLabelUUID, err := computeLabelUUID(nextCounter, tagger)
 	if err != nil {
 		return err
 	}
 
-	// Get the sealed ID from the IO Provider.
-	nextSealedID, err := i.getSealedID(nextLabelUUID)
+	// Get the sealed ID from the IO Provider. If error, the next sealed Identifier does not exist,
+	// and the function can terminate.
+	nextSealedID, err := i.getSealedIdentifier(nextLabelUUID)
 	if err != nil {
-		return err
+		return nil
 	}
 
 	// As the label of the next sealed ID should be updated (and not the sealed ID itself),
 	// it is necessary to delete it and add it with the new label.
-	if err = i.deleteSealedID(nextLabelUUID); err != nil {
+	if err = i.deleteSealedIdentifier(nextLabelUUID); err != nil {
 		return err
 	}
 
@@ -463,12 +263,107 @@ func (i *SecureIndex) updateNextAfterDelete(nextCounter uint64, currentLabel uui
 		return err
 	}
 
-	if err = i.putSealedID(currentLabel, nextSealedID, false); err != nil {
+	if err = i.putSealedIdentifier(currentLabel, nextSealedID); err != nil {
 		return err
 	}
 
 	return nil
 }
+
+// Compute the current last Identifier containing the given keyword, i.e. the current Identifier with
+// the largest value of counter.
+func (i *SecureIndex) lastIdentifier(keyword string) (data.Identifier, error) {
+	tagger, cryptor, err := i.getTaggerAndCryptor(keyword)
+	if err != nil {
+		return data.Identifier{}, err
+	}
+
+	// Starting with counter = 0, check if the corresponding keyword label exists in the secure index.
+	// As long as the keyword label exists, update counter to the next counter.
+	counter := uint64(0)
+
+	decryptedID := data.Identifier{}
+
+	for {
+		labelUUID, err := computeLabelUUID(counter, tagger)
+		if err != nil {
+			return data.Identifier{}, err
+		}
+
+		// Get the sealed Identifier from the IO Provider. If error, then the last Identifier has already
+		// been found, and the function can return it.
+		sealedID, err := i.getSealedIdentifier(labelUUID)
+		if err != nil {
+			return decryptedID, nil
+		}
+
+		decrypted, err := sealedID.Unseal(labelUUID, cryptor)
+		if err != nil {
+			return data.Identifier{}, err
+		}
+
+		counter = decryptedID.NextCounter
+		decryptedID = decrypted
+	}
+}
+
+// getTaggerAndCryptor takes a keyword as input and returns a tagger and a cryptor.
+func (i *SecureIndex) getTaggerAndCryptor(keyword string) (crypto.TaggerInterface, crypto.CryptorInterface, error) {
+	k1 := crypto.KMACKDF(crypto.TaggerKeyLength, i.indexKey, []byte("label"), []byte(keyword))
+	k2 := crypto.KMACKDF(crypto.EncryptionKeyLength, i.indexKey, []byte("id"), []byte(keyword))
+
+	tagger, err := crypto.NewKMAC256Tagger(k1)
+	if err != nil {
+		return nil, nil, err
+	}
+	cryptor, err := crypto.NewAESCryptor(k2)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return &tagger, &cryptor, nil
+}
+
+////////////////////////////////////////////////////////
+//                    IO Provider                     //
+////////////////////////////////////////////////////////
+
+// putSealedID encodes a sealed ID and sends it to the IO Provider.
+func (i *SecureIndex) putSealedIdentifier(label uuid.UUID, sealedID *data.SealedIdentifier) error {
+	var sealedIDBuffer bytes.Buffer
+	enc := gob.NewEncoder(&sealedIDBuffer)
+	if err := enc.Encode(sealedID); err != nil {
+		return err
+	}
+
+	return i.ioProvider.Put(label, io.DataTypeSealedID, sealedIDBuffer.Bytes())
+}
+
+// getSealedID fetches bytes from the IO Provider and decodes them into a sealed ID.
+func (i *SecureIndex) getSealedIdentifier(label uuid.UUID) (*data.SealedIdentifier, error) {
+	sealedIDBytes, err := i.ioProvider.Get(label, io.DataTypeSealedID)
+	if err != nil {
+		return nil, err
+	}
+
+	sealedID := &data.SealedIdentifier{}
+	dec := gob.NewDecoder(bytes.NewReader(sealedIDBytes))
+	err = dec.Decode(sealedID)
+	if err != nil {
+		return nil, err
+	}
+
+	return sealedID, nil
+}
+
+// deleteSealedID deletes a sealed ID from the IO Provider.
+func (i *SecureIndex) deleteSealedIdentifier(label uuid.UUID) error {
+	return i.ioProvider.Delete(label, io.DataTypeSealedID)
+}
+
+////////////////////////////////////////////////////////
+//                    Conversions                     //
+////////////////////////////////////////////////////////
 
 // Given a uint64 counter, compute the tag and return it as a uuid.
 func computeLabelUUID(counter uint64, tagger crypto.TaggerInterface) (uuid.UUID, error) {
