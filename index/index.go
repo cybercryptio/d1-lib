@@ -106,7 +106,7 @@ func (i *SecureIndex) Add(token, keyword, identifier string) error {
 	if err != nil {
 		return err
 	}
-	if err = i.putSealedIdentifier(labelUUID, &sealedID); err != nil {
+	if err := i.putSealedIdentifier(labelUUID, &sealedID); err != nil {
 		return err
 	}
 
