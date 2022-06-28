@@ -35,7 +35,7 @@ type SealedIdentifier struct {
 
 // Seal encrypts the plaintext Identifier.
 func (i *Identifier) Seal(label uuid.UUID, cryptor crypto.CryptorInterface) (SealedIdentifier, error) {
-	wrappedKey, ciphertext, err := cryptor.Encrypt(i, label.Bytes())
+	wrappedKey, ciphertext, err := cryptor.Encrypt(i, label)
 	if err != nil {
 		return SealedIdentifier{}, err
 	}
@@ -51,7 +51,7 @@ func (i *Identifier) Seal(label uuid.UUID, cryptor crypto.CryptorInterface) (Sea
 // Unseal decrypts the sealed Identifier.
 func (i *SealedIdentifier) Unseal(label uuid.UUID, cryptor crypto.CryptorInterface) (Identifier, error) {
 	plainID := Identifier{}
-	if err := cryptor.Decrypt(&plainID, label.Bytes(), i.WrappedKey, i.Ciphertext); err != nil {
+	if err := cryptor.Decrypt(&plainID, label, i.WrappedKey, i.Ciphertext); err != nil {
 		return Identifier{}, err
 	}
 	return plainID, nil
