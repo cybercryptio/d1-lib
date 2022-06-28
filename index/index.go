@@ -272,12 +272,10 @@ func (i *SecureIndex) lastIdentifier(keyword string) (data.Identifier, error) {
 
 	// Starting with counter = 0, check if the corresponding keyword label exists in the secure index.
 	// As long as the keyword label exists, update counter to the next counter.
-	counter := uint64(0)
-
 	decryptedID := data.Identifier{}
 
 	for {
-		labelUUID, err := computeLabelUUID(counter, tagger)
+		labelUUID, err := computeLabelUUID(decryptedID.NextCounter, tagger)
 		if err != nil {
 			return data.Identifier{}, err
 		}
@@ -289,13 +287,10 @@ func (i *SecureIndex) lastIdentifier(keyword string) (data.Identifier, error) {
 			return decryptedID, nil
 		}
 
-		decrypted, err := sealedID.Unseal(labelUUID, cryptor)
+		decryptedID, err = sealedID.Unseal(labelUUID, cryptor)
 		if err != nil {
 			return data.Identifier{}, err
 		}
-
-		counter = decryptedID.NextCounter
-		decryptedID = decrypted
 	}
 }
 
