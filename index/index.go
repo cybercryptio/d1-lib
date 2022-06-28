@@ -94,21 +94,13 @@ func (i *SecureIndex) Add(token, keyword, identifier string) error {
 		return err
 	}
 
-	counter := uint64(0)
-
-	// If the current last sealed Identifier is not an empty sealed Identifier, i.e. the keyword
-	// has already been added to the secure index, update the counter.
-	if lastIdentifier.Identifier != "" {
-		counter = lastIdentifier.NextCounter
-	}
-
 	// Compute new labelUUID and plaintext Identifier, seal it, and send it to the IO Provider.
-	labelUUID, err := computeLabelUUID(counter, tagger)
+	labelUUID, err := computeLabelUUID(lastIdentifier.NextCounter, tagger)
 	if err != nil {
 		return err
 	}
 
-	plainID := data.Identifier{Identifier: identifier, NextCounter: counter + 1}
+	plainID := data.Identifier{Identifier: identifier, NextCounter: lastIdentifier.NextCounter + 1}
 
 	sealedID, err := plainID.Seal(labelUUID, cryptor)
 	if err != nil {
