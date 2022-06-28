@@ -40,12 +40,10 @@ func (i *Identifier) Seal(label uuid.UUID, cryptor crypto.CryptorInterface) (Sea
 		return SealedIdentifier{}, err
 	}
 
-	sealed := SealedIdentifier{
+	return SealedIdentifier{
 		Ciphertext: ciphertext,
 		WrappedKey: wrappedKey,
-	}
-
-	return sealed, nil
+	}, nil
 }
 
 // Unseal decrypts the sealed Identifier.
