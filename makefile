@@ -19,7 +19,7 @@ help:  ## Display this help
 
 ##### Build targets #####
 .PHONY: build
-build: ## Build the Encryptonize library
+build: ## Build the D1 library
 	go build .
 
 .PHONY: lint
