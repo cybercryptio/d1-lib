@@ -34,8 +34,8 @@ import (
 //   required scope.
 // * One of the user's group IDs is part of the Access and that group's scope contains the required
 //   scope.
-func (e *Encryptonize) authorizeAccess(identity *id.Identity, scopes id.Scope, sealedAccess *data.SealedAccess) (data.Access, error) {
-	plainAccess, err := sealedAccess.Unseal(e.accessCryptor)
+func (d *D1) authorizeAccess(identity *id.Identity, scopes id.Scope, sealedAccess *data.SealedAccess) (data.Access, error) {
+	plainAccess, err := sealedAccess.Unseal(d.accessCryptor)
 	if err != nil {
 		return data.Access{}, err
 	}
@@ -50,7 +50,7 @@ func (e *Encryptonize) authorizeAccess(identity *id.Identity, scopes id.Scope, s
 
 // putSealedObject encodes a sealed object and sends it to the IO Provider, either as a "Put" or an
 // "Update".
-func (e *Encryptonize) putSealedObject(object *data.SealedObject, update bool) error {
+func (d *D1) putSealedObject(object *data.SealedObject, update bool) error {
 	var objectBuffer bytes.Buffer
 	enc := gob.NewEncoder(&objectBuffer)
 	if err := enc.Encode(object); err != nil {
@@ -58,14 +58,14 @@ func (e *Encryptonize) putSealedObject(object *data.SealedObject, update bool) e
 	}
 
 	if update {
-		return e.ioProvider.Update(object.OID, io.DataTypeSealedObject, objectBuffer.Bytes())
+		return d.ioProvider.Update(object.OID, io.DataTypeSealedObject, objectBuffer.Bytes())
 	}
-	return e.ioProvider.Put(object.OID, io.DataTypeSealedObject, objectBuffer.Bytes())
+	return d.ioProvider.Put(object.OID, io.DataTypeSealedObject, objectBuffer.Bytes())
 }
 
 // getSealedObject fetches bytes from the IO Provider and decodes them into a sealed object.
-func (e *Encryptonize) getSealedObject(oid uuid.UUID) (*data.SealedObject, error) {
-	objectBytes, err := e.ioProvider.Get(oid, io.DataTypeSealedObject)
+func (d *D1) getSealedObject(oid uuid.UUID) (*data.SealedObject, error) {
+	objectBytes, err := d.ioProvider.Get(oid, io.DataTypeSealedObject)
 	if err != nil {
 		return nil, err
 	}
@@ -82,13 +82,13 @@ func (e *Encryptonize) getSealedObject(oid uuid.UUID) (*data.SealedObject, error
 }
 
 // deleteSealedObject deletes a sealed object from the IO Provider.
-func (e *Encryptonize) deleteSealedObject(oid uuid.UUID) error {
-	return e.ioProvider.Delete(oid, io.DataTypeSealedObject)
+func (d *D1) deleteSealedObject(oid uuid.UUID) error {
+	return d.ioProvider.Delete(oid, io.DataTypeSealedObject)
 }
 
 // putSealedAccess encodes a sealed access and sends it to the IO Provider, either as a "Put" or an
 // "Update".
-func (e *Encryptonize) putSealedAccess(access *data.SealedAccess, update bool) error {
+func (d *D1) putSealedAccess(access *data.SealedAccess, update bool) error {
 	var accessBuffer bytes.Buffer
 	enc := gob.NewEncoder(&accessBuffer)
 	if err := enc.Encode(access); err != nil {
@@ -96,14 +96,14 @@ func (e *Encryptonize) putSealedAccess(access *data.SealedAccess, update bool) e
 	}
 
 	if update {
-		return e.ioProvider.Update(access.OID, io.DataTypeSealedAccess, accessBuffer.Bytes())
+		return d.ioProvider.Update(access.OID, io.DataTypeSealedAccess, accessBuffer.Bytes())
 	}
-	return e.ioProvider.Put(access.OID, io.DataTypeSealedAccess, accessBuffer.Bytes())
+	return d.ioProvider.Put(access.OID, io.DataTypeSealedAccess, accessBuffer.Bytes())
 }
 
 // getSealedAccess fetches bytes from the IO Provider and decodes them into a sealed access.
-func (e *Encryptonize) getSealedAccess(oid uuid.UUID) (*data.SealedAccess, error) {
-	accessBytes, err := e.ioProvider.Get(oid, io.DataTypeSealedAccess)
+func (d *D1) getSealedAccess(oid uuid.UUID) (*data.SealedAccess, error) {
+	accessBytes, err := d.ioProvider.Get(oid, io.DataTypeSealedAccess)
 	if err != nil {
 		return nil, err
 	}
@@ -120,6 +120,6 @@ func (e *Encryptonize) getSealedAccess(oid uuid.UUID) (*data.SealedAccess, error
 }
 
 // deleteSealedAccess deletes a sealed object from the IO Provider.
-func (e *Encryptonize) deleteSealedAccess(oid uuid.UUID) error {
-	return e.ioProvider.Delete(oid, io.DataTypeSealedAccess)
+func (d *D1) deleteSealedAccess(oid uuid.UUID) error {
+	return d.ioProvider.Delete(oid, io.DataTypeSealedAccess)
 }

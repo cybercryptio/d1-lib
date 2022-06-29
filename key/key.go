@@ -17,7 +17,7 @@
 // the concept.
 package key
 
-// Keys contains the master key material used by Encryptonize. All keys must be 32 bytes.
+// Keys contains the master key material used by D1. All keys must be 32 bytes.
 type Keys struct {
 	// Object Encryption Key used for sealing Objects.
 	KEK []byte `koanf:"kek"`
@@ -32,7 +32,7 @@ type Keys struct {
 	IEK []byte `koanf:"iek"`
 }
 
-// Provider is the interface a Key Provider must implement to serve keys to Encryptonize.
+// Provider is the interface a Key Provider must implement to serve keys to D1.
 type Provider interface {
 	// GetKeys returns a set of keys.
 	GetKeys() (Keys, error)

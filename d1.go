@@ -14,7 +14,7 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 /*
-Encryptonize is a library that provides easy access to data encryption with built in access control.
+D1 is a library that provides easy access to data encryption with built in access control.
 */
 package d1
 
@@ -36,9 +36,9 @@ var ErrNotAuthenticated = errors.New("user not authenticated")
 // Error returned if a user tries to access data they are not authorized for.
 var ErrNotAuthorized = errors.New("user not authorized")
 
-// Encryptonize is the entry point to the library. All main functionality is exposed through methods
+// D1 is the entry point to the library. All main functionality is exposed through methods
 // on this struct.
-type Encryptonize struct {
+type D1 struct {
 	keyProvider key.Provider
 	ioProvider  io.Provider
 	idProvider  id.Provider
@@ -49,27 +49,27 @@ type Encryptonize struct {
 	indexKey      []byte
 }
 
-// New creates a new instance of Encryptonize configured with the given providers.
-func New(keyProvider key.Provider, ioProvider io.Provider, idProvider id.Provider) (Encryptonize, error) {
+// New creates a new instance of D1 configured with the given providers.
+func New(keyProvider key.Provider, ioProvider io.Provider, idProvider id.Provider) (D1, error) {
 	keys, err := keyProvider.GetKeys()
 	if err != nil {
-		return Encryptonize{}, err
+		return D1{}, err
 	}
 
 	objectCryptor, err := crypto.NewAESCryptor(keys.KEK)
 	if err != nil {
-		return Encryptonize{}, err
+		return D1{}, err
 	}
 	accessCryptor, err := crypto.NewAESCryptor(keys.AEK)
 	if err != nil {
-		return Encryptonize{}, err
+		return D1{}, err
 	}
 	tokenCryptor, err := crypto.NewAESCryptor(keys.TEK)
 	if err != nil {
-		return Encryptonize{}, err
+		return D1{}, err
 	}
 
-	return Encryptonize{
+	return D1{
 		keyProvider:   keyProvider,
 		ioProvider:    ioProvider,
 		idProvider:    idProvider,
@@ -97,8 +97,8 @@ func New(keyProvider key.Provider, ioProvider io.Provider, idProvider id.Provide
 //
 // Required scopes:
 // - Encrypt
-func (e *Encryptonize) Encrypt(token string, object *data.Object) (uuid.UUID, error) {
-	identity, err := e.idProvider.GetIdentity(token)
+func (d *D1) Encrypt(token string, object *data.Object) (uuid.UUID, error) {
+	identity, err := d.idProvider.GetIdentity(token)
 	if err != nil {
 		return uuid.Nil, ErrNotAuthenticated
 	}
@@ -111,23 +111,23 @@ func (e *Encryptonize) Encrypt(token string, object *data.Object) (uuid.UUID, er
 		return uuid.Nil, err
 	}
 
-	wrappedOEK, sealedObject, err := object.Seal(oid, e.objectCryptor)
+	wrappedOEK, sealedObject, err := object.Seal(oid, d.objectCryptor)
 	if err != nil {
 		return uuid.Nil, err
 	}
 
 	access := data.NewAccess(wrappedOEK)
 	access.AddGroups(identity.ID)
-	sealedAccess, err := access.Seal(oid, e.accessCryptor)
+	sealedAccess, err := access.Seal(oid, d.accessCryptor)
 	if err != nil {
 		return uuid.Nil, err
 	}
 
 	// Write data to IO Provider
-	if err := e.putSealedObject(&sealedObject, false); err != nil {
+	if err := d.putSealedObject(&sealedObject, false); err != nil {
 		return uuid.Nil, err
 	}
-	if err := e.putSealedAccess(&sealedAccess, false); err != nil {
+	if err := d.putSealedAccess(&sealedAccess, false); err != nil {
 		return uuid.Nil, err
 	}
 
@@ -142,8 +142,8 @@ func (e *Encryptonize) Encrypt(token string, object *data.Object) (uuid.UUID, er
 //
 // Required scopes:
 // - Update
-func (e *Encryptonize) Update(token string, oid uuid.UUID, object *data.Object) error {
-	identity, err := e.idProvider.GetIdentity(token)
+func (d *D1) Update(token string, oid uuid.UUID, object *data.Object) error {
+	identity, err := d.idProvider.GetIdentity(token)
 	if err != nil {
 		return ErrNotAuthenticated
 	}
@@ -151,32 +151,32 @@ func (e *Encryptonize) Update(token string, oid uuid.UUID, object *data.Object) 
 		return ErrNotAuthorized
 	}
 
-	access, err := e.getSealedAccess(oid)
+	access, err := d.getSealedAccess(oid)
 	if err != nil {
 		return err
 	}
 
-	plainAccess, err := e.authorizeAccess(&identity, id.ScopeUpdate, access)
+	plainAccess, err := d.authorizeAccess(&identity, id.ScopeUpdate, access)
 	if err != nil {
 		return err
 	}
 
-	wrappedOEK, sealedObject, err := object.Seal(oid, e.objectCryptor)
+	wrappedOEK, sealedObject, err := object.Seal(oid, d.objectCryptor)
 	if err != nil {
 		return err
 	}
 
 	plainAccess.WrappedOEK = wrappedOEK
-	sealedAccess, err := plainAccess.Seal(oid, e.accessCryptor)
+	sealedAccess, err := plainAccess.Seal(oid, d.accessCryptor)
 	if err != nil {
 		return err
 	}
 
 	// Write data to IO Provider
-	if err := e.putSealedObject(&sealedObject, true); err != nil {
+	if err := d.putSealedObject(&sealedObject, true); err != nil {
 		return err
 	}
-	if err := e.putSealedAccess(&sealedAccess, true); err != nil {
+	if err := d.putSealedAccess(&sealedAccess, true); err != nil {
 		return err
 	}
 
@@ -192,8 +192,8 @@ func (e *Encryptonize) Update(token string, oid uuid.UUID, object *data.Object) 
 //
 // Required scopes:
 // - Decrypt
-func (e *Encryptonize) Decrypt(token string, oid uuid.UUID) (data.Object, error) {
-	identity, err := e.idProvider.GetIdentity(token)
+func (d *D1) Decrypt(token string, oid uuid.UUID) (data.Object, error) {
+	identity, err := d.idProvider.GetIdentity(token)
 	if err != nil {
 		return data.Object{}, ErrNotAuthenticated
 	}
@@ -201,21 +201,21 @@ func (e *Encryptonize) Decrypt(token string, oid uuid.UUID) (data.Object, error)
 		return data.Object{}, ErrNotAuthorized
 	}
 
-	access, err := e.getSealedAccess(oid)
+	access, err := d.getSealedAccess(oid)
 	if err != nil {
 		return data.Object{}, err
 	}
 
-	plainAccess, err := e.authorizeAccess(&identity, id.ScopeDecrypt, access)
+	plainAccess, err := d.authorizeAccess(&identity, id.ScopeDecrypt, access)
 	if err != nil {
 		return data.Object{}, err
 	}
 
-	object, err := e.getSealedObject(oid)
+	object, err := d.getSealedObject(oid)
 	if err != nil {
 		return data.Object{}, err
 	}
-	return object.Unseal(plainAccess.WrappedOEK, e.objectCryptor)
+	return object.Unseal(plainAccess.WrappedOEK, d.objectCryptor)
 }
 
 // Delete deletes a sealed object. The authorizing user must be part of
@@ -225,8 +225,8 @@ func (e *Encryptonize) Decrypt(token string, oid uuid.UUID) (data.Object, error)
 //
 // Required scopes:
 // - Delete
-func (e *Encryptonize) Delete(token string, oid uuid.UUID) error {
-	identity, err := e.idProvider.GetIdentity(token)
+func (d *D1) Delete(token string, oid uuid.UUID) error {
+	identity, err := d.idProvider.GetIdentity(token)
 	if err != nil {
 		return ErrNotAuthenticated
 	}
@@ -234,7 +234,7 @@ func (e *Encryptonize) Delete(token string, oid uuid.UUID) error {
 		return ErrNotAuthorized
 	}
 
-	access, err := e.getSealedAccess(oid)
+	access, err := d.getSealedAccess(oid)
 	switch err {
 	case nil:
 		// Ignore and proceed
@@ -250,7 +250,7 @@ func (e *Encryptonize) Delete(token string, oid uuid.UUID) error {
 		return err
 	}
 
-	if _, err = e.authorizeAccess(&identity, id.ScopeDelete, access); err != nil {
+	if _, err = d.authorizeAccess(&identity, id.ScopeDelete, access); err != nil {
 		return err
 	}
 
@@ -262,10 +262,10 @@ func (e *Encryptonize) Delete(token string, oid uuid.UUID) error {
 	// to get rid of the dangling access entry.
 	// If we deleted the access first, and then fail to delete the object,
 	// we would have a dangling object we can't access, and therefore can't delete.
-	if err = e.deleteSealedObject(oid); err != nil {
+	if err = d.deleteSealedObject(oid); err != nil {
 		return err
 	}
-	if err = e.deleteSealedAccess(oid); err != nil {
+	if err = d.deleteSealedAccess(oid); err != nil {
 		return err
 	}
 
@@ -280,15 +280,15 @@ func (e *Encryptonize) Delete(token string, oid uuid.UUID) error {
 // expiry time given by TokenValidity.
 //
 // The contents of the token can be validated and retrieved with the GetTokenContents method.
-func (e *Encryptonize) CreateToken(plaintext []byte) (data.SealedToken, error) {
+func (d *D1) CreateToken(plaintext []byte) (data.SealedToken, error) {
 	token := data.NewToken(plaintext, data.TokenValidity)
-	return token.Seal(e.tokenCryptor)
+	return token.Seal(d.tokenCryptor)
 }
 
 // GetTokenContents extracts the plaintext data from a sealed token, provided that the token has not
 // expired.
-func (e *Encryptonize) GetTokenContents(token *data.SealedToken) ([]byte, error) {
-	plainToken, err := token.Unseal(e.tokenCryptor)
+func (d *D1) GetTokenContents(token *data.SealedToken) ([]byte, error) {
+	plainToken, err := token.Unseal(d.tokenCryptor)
 	if err != nil {
 		return nil, err
 	}
@@ -309,8 +309,8 @@ func (e *Encryptonize) GetTokenContents(token *data.SealedToken) ([]byte, error)
 //
 // Required scopes:
 // - GetAccessGroups
-func (e *Encryptonize) GetAccessGroups(token string, oid uuid.UUID) (map[uuid.UUID]struct{}, error) {
-	identity, err := e.idProvider.GetIdentity(token)
+func (d *D1) GetAccessGroups(token string, oid uuid.UUID) (map[uuid.UUID]struct{}, error) {
+	identity, err := d.idProvider.GetIdentity(token)
 	if err != nil {
 		return nil, ErrNotAuthenticated
 	}
@@ -318,12 +318,12 @@ func (e *Encryptonize) GetAccessGroups(token string, oid uuid.UUID) (map[uuid.UU
 		return nil, ErrNotAuthorized
 	}
 
-	access, err := e.getSealedAccess(oid)
+	access, err := d.getSealedAccess(oid)
 	if err != nil {
 		return nil, err
 	}
 
-	plainAccess, err := e.authorizeAccess(&identity, id.ScopeGetAccessGroups, access)
+	plainAccess, err := d.authorizeAccess(&identity, id.ScopeGetAccessGroups, access)
 	if err != nil {
 		return nil, err
 	}
@@ -338,8 +338,8 @@ func (e *Encryptonize) GetAccessGroups(token string, oid uuid.UUID) (map[uuid.UU
 //
 // Required scopes:
 // - ModifyAccessGroups
-func (e *Encryptonize) AddGroupsToAccess(token string, oid uuid.UUID, groups ...uuid.UUID) error {
-	identity, err := e.idProvider.GetIdentity(token)
+func (d *D1) AddGroupsToAccess(token string, oid uuid.UUID, groups ...uuid.UUID) error {
+	identity, err := d.idProvider.GetIdentity(token)
 	if err != nil {
 		return ErrNotAuthenticated
 	}
@@ -347,23 +347,23 @@ func (e *Encryptonize) AddGroupsToAccess(token string, oid uuid.UUID, groups ...
 		return ErrNotAuthorized
 	}
 
-	access, err := e.getSealedAccess(oid)
+	access, err := d.getSealedAccess(oid)
 	if err != nil {
 		return err
 	}
 
-	plainAccess, err := e.authorizeAccess(&identity, id.ScopeModifyAccessGroups, access)
+	plainAccess, err := d.authorizeAccess(&identity, id.ScopeModifyAccessGroups, access)
 	if err != nil {
 		return err
 	}
 	plainAccess.AddGroups(groups...)
 
-	*access, err = plainAccess.Seal(oid, e.accessCryptor)
+	*access, err = plainAccess.Seal(oid, d.accessCryptor)
 	if err != nil {
 		return err
 	}
 
-	return e.putSealedAccess(access, true)
+	return d.putSealedAccess(access, true)
 }
 
 // RemoveGroupsFromAccess removes the provided groups from the object's access list, preventing them
@@ -373,8 +373,8 @@ func (e *Encryptonize) AddGroupsToAccess(token string, oid uuid.UUID, groups ...
 //
 // Required scopes:
 // - ModifyAccessGroups
-func (e *Encryptonize) RemoveGroupsFromAccess(token string, oid uuid.UUID, groups ...uuid.UUID) error {
-	identity, err := e.idProvider.GetIdentity(token)
+func (d *D1) RemoveGroupsFromAccess(token string, oid uuid.UUID, groups ...uuid.UUID) error {
+	identity, err := d.idProvider.GetIdentity(token)
 	if err != nil {
 		return ErrNotAuthenticated
 	}
@@ -382,23 +382,23 @@ func (e *Encryptonize) RemoveGroupsFromAccess(token string, oid uuid.UUID, group
 		return ErrNotAuthorized
 	}
 
-	access, err := e.getSealedAccess(oid)
+	access, err := d.getSealedAccess(oid)
 	if err != nil {
 		return err
 	}
 
-	plainAccess, err := e.authorizeAccess(&identity, id.ScopeModifyAccessGroups, access)
+	plainAccess, err := d.authorizeAccess(&identity, id.ScopeModifyAccessGroups, access)
 	if err != nil {
 		return err
 	}
 	plainAccess.RemoveGroups(groups...)
 
-	*access, err = plainAccess.Seal(oid, e.accessCryptor)
+	*access, err = plainAccess.Seal(oid, d.accessCryptor)
 	if err != nil {
 		return err
 	}
 
-	return e.putSealedAccess(access, true)
+	return d.putSealedAccess(access, true)
 }
 
 // AuthorizeUser checks whether the provided user is part of the object's access list, i.e. whether
@@ -409,8 +409,8 @@ func (e *Encryptonize) RemoveGroupsFromAccess(token string, oid uuid.UUID, group
 //
 // Required scopes:
 // - GetAccessGroups
-func (e *Encryptonize) AuthorizeUser(token string, oid uuid.UUID) error {
-	identity, err := e.idProvider.GetIdentity(token)
+func (d *D1) AuthorizeUser(token string, oid uuid.UUID) error {
+	identity, err := d.idProvider.GetIdentity(token)
 	if err != nil {
 		return ErrNotAuthenticated
 	}
@@ -418,12 +418,12 @@ func (e *Encryptonize) AuthorizeUser(token string, oid uuid.UUID) error {
 		return ErrNotAuthorized
 	}
 
-	access, err := e.getSealedAccess(oid)
+	access, err := d.getSealedAccess(oid)
 	if err != nil {
 		return err
 	}
 
-	_, err = e.authorizeAccess(&identity, id.ScopeGetAccessGroups, access)
+	_, err = d.authorizeAccess(&identity, id.ScopeGetAccessGroups, access)
 	return err
 }
 
@@ -433,13 +433,13 @@ func (e *Encryptonize) AuthorizeUser(token string, oid uuid.UUID) error {
 
 // NewIndex creates a new index that can be used to map keywords to IDs (e.g. documents). This
 // means that the index can be used to keep track of which keywords are contained in which IDs.
-func (e *Encryptonize) NewIndex() data.Index {
+func (d *D1) NewIndex() data.Index {
 	return data.NewIndex()
 }
 
 // Add adds the keyword/ID pair to index i.
-func (e *Encryptonize) Add(keyword, id string, i *data.Index) error {
-	if err := i.Add(e.indexKey, keyword, id); err != nil {
+func (d *D1) Add(keyword, id string, i *data.Index) error {
+	if err := i.Add(d.indexKey, keyword, id); err != nil {
 		return err
 	}
 
@@ -447,8 +447,8 @@ func (e *Encryptonize) Add(keyword, id string, i *data.Index) error {
 }
 
 // Search finds all IDs that contain the given keyword and returns them in plaintext.
-func (e *Encryptonize) Search(keyword string, i *data.Index) ([]string, error) {
-	decryptedIDs, err := i.Search(e.indexKey, keyword)
+func (d *D1) Search(keyword string, i *data.Index) ([]string, error) {
+	decryptedIDs, err := i.Search(d.indexKey, keyword)
 	if err != nil {
 		return nil, err
 	}

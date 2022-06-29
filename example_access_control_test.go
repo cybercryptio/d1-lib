@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"log"
 
-	encryptonize "github.com/cybercryptio/d1-lib"
+	d1lib "github.com/cybercryptio/d1-lib"
 	"github.com/cybercryptio/d1-lib/data"
 	"github.com/gofrs/uuid"
 )
@@ -43,7 +43,7 @@ type PublicUserData struct {
 }
 
 // createUserData instantiates a user with its private and public data.
-func createUserData(ectnz encryptonize.Encryptonize) UserData {
+func createUserData(d1 d1lib.D1) UserData {
 	uid, gid, token := NewUser()
 
 	privateUserObject := data.Object{
@@ -51,12 +51,12 @@ func createUserData(ectnz encryptonize.Encryptonize) UserData {
 		AssociatedData: []byte("AssociatedData"),
 	}
 
-	oid, err := ectnz.Encrypt(token, &privateUserObject)
+	oid, err := d1.Encrypt(token, &privateUserObject)
 	if err != nil {
 		log.Fatalf("Error encrypting object: %v", err)
 	}
 
-	err = ectnz.AddGroupsToAccess(token, oid, gid)
+	err = d1.AddGroupsToAccess(token, oid, gid)
 	if err != nil {
 		log.Fatalf("Error adding group to access list: %v", err)
 	}
@@ -67,27 +67,27 @@ func createUserData(ectnz encryptonize.Encryptonize) UserData {
 	}
 }
 
-// This example demonstrates how to use the Encryptonize® library to enforce discretionary access control for binary data.
+// This example demonstrates how to use the D1 library to enforce discretionary access control for binary data.
 func Example_accessControl() {
-	// Instantiate the Encryptonize® library with the given keys.
-	ectnz, err := encryptonize.New(&keyProvider, &ioProvider, &idProvider)
+	// Instantiate the D1 library with the given keys.
+	d1, err := d1lib.New(&keyProvider, &ioProvider, &idProvider)
 	if err != nil {
-		log.Fatalf("Error instantiating Encryptonize: %v", err)
+		log.Fatalf("Error instantiating D1: %v", err)
 	}
 
 	// Create three users with their data.
-	alice := createUserData(ectnz)
-	bob := createUserData(ectnz)
-	charlie := createUserData(ectnz)
+	alice := createUserData(d1)
+	bob := createUserData(d1)
+	charlie := createUserData(d1)
 
 	// charlie wants to share her data with bob.
-	err = ectnz.AddGroupsToAccess(charlie.private.token, charlie.public.oid, bob.public.uid)
+	err = d1.AddGroupsToAccess(charlie.private.token, charlie.public.oid, bob.public.uid)
 	if err != nil {
 		log.Fatalf("Error adding group to access: %v", err)
 	}
 
 	// bob can now decrypt charlie's encrypted data.
-	charliesDecryptedData, err := ectnz.Decrypt(bob.private.token, charlie.public.oid)
+	charliesDecryptedData, err := d1.Decrypt(bob.private.token, charlie.public.oid)
 	if err != nil {
 		log.Fatalf("Error decrypting object: %v", err)
 	}
@@ -100,7 +100,7 @@ func Example_accessControl() {
 	}
 
 	// charlie can now decrypt all of alice's previously encrypted data.
-	alicesDecryptedData, err := ectnz.Decrypt(charlie.private.token, alice.public.oid)
+	alicesDecryptedData, err := d1.Decrypt(charlie.private.token, alice.public.oid)
 	if err != nil {
 		log.Fatalf("Error decrypting object: %v", err)
 	}
