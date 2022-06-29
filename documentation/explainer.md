@@ -1,4 +1,4 @@
-# D1 library explainer
+# CYBERCRYPT D1 library explainer
 
 This document defines the main concepts and use cases for the D1 library.
 
