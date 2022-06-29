@@ -1,4 +1,4 @@
-# D1 library
+# CYBERCRYPT D1 library
 
 The D1 library provides cryptographic functions for data encryption and decryption, as well as enforcing access control around the encrypted data. It allows developers to easily implement various security schemes and protocols for protecting data.
 
