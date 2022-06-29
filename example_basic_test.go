@@ -13,13 +13,13 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package encryptonize_test
+package d1_test
 
 import (
 	"fmt"
 	"log"
 
-	encryptonize "github.com/cybercryptio/d1-lib"
+	d1lib "github.com/cybercryptio/d1-lib"
 	"github.com/cybercryptio/d1-lib/data"
 	"github.com/cybercryptio/d1-lib/id"
 	"github.com/cybercryptio/d1-lib/io"
@@ -71,12 +71,12 @@ func NewUser() (uuid.UUID, uuid.UUID, string) {
 	return uid, gid, token
 }
 
-// This is a basic example demonstrating how to use the Encryptonize® library to encrypt and decrypt binary data.
+// This is a basic example demonstrating how to use the D1 library to encrypt and decrypt binary data.
 func Example_basicEncryptDecrypt() {
-	// Instantiate the Encryptonize® library with the given keys.
-	ectnz, err := encryptonize.New(&keyProvider, &ioProvider, &idProvider)
+	// Instantiate the D1 library with the given keys.
+	d1, err := d1lib.New(&keyProvider, &ioProvider, &idProvider)
 	if err != nil {
-		log.Fatalf("Error instantiating Encryptonize: %v", err)
+		log.Fatalf("Error instantiating D1: %v", err)
 	}
 
 	// Create a basic user.
@@ -90,13 +90,13 @@ func Example_basicEncryptDecrypt() {
 
 	// Encrypt the object and get the resulting object ID. By default, only the default group of the
 	// user who encrypted the object is allowed to decrypt the object.
-	oid, err := ectnz.Encrypt(token, &binaryObject)
+	oid, err := d1.Encrypt(token, &binaryObject)
 	if err != nil {
 		log.Fatalf("Error encrypting object: %v", err)
 	}
 
 	// Decrypt the object using the given user as the authorizer.
-	decryptedObject, err := ectnz.Decrypt(token, oid)
+	decryptedObject, err := d1.Decrypt(token, oid)
 	if err != nil {
 		log.Fatalf("Error decrypting object: %v", err)
 	}
