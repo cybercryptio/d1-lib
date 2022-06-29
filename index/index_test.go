@@ -281,6 +281,7 @@ func TestDeleteFirst(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	for i := 0; i < len(IDs); i++ {
 		if IDs[i] != identifiers[i+1] {
 			t.Fatal("First identifier not correctly deleted.")

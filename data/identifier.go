@@ -16,7 +16,7 @@
 package data
 
 import (
-	"github.com/gofrs/uuid"
+	"encoding/binary"
 
 	"github.com/cybercryptio/d1-lib/crypto"
 )
@@ -27,6 +27,11 @@ type Identifier struct {
 	NextCounter uint64
 }
 
+// NextLabel computes the next label based on the value of NextCounter.
+func (i *Identifier) NextLabel(tagger crypto.TaggerInterface) ([]byte, error) {
+	return tagger.Tag(uint64Encode(i.NextCounter))
+}
+
 // SealedIdentifier is an encrypted structure which defines an occurrence of a specific keyword in a specific identifier.
 type SealedIdentifier struct {
 	Ciphertext []byte
@@ -34,7 +39,7 @@ type SealedIdentifier struct {
 }
 
 // Seal encrypts the plaintext Identifier.
-func (i *Identifier) Seal(label uuid.UUID, cryptor crypto.CryptorInterface) (SealedIdentifier, error) {
+func (i *Identifier) Seal(label []byte, cryptor crypto.CryptorInterface) (SealedIdentifier, error) {
 	wrappedKey, ciphertext, err := cryptor.Encrypt(i, label)
 	if err != nil {
 		return SealedIdentifier{}, err
@@ -49,10 +54,17 @@ func (i *Identifier) Seal(label uuid.UUID, cryptor crypto.CryptorInterface) (Sea
 }
 
 // Unseal decrypts the sealed Identifier.
-func (i *SealedIdentifier) Unseal(label uuid.UUID, cryptor crypto.CryptorInterface) (Identifier, error) {
+func (i *SealedIdentifier) Unseal(label []byte, cryptor crypto.CryptorInterface) (Identifier, error) {
 	plainID := Identifier{}
 	if err := cryptor.Decrypt(&plainID, label, i.WrappedKey, i.Ciphertext); err != nil {
 		return Identifier{}, err
 	}
 	return plainID, nil
+}
+
+// uint64Encode converts an uint64 to a byte array.
+func uint64Encode(i uint64) []byte {
+	buf := make([]byte, binary.MaxVarintLen64)
+	n := binary.PutUvarint(buf, i)
+	return buf[:n]
 }

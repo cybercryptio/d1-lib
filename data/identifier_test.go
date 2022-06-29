@@ -20,8 +20,6 @@ import (
 
 	"reflect"
 
-	"github.com/gofrs/uuid"
-
 	"github.com/cybercryptio/d1-lib/crypto"
 )
 
@@ -34,7 +32,9 @@ func TestIdentifierSeal(t *testing.T) {
 
 	identifier := Identifier{Identifier: "first id", NextCounter: 1}
 
-	label := uuid.Must(uuid.NewV4())
+	rand := &crypto.NativeRandom{}
+	label, _ := rand.GetBytes(32)
+
 	sealed, err := identifier.Seal(label, &cryptor)
 	if err != nil {
 		t.Fatal(err)
@@ -58,7 +58,9 @@ func TestIdentifierVerifyCiphertext(t *testing.T) {
 
 	identifier := Identifier{Identifier: "first id", NextCounter: 1}
 
-	label := uuid.Must(uuid.NewV4())
+	rand := &crypto.NativeRandom{}
+	label, _ := rand.GetBytes(32)
+
 	sealed, err := identifier.Seal(label, &cryptor)
 	if err != nil {
 		t.Fatal(err)
