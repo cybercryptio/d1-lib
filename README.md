@@ -1,10 +1,11 @@
-# Encryptonize&reg; library
+# CYBERCRYPT D1 library
 
-The Encryptonize&reg; library provides cryptographic functions for data encryption and decryption, as well as enforcing access control around the encrypted data. It allows developers to easily implement various security schemes and protocols for protecting data.
+The CYBERCRYPT D1 library provides cryptographic functions for data encryption and decryption, as well as enforcing access control around the encrypted data. It allows developers to easily implement various security schemes and protocols for protecting data.
 
 ## Features
+
 - **Authenticated Encryption with Associated Data (AEAD)**
-    - Binary data can be encrypted/decrypted using the standardized AES256-GCM authenticated encryption algorithm.
+    - Binary data can be encrypted and decrypted using the standardized AES256-GCM authenticated encryption algorithm.
     - The Ciphertext and Associated Data can be securely stored in untrusted locations as the recovery of the plaintext is computationally infeasible without the Encryption Key, and any changes to the Ciphertext or Associated Data will be detected during the decryption process.
 - **Key Wrapping with Authenticated Encryption**
     - The data and its corresponding access control artifacts are encrypted with random 256-bit keys which are then wrapped with the configured Wrapping Key using the standardized KWP-AE algorithm.
@@ -22,24 +23,33 @@ The Encryptonize&reg; library provides cryptographic functions for data encrypti
     - Can be used for implementing token-based authentication/authorization schemes.
 
 ## Installation
+
 To use the library in your Go project, you first need to add it to your `go.mod` file by running the following command in the root folder of the project:
+
 ```
 go get -u github.com/cybercryptio/d1-lib@latest
+
 ```
 
-Then, you can access the Encryptonize&reg; library functions by importing the library in your application code:
+Then, you can access the D1 library functions by importing the library in your application code:
+
 ```
 import github.com/cybercryptio/d1-lib
+
 ```
 
 ## Usage
-For examples on how to use the Encryptonize&reg; library [see our Examples section in the documentation](TODO).
+
+For examples on how to use the D1 library [see our Examples section in the documentation](TODO).
 
 ## Security
-For more details about the security guarantees offered by the Encryptonize&reg; library [see our Security Architecture Documentation](TODO).
+
+For more details about the security guarantees offered by the D1 library [see our Security Architecture Documentation](TODO).
 
 ## High level overview
-For a high level overview of the main concepts and use cases of the Encryptonize® library [see our Explainer Document](documentation/explainer.md).
+
+For a high level overview of the main concepts and use cases of the D1 library [see our Explainer Document](documentation/explainer.md).
 
 # License
-The software in the CYBERCRYPT D1-Lib repository is dual-licensed under AGPL and a commercial license. If you wish to use the library under a commercial license please visit [cybercrypt.io](https://cybercrypt.io) for details on how to obtain a commercial license.
+
+The software in the CYBERCRYPT D1-Lib repository is dual-licensed under AGPL and a commercial license. If you wish to use the library under a commercial license please visit [cybercrypt.io](https://cybercrypt.io/) for details on how to obtain a commercial license.
