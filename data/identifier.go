@@ -45,12 +45,10 @@ func (i *Identifier) Seal(label []byte, cryptor crypto.CryptorInterface) (Sealed
 		return SealedIdentifier{}, err
 	}
 
-	sealed := SealedIdentifier{
+	return SealedIdentifier{
 		Ciphertext: ciphertext,
 		WrappedKey: wrappedKey,
-	}
-
-	return sealed, nil
+	}, nil
 }
 
 // Unseal decrypts the sealed Identifier.
