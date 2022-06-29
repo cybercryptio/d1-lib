@@ -1,6 +1,6 @@
-# Encryptonize® library explainer
+# D1 library explainer
 
-This document defines the main concepts and use cases for the Encryptonize® library.
+This document defines the main concepts and use cases for the D1 library.
 
 # Concepts
 
@@ -38,13 +38,13 @@ A **Search Index** is an object used to map keywords to **Encrypted Objects**, a
 
 # Use cases
 
-The Encryptonize® library allows **Users** to encrypt **Objects** and to restrict the ability to decrypt only for specific user **Groups** through the **Access Lists**. Additionally, the library offers support for creating encrypted security tokens and for searching over encrypted data.
+The D1 library allows **Users** to encrypt **Objects** and to restrict the ability to decrypt only for specific user **Groups** through the **Access Lists**. Additionally, the library offers support for creating encrypted security tokens and for searching over encrypted data.
 
 ## Application layer encryption
 
 The majority of software applications use encryption for securing data in-transit and at-rest. This means that the data is protected only while being transferred over the network and while being stored, and any compromised software or machine in the data path can leak sensitive data. Application layer encryption reduces the attack surface by encrypting data end-to-end, inside the applications that create and consume it.
 
-The Encryptonize® library provides cryptographic functions for protecting data and enforcing access control, which can be used to implement application layer encryption.
+The D1 library provides cryptographic functions for protecting data and enforcing access control, which can be used to implement application layer encryption.
 
 ![ale.svg](images/ale.svg)
 
@@ -52,18 +52,18 @@ The Encryptonize® library provides cryptographic functions for protecting data 
 
 Storing sensitive data in the cloud can be risky as you have to trust that the cloud provider has good security protections to avoid unauthorized access to the data. Moreover, you have to make sure that you configure the security mechanisms offered by the cloud provider properly which can in and of itself be challenging in multi-cloud setups.
 
-The Encryptonize® library can be used to encrypt data at the application layer, before being sent to the storage, allowing its users to not rely only on the cloud providers to protect their sensitive data.
+The D1 library can be used to encrypt data at the application layer, before being sent to the storage, allowing its users to not rely only on the cloud providers to protect their sensitive data.
 
 ![encrypted-store.svg](images/encrypted-store.svg)
 
 ## Granular access control
 
-The Encryptonize® library can be used to implement various access control schemes for protecting data and ensuring that only certain applications/users can decrypt it. This can for example be used to ensure that applications that produce data can encrypt it, but cannot read it, minimizing the risk of a data leak if that application is compromised. 
+The D1 library can be used to implement various access control schemes for protecting data and ensuring that only certain applications/users can decrypt it. This can for example be used to ensure that applications that produce data can encrypt it, but cannot read it, minimizing the risk of a data leak if that application is compromised. 
 
 ![access-control.svg](images/access-control.svg)
 
 ## Searchable encrypted data
 
-The Encryptonize® library implements Searchable Symmetric Encryption which allows users to search for keywords in encrypted data without decrypting it. The contents of the Data Objects and the number of keywords are hidden from the searching party.
+The D1 library implements Searchable Symmetric Encryption which allows users to search for keywords in encrypted data without decrypting it. The contents of the Data Objects and the number of keywords are hidden from the searching party.
 
 ![sse.svg](images/sse.svg)
