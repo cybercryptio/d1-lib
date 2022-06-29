@@ -16,7 +16,7 @@
 /*
 Encryptonize is a library that provides easy access to data encryption with built in access control.
 */
-package encryptonize
+package d1
 
 import (
 	"errors"

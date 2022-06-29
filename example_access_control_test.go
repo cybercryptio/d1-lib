@@ -13,13 +13,13 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package encryptonize_test
+package d1_test
 
 import (
 	"fmt"
 	"log"
 
-	"github.com/cybercryptio/d1-lib"
+	encryptonize "github.com/cybercryptio/d1-lib"
 	"github.com/cybercryptio/d1-lib/data"
 	"github.com/gofrs/uuid"
 )
