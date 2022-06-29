@@ -21,7 +21,7 @@ import (
 	"github.com/cybercryptio/d1-lib/crypto"
 )
 
-// Object contains plaintext data provided to Encryptonize for encryption.
+// Object contains plaintext data provided to D1 for encryption.
 type Object struct {
 	// Sensitive plaintext data that will be encrypted.
 	Plaintext []byte

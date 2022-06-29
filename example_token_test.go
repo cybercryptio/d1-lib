@@ -13,30 +13,30 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package encryptonize_test
+package d1_test
 
 import (
 	"fmt"
 	"log"
 
-	"github.com/cybercryptio/d1-lib"
+	d1lib "github.com/cybercryptio/d1-lib"
 )
 
-func ExampleEncryptonize_CreateToken() {
-	// Instantiate the Encryptonize® library with the given keys.
-	ectnz, err := encryptonize.New(&keyProvider, &ioProvider, &idProvider)
+func ExampleD1_CreateToken() {
+	// Instantiate the D1 library with the given keys.
+	d1, err := d1lib.New(&keyProvider, &ioProvider, &idProvider)
 	if err != nil {
-		log.Fatalf("Error instantiating Encryptonize: %v", err)
+		log.Fatalf("Error instantiating D1: %v", err)
 	}
 
 	// Create a token with encrypted contents and default expiry time.
-	token, err := ectnz.CreateToken([]byte("token contents"))
+	token, err := d1.CreateToken([]byte("token contents"))
 	if err != nil {
 		log.Fatalf("Error creating token: %v", err)
 	}
 
 	// Validate the token and fetch its decrypted contents. This call will fail if the token has expired or has been tampered with.
-	tokenContents, err := ectnz.GetTokenContents(&token)
+	tokenContents, err := d1.GetTokenContents(&token)
 	if err != nil {
 		log.Fatalf("Invalid token: %v", err)
 	}

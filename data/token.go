@@ -25,7 +25,7 @@ import (
 	"github.com/cybercryptio/d1-lib/crypto"
 )
 
-// Validity period of tokens created with Encryptonize.CreateToken.
+// Validity period of tokens created with D1.CreateToken.
 const TokenValidity = time.Hour
 
 // Token contains arbitrary data along with an expiry time. Note: All fields need to be exported in

@@ -52,7 +52,7 @@ func (d DataType) String() string {
 	return fmt.Sprintf("%d", d)
 }
 
-// Provider is the interface an IO Provider must implement to handle data from Encryptonize.
+// Provider is the interface an IO Provider must implement to handle data from D1.
 type Provider interface {
 	// Put sends bytes to the IO Provider. The data is identified by an ID and a data type.
 	// Should error if the data already exists in the IO Provider.

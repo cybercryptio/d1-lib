@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package encryptonize
+package d1
 
 import (
 	"testing"
@@ -29,7 +29,7 @@ import (
 	"github.com/cybercryptio/d1-lib/key"
 )
 
-func newTestEncryptonize(t *testing.T) Encryptonize {
+func newTestD1(t *testing.T) D1 {
 	keyProvider := key.NewStatic(key.Keys{
 		KEK: []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 		AEK: []byte{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
@@ -50,15 +50,15 @@ func newTestEncryptonize(t *testing.T) Encryptonize {
 		t.Fatal(err)
 	}
 
-	encryptonize, err := New(&keyProvider, &ioProvider, &idProvider)
+	d1, err := New(&keyProvider, &ioProvider, &idProvider)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return encryptonize
+	return d1
 }
 
-func newTestUser(t *testing.T, encryptonize *Encryptonize, scopes ...id.Scope) (uuid.UUID, string) {
-	idProvider := encryptonize.idProvider.(*id.Standalone)
+func newTestUser(t *testing.T, d1 *D1, scopes ...id.Scope) (uuid.UUID, string) {
+	idProvider := d1.idProvider.(*id.Standalone)
 
 	id, password, err := idProvider.NewUser(scopes...)
 	if err != nil {
@@ -73,8 +73,8 @@ func newTestUser(t *testing.T, encryptonize *Encryptonize, scopes ...id.Scope) (
 	return id, token
 }
 
-func newTestGroup(t *testing.T, encryptonize *Encryptonize, token string, scope id.Scope, uids ...uuid.UUID) uuid.UUID {
-	idProvider := encryptonize.idProvider.(*id.Standalone)
+func newTestGroup(t *testing.T, d1 *D1, token string, scope id.Scope, uids ...uuid.UUID) uuid.UUID {
+	idProvider := d1.idProvider.(*id.Standalone)
 
 	gid, err := idProvider.NewGroup(token, scope)
 	if err != nil {
@@ -101,7 +101,7 @@ func newTestGroup(t *testing.T, encryptonize *Encryptonize, token string, scope 
 // 3) Both are empty
 // 4) Both are non-empty
 func TestPlainObject(t *testing.T) {
-	enc := newTestEncryptonize(t)
+	enc := newTestD1(t)
 	_, token := newTestUser(t, &enc, id.ScopeEncrypt)
 
 	type testData struct {
@@ -139,7 +139,7 @@ func TestPlainObject(t *testing.T) {
 
 // It is verified that an unauthenticated user is not able to encrypt.
 func TestEncryptUnauthenticated(t *testing.T) {
-	enc := newTestEncryptonize(t)
+	enc := newTestD1(t)
 	oid, err := enc.Encrypt("bad token", &data.Object{})
 	if !errors.Is(err, ErrNotAuthenticated) {
 		t.Fatalf("Expected error '%s' but got '%s'", ErrNotAuthenticated, err)
@@ -151,7 +151,7 @@ func TestEncryptUnauthenticated(t *testing.T) {
 
 // Test that a user without the Encrypt scope cannot encrypt.
 func TestEncryptWrongAPIScope(t *testing.T) {
-	enc := newTestEncryptonize(t)
+	enc := newTestD1(t)
 	scope := id.ScopeAll ^ id.ScopeEncrypt // All scopes except Encrypt
 	_, token := newTestUser(t, &enc, scope)
 	oid, err := enc.Encrypt(token, &data.Object{})
@@ -169,7 +169,7 @@ func TestEncryptWrongAPIScope(t *testing.T) {
 
 // It is verified that an object is correctly encrypted and decrypted.
 func TestDecrypt(t *testing.T) {
-	enc := newTestEncryptonize(t)
+	enc := newTestD1(t)
 	_, token := newTestUser(t, &enc, id.ScopeEncrypt, id.ScopeDecrypt)
 
 	plainObject := data.Object{
@@ -193,7 +193,7 @@ func TestDecrypt(t *testing.T) {
 
 // It is verified that an unauthenticated user is not able to decrypt.
 func TestDecryptUnauthenticated(t *testing.T) {
-	enc := newTestEncryptonize(t)
+	enc := newTestD1(t)
 	object, err := enc.Decrypt("bad token", uuid.Must(uuid.NewV4()))
 	if !errors.Is(err, ErrNotAuthenticated) {
 		t.Fatalf("Expected error '%s' but got '%s'", ErrNotAuthenticated, err)
@@ -205,7 +205,7 @@ func TestDecryptUnauthenticated(t *testing.T) {
 
 // It is verified that an unauthorized user is not able to decrypt.
 func TestDecryptUnauthorizedUser(t *testing.T) {
-	enc := newTestEncryptonize(t)
+	enc := newTestD1(t)
 	_, token1 := newTestUser(t, &enc, id.ScopeEncrypt)
 	_, token2 := newTestUser(t, &enc, id.ScopeDecrypt)
 
@@ -226,7 +226,7 @@ func TestDecryptUnauthorizedUser(t *testing.T) {
 
 // Test that a user without the Decrypt scope cannot decrypt.
 func TestDecryptWrongAPIScope(t *testing.T) {
-	enc := newTestEncryptonize(t)
+	enc := newTestD1(t)
 	scope := id.ScopeAll ^ id.ScopeDecrypt // All scopes except Decrypt
 	_, token := newTestUser(t, &enc, scope)
 	object, err := enc.Decrypt(token, uuid.Must(uuid.NewV4()))
@@ -240,7 +240,7 @@ func TestDecryptWrongAPIScope(t *testing.T) {
 
 // Test that a user whose group does not have the Decrypt scope cannot decrypt.
 func TestDecryptWrongGroupScope(t *testing.T) {
-	enc := newTestEncryptonize(t)
+	enc := newTestD1(t)
 	_, token1 := newTestUser(t, &enc, id.ScopeAll)
 	user2, token2 := newTestUser(t, &enc, id.ScopeAll)
 
@@ -272,7 +272,7 @@ func TestDecryptWrongGroupScope(t *testing.T) {
 
 // It is verified that an object is correctly encrypted, updated, and decrypted.
 func TestUpdate(t *testing.T) {
-	enc := newTestEncryptonize(t)
+	enc := newTestD1(t)
 	_, token := newTestUser(t, &enc, id.ScopeEncrypt, id.ScopeDecrypt, id.ScopeUpdate)
 
 	plainObject := data.Object{
@@ -306,7 +306,7 @@ func TestUpdate(t *testing.T) {
 
 // It is verified that an unauthenticated user is not able to update.
 func TestUpdateUnauthenticated(t *testing.T) {
-	enc := newTestEncryptonize(t)
+	enc := newTestD1(t)
 	err := enc.Update("bad token", uuid.Must(uuid.NewV4()), &data.Object{})
 	if !errors.Is(err, ErrNotAuthenticated) {
 		t.Fatalf("Expected error '%s' but got '%s'", ErrNotAuthenticated, err)
@@ -315,7 +315,7 @@ func TestUpdateUnauthenticated(t *testing.T) {
 
 // It is verified that an unauthorized user is not able to update.
 func TestUpdateUnauthorizedUser(t *testing.T) {
-	enc := newTestEncryptonize(t)
+	enc := newTestD1(t)
 	_, token1 := newTestUser(t, &enc, id.ScopeEncrypt)
 	_, token2 := newTestUser(t, &enc, id.ScopeUpdate)
 
@@ -342,7 +342,7 @@ func TestUpdateUnauthorizedUser(t *testing.T) {
 
 // Test that a user without the Update scope cannot update.
 func TestUpdateWrongAPIScope(t *testing.T) {
-	enc := newTestEncryptonize(t)
+	enc := newTestD1(t)
 	scope := id.ScopeAll ^ id.ScopeUpdate // All scopes except Update
 	_, token := newTestUser(t, &enc, scope)
 	err := enc.Update(token, uuid.Must(uuid.NewV4()), &data.Object{})
@@ -353,7 +353,7 @@ func TestUpdateWrongAPIScope(t *testing.T) {
 
 // Test that a user whose group does not have the Update scope cannot update.
 func TestUpdateWrongGroupScope(t *testing.T) {
-	enc := newTestEncryptonize(t)
+	enc := newTestD1(t)
 	_, token1 := newTestUser(t, &enc, id.ScopeAll)
 	user2, token2 := newTestUser(t, &enc, id.ScopeAll)
 
@@ -378,7 +378,7 @@ func TestUpdateWrongGroupScope(t *testing.T) {
 
 // Test that an appropriate error is returned when a user tries to update an object that does not exist.
 func TestUpdateNotFound(t *testing.T) {
-	enc := newTestEncryptonize(t)
+	enc := newTestD1(t)
 	_, token := newTestUser(t, &enc, id.ScopeUpdate)
 
 	plainObjectUpdated := data.Object{
@@ -410,7 +410,7 @@ func checkDataIsDeleted(t *testing.T, ioProvider io.Provider, id uuid.UUID, data
 
 // It is verified that an object is correctly encrypted and deleted.
 func TestDelete(t *testing.T) {
-	enc := newTestEncryptonize(t)
+	enc := newTestD1(t)
 	_, token := newTestUser(t, &enc, id.ScopeEncrypt, id.ScopeDecrypt, id.ScopeDelete)
 
 	plainObject := data.Object{
@@ -444,7 +444,7 @@ func TestDelete(t *testing.T) {
 
 // It is verified that no errors are returned when deleting a deleted object.
 func TestDeleteTwice(t *testing.T) {
-	enc := newTestEncryptonize(t)
+	enc := newTestD1(t)
 	_, token := newTestUser(t, &enc, id.ScopeEncrypt, id.ScopeDecrypt, id.ScopeDelete)
 
 	plainObject := data.Object{
@@ -470,7 +470,7 @@ func TestDeleteTwice(t *testing.T) {
 
 // It is verified that no errors are returned when deleting an object that doesn't exist.
 func TestDeleteNonExisting(t *testing.T) {
-	enc := newTestEncryptonize(t)
+	enc := newTestD1(t)
 	_, token := newTestUser(t, &enc, id.ScopeEncrypt, id.ScopeDecrypt, id.ScopeDelete)
 
 	id := uuid.Must(uuid.NewV4())
@@ -507,7 +507,7 @@ func TestDeleteFailureAndRetry(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.description, func(t *testing.T) {
-			enc := newTestEncryptonize(t)
+			enc := newTestD1(t)
 			ioProxy := enc.ioProvider.(*io.Proxy)
 
 			_, token := newTestUser(t, &enc, id.ScopeEncrypt, id.ScopeDecrypt, id.ScopeDelete)
@@ -560,7 +560,7 @@ func TestDeleteFailureAndRetry(t *testing.T) {
 
 // It is verified that an unauthenticated user is not able to delete.
 func TestDeleteUnauthenticated(t *testing.T) {
-	enc := newTestEncryptonize(t)
+	enc := newTestD1(t)
 
 	err := enc.Delete("bad token", uuid.Must(uuid.NewV4()))
 	if !errors.Is(err, ErrNotAuthenticated) {
@@ -570,7 +570,7 @@ func TestDeleteUnauthenticated(t *testing.T) {
 
 // It is verified that an unauthorized user is not able to delete.
 func TestDeleteUnauthorizedUser(t *testing.T) {
-	enc := newTestEncryptonize(t)
+	enc := newTestD1(t)
 	_, token1 := newTestUser(t, &enc, id.ScopeEncrypt)
 	_, token2 := newTestUser(t, &enc, id.ScopeDecrypt)
 
@@ -591,7 +591,7 @@ func TestDeleteUnauthorizedUser(t *testing.T) {
 
 // Test that a user without the Delete scope cannot delete.
 func TestDeleteWrongAPIScope(t *testing.T) {
-	enc := newTestEncryptonize(t)
+	enc := newTestD1(t)
 	scope := id.ScopeAll ^ id.ScopeDelete // All scopes except Decrypt
 	_, token := newTestUser(t, &enc, scope)
 
@@ -603,7 +603,7 @@ func TestDeleteWrongAPIScope(t *testing.T) {
 
 // Test that a user whose group does not have the Delete scope cannot delete.
 func TestDeleteWrongGroupScope(t *testing.T) {
-	enc := newTestEncryptonize(t)
+	enc := newTestD1(t)
 	_, token1 := newTestUser(t, &enc, id.ScopeAll)
 	user2, token2 := newTestUser(t, &enc, id.ScopeAll)
 
@@ -632,7 +632,7 @@ func TestDeleteWrongGroupScope(t *testing.T) {
 
 // It is verified that token contents can be derived correctly.
 func TestToken(t *testing.T) {
-	enc := newTestEncryptonize(t)
+	enc := newTestD1(t)
 
 	plaintext := []byte("plaintext")
 
@@ -652,7 +652,7 @@ func TestToken(t *testing.T) {
 
 // It is verified that contents cannot be derived from an invalid token.
 func TestInvalidToken(t *testing.T) {
-	enc := newTestEncryptonize(t)
+	enc := newTestD1(t)
 
 	plaintext := []byte("plaintext")
 
@@ -678,7 +678,7 @@ func TestInvalidToken(t *testing.T) {
 ////////////////////////////////////////////////////////
 
 func TestGetAccessGroups(t *testing.T) {
-	enc := newTestEncryptonize(t)
+	enc := newTestD1(t)
 	uid, token := newTestUser(t, &enc, id.ScopeEncrypt, id.ScopeModifyAccessGroups, id.ScopeGetAccessGroups)
 
 	numIDs := 5
@@ -721,7 +721,7 @@ func TestGetAccessGroups(t *testing.T) {
 }
 
 func TestGetAccessGroupsUnauthenticated(t *testing.T) {
-	enc := newTestEncryptonize(t)
+	enc := newTestD1(t)
 	groups, err := enc.GetAccessGroups("bad token", uuid.Must(uuid.NewV4()))
 	if !errors.Is(err, ErrNotAuthenticated) {
 		t.Fatalf("Expected error '%s' but got '%s'", ErrNotAuthenticated, err)
@@ -736,7 +736,7 @@ func TestGetAccessGroupsUnauthenticated(t *testing.T) {
 // 2) user1 encrypts an object.
 // 3) It is verified that only user1 who is part of the access object is able to call GetAccessGroups.
 func TestGetAccessGroupsUnauthorized(t *testing.T) {
-	enc := newTestEncryptonize(t)
+	enc := newTestD1(t)
 
 	_, token1 := newTestUser(t, &enc, id.ScopeEncrypt)
 	_, token2 := newTestUser(t, &enc, id.ScopeGetAccessGroups)
@@ -762,7 +762,7 @@ func TestGetAccessGroupsUnauthorized(t *testing.T) {
 
 // Test that a user without the GetAccessGroups scope cannot get the access list.
 func TestGetAccessGroupsWrongAPIScope(t *testing.T) {
-	enc := newTestEncryptonize(t)
+	enc := newTestD1(t)
 	scope := id.ScopeAll ^ id.ScopeGetAccessGroups // All scopes except GetAccessGroups
 	_, token := newTestUser(t, &enc, scope)
 	groups, err := enc.GetAccessGroups(token, uuid.Must(uuid.NewV4()))
@@ -776,7 +776,7 @@ func TestGetAccessGroupsWrongAPIScope(t *testing.T) {
 
 // Test that a user whose group does not have the GetAccessGroups scope cannot get the access list.
 func TestGetAccessGroupsWrongGroupScope(t *testing.T) {
-	enc := newTestEncryptonize(t)
+	enc := newTestD1(t)
 	_, token1 := newTestUser(t, &enc, id.ScopeAll)
 	user2, token2 := newTestUser(t, &enc, id.ScopeAll)
 
@@ -808,7 +808,7 @@ func TestGetAccessGroupsWrongGroupScope(t *testing.T) {
 
 // It is verified that a user can encrypt an object and add/remove a group to/from the access object.
 func TestAddRemoveGroupsFromAccess(t *testing.T) {
-	enc := newTestEncryptonize(t)
+	enc := newTestD1(t)
 	_, token := newTestUser(t, &enc, id.ScopeEncrypt, id.ScopeModifyAccessGroups, id.ScopeGetAccessGroups)
 	group := newTestGroup(t, &enc, token, id.ScopeNone)
 
@@ -848,7 +848,7 @@ func TestAddRemoveGroupsFromAccess(t *testing.T) {
 }
 
 func TestAddGroupsToAccessUnauthenticated(t *testing.T) {
-	enc := newTestEncryptonize(t)
+	enc := newTestD1(t)
 	err := enc.AddGroupsToAccess("bad token", uuid.Must(uuid.NewV4()), uuid.Must(uuid.NewV4()))
 	if !errors.Is(err, ErrNotAuthenticated) {
 		t.Fatalf("Expected error '%s' but got '%s'", ErrNotAuthenticated, err)
@@ -856,7 +856,7 @@ func TestAddGroupsToAccessUnauthenticated(t *testing.T) {
 }
 
 func TestRemoveGroupsFromAccessUnauthenticated(t *testing.T) {
-	enc := newTestEncryptonize(t)
+	enc := newTestD1(t)
 	err := enc.RemoveGroupsFromAccess("bad token", uuid.Must(uuid.NewV4()), uuid.Must(uuid.NewV4()))
 	if !errors.Is(err, ErrNotAuthenticated) {
 		t.Fatalf("Expected error '%s' but got '%s'", ErrNotAuthenticated, err)
@@ -865,7 +865,7 @@ func TestRemoveGroupsFromAccessUnauthenticated(t *testing.T) {
 
 // Test that a user without the ModifyAccessGroups scope cannot add to the access list.
 func TestAddGroupsToAccessWrongAPIScope(t *testing.T) {
-	enc := newTestEncryptonize(t)
+	enc := newTestD1(t)
 	scope := id.ScopeAll ^ id.ScopeModifyAccessGroups // All scopes except ModifyAccessGroups
 	_, token := newTestUser(t, &enc, scope)
 	err := enc.AddGroupsToAccess(token, uuid.Must(uuid.NewV4()), uuid.Must(uuid.NewV4()))
@@ -876,7 +876,7 @@ func TestAddGroupsToAccessWrongAPIScope(t *testing.T) {
 
 // Test that a user without the ModifyAccessGroups scope cannot remove from the access list.
 func TestRemoveGroupsToAccessWrongAPIScope(t *testing.T) {
-	enc := newTestEncryptonize(t)
+	enc := newTestD1(t)
 	scope := id.ScopeAll ^ id.ScopeModifyAccessGroups // All scopes except ModifyAccessGroups
 	_, token := newTestUser(t, &enc, scope)
 	err := enc.RemoveGroupsFromAccess(token, uuid.Must(uuid.NewV4()), uuid.Must(uuid.NewV4()))
@@ -887,7 +887,7 @@ func TestRemoveGroupsToAccessWrongAPIScope(t *testing.T) {
 
 // Test that a user whose group does not have the AddGroupsToAccess scope cannot add to the access list.
 func TestAddGroupsToAccessWrongGroupScope(t *testing.T) {
-	enc := newTestEncryptonize(t)
+	enc := newTestD1(t)
 	_, token1 := newTestUser(t, &enc, id.ScopeAll)
 	user2, token2 := newTestUser(t, &enc, id.ScopeAll)
 
@@ -912,7 +912,7 @@ func TestAddGroupsToAccessWrongGroupScope(t *testing.T) {
 
 // Test that a user whose group does not have the RemoveGroupsFromAccess scope cannot remove from the access list.
 func TestRemoveGroupsFromAccessWrongGroupScope(t *testing.T) {
-	enc := newTestEncryptonize(t)
+	enc := newTestD1(t)
 	_, token1 := newTestUser(t, &enc, id.ScopeAll)
 	user2, token2 := newTestUser(t, &enc, id.ScopeAll)
 
@@ -937,7 +937,7 @@ func TestRemoveGroupsFromAccessWrongGroupScope(t *testing.T) {
 
 // It is verified that a user cannot add/remove groups to/from an access object without being part of the access object.
 func TestAddRemoveGroupsFromAccessUnauthorized(t *testing.T) {
-	enc := newTestEncryptonize(t)
+	enc := newTestD1(t)
 	_, token1 := newTestUser(t, &enc, id.ScopeEncrypt, id.ScopeModifyAccessGroups)
 	_, token2 := newTestUser(t, &enc, id.ScopeModifyAccessGroups)
 	group := newTestGroup(t, &enc, token1, id.ScopeNone)
@@ -968,7 +968,7 @@ func TestAddRemoveGroupsFromAccessUnauthorized(t *testing.T) {
 // It is verified that a user can add/remove groups to/from an access object without being member of the groups,
 // as long as the user is part of the access object.
 func TestAddRemoveGroupsFromAccessAuthorized(t *testing.T) {
-	enc := newTestEncryptonize(t)
+	enc := newTestD1(t)
 	_, token := newTestUser(t, &enc, id.ScopeEncrypt, id.ScopeModifyAccessGroups, id.ScopeGetAccessGroups)
 	group := newTestGroup(t, &enc, token, id.ScopeNone)
 
@@ -1009,7 +1009,7 @@ func TestAddRemoveGroupsFromAccessAuthorized(t *testing.T) {
 
 // user1 creates an object, adds user2, and it is verified that user2 is able to decrypt the object.
 func TestSharingObjectPart1(t *testing.T) {
-	enc := newTestEncryptonize(t)
+	enc := newTestD1(t)
 	_, token1 := newTestUser(t, &enc, id.ScopeEncrypt, id.ScopeModifyAccessGroups)
 	id2, token2 := newTestUser(t, &enc, id.ScopeDecrypt)
 
@@ -1038,7 +1038,7 @@ func TestSharingObjectPart1(t *testing.T) {
 
 // user1 creates an object and adds user2. User2 removes user1, and it is verified that user1 is not able to decrypt the object.
 func TestSharingObjectPart2(t *testing.T) {
-	enc := newTestEncryptonize(t)
+	enc := newTestD1(t)
 	id1, token1 := newTestUser(t, &enc, id.ScopeEncrypt, id.ScopeModifyAccessGroups)
 	id2, token2 := newTestUser(t, &enc, id.ScopeModifyAccessGroups)
 
@@ -1065,7 +1065,7 @@ func TestSharingObjectPart2(t *testing.T) {
 
 // User1 creates an object, adds user2, user2 adds user3, and it is verified that user3 is able to decrypt the object.
 func TestSharingObjectPart3(t *testing.T) {
-	enc := newTestEncryptonize(t)
+	enc := newTestD1(t)
 	_, token1 := newTestUser(t, &enc, id.ScopeEncrypt, id.ScopeModifyAccessGroups)
 	id2, token2 := newTestUser(t, &enc, id.ScopeModifyAccessGroups)
 	id3, token3 := newTestUser(t, &enc, id.ScopeDecrypt)
@@ -1100,7 +1100,7 @@ func TestSharingObjectPart3(t *testing.T) {
 func TestSharingObjectPart4(t *testing.T) {
 	numUsers := 5
 
-	enc := newTestEncryptonize(t)
+	enc := newTestD1(t)
 	uids := make([]uuid.UUID, 0, numUsers)
 	tokens := make([]string, 0, numUsers)
 
@@ -1139,7 +1139,7 @@ func TestSharingObjectPart4(t *testing.T) {
 // 3) The user removes its own group from the access object.
 // 4) It is verified that the user is no longer part of the access object even though he created it.
 func TestRemoveAccess(t *testing.T) {
-	enc := newTestEncryptonize(t)
+	enc := newTestD1(t)
 	_, token := newTestUser(t, &enc, id.ScopeEncrypt, id.ScopeModifyAccessGroups)
 	identity, err := enc.idProvider.GetIdentity(token)
 	if err != nil {
@@ -1174,7 +1174,7 @@ func TestRemoveAccess(t *testing.T) {
 // 2) user1 encrypts an object.
 // 3) It is verified that only user1 is authorized.
 func TestAuthorizeUser(t *testing.T) {
-	enc := newTestEncryptonize(t)
+	enc := newTestD1(t)
 	_, token1 := newTestUser(t, &enc, id.ScopeEncrypt, id.ScopeGetAccessGroups)
 	_, token2 := newTestUser(t, &enc, id.ScopeGetAccessGroups)
 
@@ -1198,7 +1198,7 @@ func TestAuthorizeUser(t *testing.T) {
 }
 
 func TestAuthorizeUserUnauthenticated(t *testing.T) {
-	enc := newTestEncryptonize(t)
+	enc := newTestD1(t)
 	err := enc.AuthorizeUser("bad token", uuid.Must(uuid.NewV4()))
 	if !errors.Is(err, ErrNotAuthenticated) {
 		t.Fatalf("Expected error '%s' but got '%s'", ErrNotAuthenticated, err)
@@ -1207,7 +1207,7 @@ func TestAuthorizeUserUnauthenticated(t *testing.T) {
 
 // Test that a user without the GetAccessGroups scope cannot check if a user is authorized.
 func TestAuthorizeUserWrongAPIScope(t *testing.T) {
-	enc := newTestEncryptonize(t)
+	enc := newTestD1(t)
 	scope := id.ScopeAll ^ id.ScopeGetAccessGroups // All scopes except GetAccessGroups
 	_, token := newTestUser(t, &enc, scope)
 	err := enc.AuthorizeUser(token, uuid.Must(uuid.NewV4()))
@@ -1218,7 +1218,7 @@ func TestAuthorizeUserWrongAPIScope(t *testing.T) {
 
 // Test that a user whose group does not have the AuthorizeUser scope cannot check if a user is authorized.
 func TestAuthorizeUserWrongGroupScope(t *testing.T) {
-	enc := newTestEncryptonize(t)
+	enc := newTestD1(t)
 	_, token1 := newTestUser(t, &enc, id.ScopeAll)
 	user2, token2 := newTestUser(t, &enc, id.ScopeAll)
 
@@ -1246,7 +1246,7 @@ func TestAuthorizeUserWrongGroupScope(t *testing.T) {
 ////////////////////////////////////////////////////////
 
 func TestAddToIndex(t *testing.T) {
-	enc := newTestEncryptonize(t)
+	enc := newTestD1(t)
 
 	index := enc.NewIndex()
 
@@ -1266,7 +1266,7 @@ func TestAddToIndex(t *testing.T) {
 	}
 }
 func TestSearchInIndex(t *testing.T) {
-	enc := newTestEncryptonize(t)
+	enc := newTestD1(t)
 
 	index := enc.NewIndex()
 
