@@ -280,7 +280,8 @@ func (i *SecureIndex) lastIdentifier(keyword string) (data.Identifier, error) {
 		sealedID, err := i.getSealedIdentifier(label)
 		if err == io.ErrNotFound {
 			return decryptedID, nil
-		} else if err != nil {
+		}
+		if err != nil {
 			return data.Identifier{}, err
 		}
 
