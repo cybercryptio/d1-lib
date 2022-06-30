@@ -134,7 +134,8 @@ func (i *SecureIndex) Search(token, keyword string) ([]string, error) {
 		sealedID, err := i.getSealedIdentifier(label)
 		if err == io.ErrNotFound {
 			break
-		} else if err != nil {
+		}
+		if err != nil {
 			return nil, err
 		}
 
