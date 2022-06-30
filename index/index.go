@@ -177,7 +177,8 @@ func (i *SecureIndex) Delete(token, keyword, identifier string) error {
 		sealedID, err := i.getSealedIdentifier(label)
 		if err == io.ErrNotFound {
 			break
-		} else if err != nil {
+		}
+		if err != nil {
 			return err
 		}
 
