@@ -150,7 +150,7 @@ func (i *SecureIndex) Search(token, keyword string) ([]string, error) {
 	return decryptedIDs, nil
 }
 
-// Delete deletes a keyword/identifier pair from the secure index.
+// Delete deletes all occurrences of a keyword/identifier pair from the secure index.
 func (i *SecureIndex) Delete(token, keyword, identifier string) error {
 	if err := i.verifyAccess(token); err != nil {
 		return err
