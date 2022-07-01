@@ -16,7 +16,6 @@
 package data
 
 import (
-	"encoding/binary"
 	"testing"
 
 	"reflect"
@@ -31,56 +30,57 @@ func TestNextLabel(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	for i := 0; i < 10; i++ {
-		identifier := Identifier{Identifier: "id", NextCounter: uint64(i)}
+	identifier1 := Identifier{Identifier: "first id", NextCounter: 1}
+	identifier2 := Identifier{Identifier: "second id", NextCounter: 1}
+	identifier3 := Identifier{Identifier: "third id", NextCounter: 2}
 
-		nextLabel, err := identifier.NextLabel(&tagger)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		// Convert counter = i to byte array and compute expected next label.
-		buf := make([]byte, binary.MaxVarintLen64)
-		n := binary.PutUvarint(buf, uint64(i))
-		expectedNextLabel, err := tagger.Tag(buf[:n])
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		if !reflect.DeepEqual(nextLabel, expectedNextLabel) {
-			t.Fatal("NextLabel did not compute correct next label.")
-		}
+	nextLabel1, err := identifier1.NextLabel(&tagger)
+	if err != nil {
+		t.Fatal(err)
+	}
+	nextLabel2, err := identifier2.NextLabel(&tagger)
+	if err != nil {
+		t.Fatal(err)
+	}
+	nextLabel3, err := identifier3.NextLabel(&tagger)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(nextLabel1, nextLabel2) {
+		t.Fatal("NextLabel should return the same next label when given the same NextCounter.")
+	}
+	if reflect.DeepEqual(nextLabel1, nextLabel3) {
+		t.Fatal("NextLabel should return different next labels when given different NextCounter's.")
 	}
 }
 
-func TestNextLabelWithCounterGaps(t *testing.T) {
-	key := make([]byte, 32)
-	tagger, err := crypto.NewKMAC256Tagger(key)
+func TestNextLabelDifferentTaggers(t *testing.T) {
+	rand := &crypto.NativeRandom{}
+	key1, _ := rand.GetBytes(32)
+	key2, _ := rand.GetBytes(32)
+
+	tagger1, err := crypto.NewKMAC256Tagger(key1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tagger2, err := crypto.NewKMAC256Tagger(key2)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	NextCounters := [5]uint64{1, 3, 7, 11, 20}
+	identifier1 := Identifier{Identifier: "first id", NextCounter: 1}
+	identifier2 := Identifier{Identifier: "first id", NextCounter: 1}
 
-	for i := range NextCounters {
-		identifier := Identifier{Identifier: "id", NextCounter: NextCounters[i]}
-
-		nextLabel, err := identifier.NextLabel(&tagger)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		// Convert counter = i to byte array and compute expected next label.
-		buf := make([]byte, binary.MaxVarintLen64)
-		n := binary.PutUvarint(buf, NextCounters[i])
-		expectedNextLabel, err := tagger.Tag(buf[:n])
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		if !reflect.DeepEqual(nextLabel, expectedNextLabel) {
-			t.Fatal("NextLabel did not compute correct next label when there are gaps in counter values.")
-		}
+	nextLabel1, err := identifier1.NextLabel(&tagger1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	nextLabel2, err := identifier2.NextLabel(&tagger2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reflect.DeepEqual(nextLabel1, nextLabel2) {
+		t.Fatal("NextLabel should return different next labels when given different tagger's.")
 	}
 }
 
