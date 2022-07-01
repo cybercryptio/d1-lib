@@ -30,6 +30,7 @@ const (
 	ScopeGetTokenContents
 	ScopeGetAccessGroups
 	ScopeModifyAccessGroups
+	ScopeIndex
 	ScopeEnd
 )
 
