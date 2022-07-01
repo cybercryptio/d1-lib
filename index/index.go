@@ -140,7 +140,7 @@ func (i *SecureIndex) Search(token, keyword string) ([]string, error) {
 	return decryptedIDs, nil
 }
 
-// Delete deletes a keyword/identifier pair from the secure index.
+// Delete deletes all occurrences of a keyword/identifier pair from the secure index.
 func (i *SecureIndex) Delete(token, keyword, identifier string) error {
 	if err := i.verifyAccess(token); err != nil {
 		return err
@@ -253,7 +253,8 @@ func (i *SecureIndex) getLastIdentifier(keyword string) (data.Identifier, error)
 		nextDecrypted, err := i.getNextIdentifier(decryptedID, tagger, cryptor)
 		if err == io.ErrNotFound {
 			return decryptedID, nil
-		} else if err != nil {
+		}
+		if err != nil {
 			return data.Identifier{}, err
 		}
 
