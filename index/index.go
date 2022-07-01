@@ -154,22 +154,12 @@ func (i *SecureIndex) Delete(token, keyword, identifier string) error {
 	// Starting with label with counter = 0, get the corresponding Identifier and check if
 	// its Identifier is equal to the identifier given as input. If not, repeat with the next
 	// counter value.
-	decryptedID := data.Identifier{}
+	current := data.Identifier{}
 
 	for {
-		// If a sealed Identifier is deleted, it is necessary to check with the same counter
-		// once more. Otherwise, two consecutive instances of the same keyword/identifier pair
-		// will not both be detected and deleted.
-		oldNextCounter := decryptedID.NextCounter
-
-		label, err := decryptedID.NextLabel(tagger)
-		if err != nil {
-			return err
-		}
-
 		// Get the next Identifier. If ErrNotFound, there are no more Identifiers to check (and
 		// delete), and the function can terminate.
-		decryptedID, err = i.getNextIdentifier(decryptedID, tagger, cryptor)
+		next, err := i.getNextIdentifier(current, tagger, cryptor)
 		if err == io.ErrNotFound {
 			break
 		}
@@ -177,37 +167,36 @@ func (i *SecureIndex) Delete(token, keyword, identifier string) error {
 			return err
 		}
 
-		// Check if the current Identifier matches the identifier given as input.
-		if decryptedID.Identifier == identifier {
-			err = i.updateCurrentDeleteNext(label, decryptedID, tagger, cryptor)
+		// Check if the next Identifier matches the identifier given as input. In that case, we delete
+		// it and check the new value of next in the following iteration.
+		if next.Identifier == identifier {
+			label, err := current.NextLabel(tagger)
 			if err != nil {
 				return err
 			}
-
-			// Repeat with the same counter once more.
-			decryptedID.NextCounter = oldNextCounter
+			err = i.deleteIdentifier(label, next, tagger, cryptor)
+			if err != nil {
+				return err
+			}
+		} else {
+			// If nothing was deleted, we can move on.
+			current = next
 		}
 	}
 	return nil
 }
 
-// updateCurrentDeleteNext is a part of the Delete operation. It updates the current
-// Identifier and deletes the next: Instead of changing the label of the next to the
-// current label, the Identifier of the current is changed to the Identifier of the
-// next, and the next is deleted afterwards. If for example (label: f(1), NextCounter: 2)
-// should be deleted, then (label: f(1), NextCounter: 2) and (label: f(2), NextCounter: 3)
-// are "converted" to (label: f(1), NextCounter: 3).
-func (i *SecureIndex) updateCurrentDeleteNext(currentLabel []byte, currentIdentifier data.Identifier, tagger crypto.TaggerInterface, cryptor crypto.CryptorInterface) error {
-	nextLabel, err := currentIdentifier.NextLabel(tagger)
-	if err != nil {
-		return err
-	}
+// deleteIdentifier is a part of the Delete operation. It deletes an identifier "A" by doing one of
+// two things:
+// * If "A" is the last identifier, "A" itself is simply deleted.
+// * If there is a next identifier "B", "A" is overwritten with "B"s data and "B" is deleted.
+func (i *SecureIndex) deleteIdentifier(label []byte, identifier data.Identifier, tagger crypto.TaggerInterface, cryptor crypto.CryptorInterface) error {
 	// Get the next Identifier. If ErrNotFound, then the current Identifier is the one
 	// with the largest value of counter, and therefore it can simply be deleted without
 	// any other updates.
-	nextIdentifier, err := i.getNextIdentifier(currentIdentifier, tagger, cryptor)
+	next, err := i.getNextIdentifier(identifier, tagger, cryptor)
 	if err == io.ErrNotFound {
-		if err = i.deleteSealedIdentifier(currentLabel); err != nil {
+		if err = i.deleteSealedIdentifier(label); err != nil {
 			return err
 		}
 		return nil
@@ -216,18 +205,20 @@ func (i *SecureIndex) updateCurrentDeleteNext(currentLabel []byte, currentIdenti
 		return err
 	}
 
-	// Update current.
-	currentIdentifier.NextCounter = nextIdentifier.NextCounter
-	currentIdentifier.Identifier = nextIdentifier.Identifier
-
-	updatedSealedID, err := currentIdentifier.Seal(currentLabel, cryptor)
+	// Overwrite original identifier with the next identifier
+	updatedSealedID, err := next.Seal(label, cryptor)
 	if err != nil {
 		return err
 	}
-	if err = i.updateSealedIdentifier(currentLabel, &updatedSealedID); err != nil {
+	if err = i.updateSealedIdentifier(label, &updatedSealedID); err != nil {
 		return err
 	}
+
 	// Delete next.
+	nextLabel, err := identifier.NextLabel(tagger)
+	if err != nil {
+		return err
+	}
 	if err = i.deleteSealedIdentifier(nextLabel); err != nil {
 		return err
 	}
