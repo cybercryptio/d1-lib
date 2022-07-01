@@ -4,17 +4,64 @@ This document defines the main concepts and use cases for the D1 library.
 
 # Concepts
 
-### User
+## *Provider concepts*
 
-A **User** represents the identity of the caller of the library. Every **User** is represented by a Universally Unique Identifier (UUID) as defined in the [RFC-4122](https://datatracker.ietf.org/doc/html/rfc4122) standard. A **User** can be part of one or more **Groups**.
+**Providers** are interfaces that the library relies on for delivering functionality that is necessary, but orthogonal to the implemented cryptographic mechanisms. The users of the library can plug in various implementations of the same **Provider** behavior, depending on their use-case.
 
-### Group
+![providers.svg](images/providers.png)
+
+### Key Provider
+
+The **Key Provider** is the source of cryptographic key material for the library. Implementations of its [interface](https://pkg.go.dev/github.com/cybercryptio/d1-lib/key#Provider) must be able to provide four 256-bit keys: Key Encryption Key (KEK), Access Encryption Key (AEK), Token Encryption Key (TEK), Index Encryption Key (IEK). For more information about keys and their uses [see our Security Architecture Documentation](TODO).
+
+### IO Provider
+
+The **IO Provider** acts as a source and destination for the [encrypted data](#data-concepts) produced/consumed by the library. Implementations of its [interface](https://pkg.go.dev/github.com/cybercryptio/d1-lib/io#Provider) could use various types of storage, for example: blob storage, relational databases, queues, in-memory storage, etc.
+
+### Identity Provider
+
+The **Identity Provider** is the source of identifying information about the caller of the library. It allows the library to validate [**Identity Tokens**](#identity-token) and fetch their corresponding [**Identity**](#identity) objects. Implementations of its [interface](https://pkg.go.dev/github.com/cybercryptio/d1-lib/id#Provider) could use various Identity and Access Management (IAM) solutions such as SAML or OpenID. For easily getting up and running, the library implements a [**Standalone Identity Provider**](#standalone-identity-provider).
+
+### Identity
+
+An **Identity** is an object that contains data about the caller of the library. This data includes:
+- a Universally Unique Identifier (UUID) as defined in the [RFC-4122](https://datatracker.ietf.org/doc/html/rfc4122) standard;
+- the [**Scopes**](#scope) of the caller;
+- the **Groups** that the caller belongs to.
+
+### Scope
+
+TODO: How do scopes relate to object access? Why do scopes control both acess to functions and also objects?
+
+**Scopes** are used to control access both to the cryptographic functions provided by the library as well as to the [**Encrypted Objects**](#object). **Identities** have associated **Scopes**, and they can only access the functions for which they have the required **Scopes**. Additionally,...
+
+### Identity Token
+
+**Identity Tokens** are strings provided by the library callers so that they can be authenticated by the **Identity Provider**. When authenticating a call, the **Identity Provider** validates the token and returns an **Identity** object with the caller data.
+
+### Standalone Identity Provider
+
+The **Standalone Identity Provider** is an **Identity Provider** implementation designed to easily get up and running for the library users who do not have an existing IAM system in place. It provides the following functionalities:
+- creating and managing **Users**, **Groups** and **Identity Tokens**;
+- translating between **Identity Tokens** and **Identities**;
+- storing the user data with the configured **IO Provider**;
+- encrypting **Users**, **Groups** and **Identity Tokens** using the configured encryption keys: User Encryption Key (UEK), Group Encryption Key (GEK), Token Encryption Key (TEK).
+
+#### User
+
+A **User** is a data structure used by the **Standalone Identity Provider** to store data about the callers of the library. A **User** authenticates to the **Standalone Identity Provider** with a Universally Unique Identifier (UUID) and a password provided upon user creation. A **User** structure contains the salt and hash of the **User's** password, its **Scopes** and a set of **Groups** that the **User** is a member of.
+
+#### Group
+
+TODO
 
 A **Group** represents a set of **Users**. Every **Group** is represented by a Universally Unique Identifier (UUID) as defined in the [RFC-4122](https://datatracker.ietf.org/doc/html/rfc4122) standard. Every **Group** has at least one **User**. Each **User** has an associated default **Group** which is created upon creating the **User** and which initially contains only the ID of the **User**.
 
 **Groups** can contain arbitrary data that is common to its **Users**. This data can be used, for example, to attach roles or permissions to groups in order to implement role-based access control schemes. 
 
 Only **Users** who are part of a **Group** are allowed to modify it. 
+
+## *Data concepts*
 
 ### Object
 
