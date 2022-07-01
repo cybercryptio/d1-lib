@@ -284,11 +284,11 @@ func TestDeleteFirst(t *testing.T) {
 
 	for i := 0; i < len(IDs); i++ {
 		if IDs[i] != identifiers[i+1] {
-			t.Fatal("First identifier not correctly deleted.")
+			t.Fatal("First Identifier not correctly deleted.")
 		}
 	}
 	if len(IDs) != len(identifiers)-1 {
-		t.Fatal("First identifier not correctly deleted.")
+		t.Fatal("First Identifier not correctly deleted.")
 	}
 }
 
@@ -315,11 +315,11 @@ func TestDeleteLast(t *testing.T) {
 	}
 	for i := 0; i < len(IDs); i++ {
 		if IDs[i] != identifiers[i] {
-			t.Fatal("Last identifier not correctly deleted.")
+			t.Fatal("Last Identifier not correctly deleted.")
 		}
 	}
 	if len(IDs) != len(identifiers)-1 {
-		t.Fatal("Last identifier not correctly deleted.")
+		t.Fatal("Last Identifier not correctly deleted.")
 	}
 }
 
@@ -350,11 +350,11 @@ func TestDeleteFromMiddle(t *testing.T) {
 
 	for i := 0; i < len(IDs); i++ {
 		if IDs[i] != identifiersOneLess[i] {
-			t.Fatal("Middle identifier not correctly deleted.")
+			t.Fatal("Middle Identifier not correctly deleted.")
 		}
 	}
 	if len(IDs) != len(identifiers)-1 {
-		t.Fatal("Middle identifier not correctly deleted.")
+		t.Fatal("Middle Identifier not correctly deleted.")
 	}
 }
 
@@ -392,11 +392,11 @@ func TestDeleteSeveral(t *testing.T) {
 		t.Fatal("Identifier not correctly deleted.")
 	}
 	if len(IDs) != 2 {
-		t.Fatal("Last identifier not correctly deleted.")
+		t.Fatal("Last Identifier not correctly deleted.")
 	}
 }
 
-func TestLastIdentifier(t *testing.T) {
+func TestGetLastIdentifier(t *testing.T) {
 	index := newTestSecureIndex(t)
 	_, token := newTestUser(t, &index, id.ScopeIndex)
 
@@ -408,37 +408,37 @@ func TestLastIdentifier(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		lastID, err := index.lastIdentifier(keyword)
+		lastID, err := index.getLastIdentifier(keyword)
 		if err != nil {
 			t.Fatal(err)
 		}
 		if lastID.Identifier != identifiers[i] {
-			t.Fatal("lastIdentifier returned wrong last Identifier.")
+			t.Fatal("getLastIdentifier returned wrong last Identifier.")
 		}
 		if lastID.NextCounter != uint64(i+1) {
-			t.Fatal("lastIdentifier returned wrong last Identifier.")
+			t.Fatal("getLastIdentifier returned wrong last Identifier.")
 		}
 	}
 }
 
-func TestLastIdentifierBeforeAdd(t *testing.T) {
+func TestGetLastIdentifierBeforeAdd(t *testing.T) {
 	index := newTestSecureIndex(t)
 
 	keyword := "keyword"
 
-	lastID, err := index.lastIdentifier(keyword)
+	lastID, err := index.getLastIdentifier(keyword)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if lastID.Identifier != "" {
-		t.Fatal("lastIdentifier returned non-empty Identifier, but no keyword/identifier pairs have been added.")
+		t.Fatal("getLastIdentifier returned non-empty Identifier, but no keyword/identifier pairs have been added.")
 	}
 	if lastID.NextCounter != 0 {
-		t.Fatal("lastIdentifier returned non-empty Identifier, but no keyword/identifier pairs have been added.")
+		t.Fatal("getLastIdentifier returned non-empty Identifier, but no keyword/identifier pairs have been added.")
 	}
 }
 
-func TestLastIdentifierWrongKeyword(t *testing.T) {
+func TestGetLastIdentifierWrongKeyword(t *testing.T) {
 	index := newTestSecureIndex(t)
 	_, token := newTestUser(t, &index, id.ScopeIndex)
 
@@ -452,25 +452,25 @@ func TestLastIdentifierWrongKeyword(t *testing.T) {
 	keywordShort := "first keywor"
 	keywordLong := "first keywordd"
 
-	lastID, err := index.lastIdentifier(keywordShort)
+	lastID, err := index.getLastIdentifier(keywordShort)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if lastID.Identifier != "" {
-		t.Fatal("lastIdentifier returned non-empty Identifier when given wrong keyword.")
+		t.Fatal("getLastIdentifier returned non-empty Identifier when given wrong keyword.")
 	}
 	if lastID.NextCounter != 0 {
-		t.Fatal("lastIdentifier returned non-empty Identifier when given wrong keyword.")
+		t.Fatal("getLastIdentifier returned non-empty Identifier when given wrong keyword.")
 	}
 
-	lastID, err = index.lastIdentifier(keywordLong)
+	lastID, err = index.getLastIdentifier(keywordLong)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if lastID.Identifier != "" {
-		t.Fatal("lastIdentifier returned non-empty Identifier when given wrong keyword.")
+		t.Fatal("getLastIdentifier returned non-empty Identifier when given wrong keyword.")
 	}
 	if lastID.NextCounter != 0 {
-		t.Fatal("lastIdentifier returned non-empty Identifier when given wrong keyword.")
+		t.Fatal("getLastIdentifier returned non-empty Identifier when given wrong keyword.")
 	}
 }

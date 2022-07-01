@@ -29,7 +29,11 @@ type Identifier struct {
 
 // NextLabel computes the next label based on the value of NextCounter.
 func (i *Identifier) NextLabel(tagger crypto.TaggerInterface) ([]byte, error) {
-	return tagger.Tag(uint64Encode(i.NextCounter))
+	// Converts the NextCounter uint64 to byte array before computing label.
+	buf := make([]byte, binary.MaxVarintLen64)
+	n := binary.PutUvarint(buf, i.NextCounter)
+
+	return tagger.Tag(buf[:n])
 }
 
 // SealedIdentifier is an encrypted structure which defines an occurrence of a specific keyword in a specific identifier.
@@ -58,11 +62,4 @@ func (i *SealedIdentifier) Unseal(label []byte, cryptor crypto.CryptorInterface)
 		return Identifier{}, err
 	}
 	return plainID, nil
-}
-
-// uint64Encode converts an uint64 to a byte array.
-func uint64Encode(i uint64) []byte {
-	buf := make([]byte, binary.MaxVarintLen64)
-	n := binary.PutUvarint(buf, i)
-	return buf[:n]
 }

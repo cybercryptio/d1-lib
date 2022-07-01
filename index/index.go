@@ -80,9 +80,9 @@ func (i *SecureIndex) Add(token, keyword, identifier string) error {
 		return err
 	}
 
-	// Compute the current last sealed Identifier with the given keyword, i.e. the sealed
+	// Compute the current last sealed Identifier containing the given keyword, i.e. the sealed
 	// Identifier with the largest value of the counter.
-	last, err := i.lastIdentifier(keyword)
+	last, err := i.getLastIdentifier(keyword)
 	if err != nil {
 		return err
 	}
@@ -106,7 +106,7 @@ func (i *SecureIndex) Add(token, keyword, identifier string) error {
 	return nil
 }
 
-// Given a keyword, Search returns all decrypted Identifiers that the keyword is contained in.
+// Search returns all decrypted Identifiers that the given keyword is contained in.
 func (i *SecureIndex) Search(token, keyword string) ([]string, error) {
 	if err := i.verifyAccess(token); err != nil {
 		return nil, err
@@ -124,21 +124,12 @@ func (i *SecureIndex) Search(token, keyword string) ([]string, error) {
 	decryptedIDs := []string{}
 
 	for {
-		label, err := decryptedID.NextLabel(tagger)
-		if err != nil {
-			return nil, err
-		}
-
-		// Get the sealed Identifier from the IO Provider. If ErrNotFound, all the Identifiers that contain
-		// the given keyword have been found, and the function should return them.
-		sealedID, err := i.getSealedIdentifier(label)
+		// Get the next Identifier. If ErrNotFound, all the Identifiers that contain the given keyword
+		// have been found, and the function should return them.
+		decryptedID, err = i.getNextIdentifier(decryptedID, tagger, cryptor)
 		if err == io.ErrNotFound {
 			break
-		} else if err != nil {
-			return nil, err
 		}
-
-		decryptedID, err = sealedID.Unseal(label, cryptor)
 		if err != nil {
 			return nil, err
 		}
@@ -160,32 +151,28 @@ func (i *SecureIndex) Delete(token, keyword, identifier string) error {
 		return err
 	}
 
-	// Starting with label with counter = 0, get the corresponding sealed Identifier from
-	// the IO Procider, unseal it, and check if its Identifier is equal to the identifier given
-	// as input. If not, repeat with the next counter value.
+	// Starting with label with counter = 0, get the corresponding Identifier and check if
+	// its Identifier is equal to the identifier given as input. If not, repeat with the next
+	// counter value.
 	decryptedID := data.Identifier{}
 
 	for {
-		label, err := decryptedID.NextLabel(tagger)
-		if err != nil {
-			return err
-		}
-
-		// Get the sealed Identifier from the IO Provider. If ErrNotFound, there are no more
-		// sealed Identifiers to check (and delete), and the function can terminate.
-		sealedID, err := i.getSealedIdentifier(label)
-		if err == io.ErrNotFound {
-			break
-		} else if err != nil {
-			return err
-		}
-
 		// If a sealed Identifier is deleted, it is necessary to check with the same counter
 		// once more. Otherwise, two consecutive instances of the same keyword/identifier pair
 		// will not both be detected and deleted.
 		oldNextCounter := decryptedID.NextCounter
 
-		decryptedID, err = sealedID.Unseal(label, cryptor)
+		label, err := decryptedID.NextLabel(tagger)
+		if err != nil {
+			return err
+		}
+
+		// Get the next Identifier. If ErrNotFound, there are no more Identifiers to check (and
+		// delete), and the function can terminate.
+		decryptedID, err = i.getNextIdentifier(decryptedID, tagger, cryptor)
+		if err == io.ErrNotFound {
+			break
+		}
 		if err != nil {
 			return err
 		}
@@ -193,16 +180,7 @@ func (i *SecureIndex) Delete(token, keyword, identifier string) error {
 		// Check if the current Identifier matches the identifier given as input.
 		if decryptedID.Identifier == identifier {
 			err = i.updateCurrentDeleteNext(label, decryptedID, tagger, cryptor)
-			// If ErrNotFound, then updateCurrentDeleteNext could not find the next sealed
-			// Identifier in the IO Provider. This means that the current decryptedID is the
-			// one with the largest value of counter, and hence it can simply be deleted without
-			// any other updates.
-			if err == io.ErrNotFound {
-				if err = i.deleteSealedIdentifier(label); err != nil {
-					return err
-				}
-				break
-			} else if err != nil {
+			if err != nil {
 				return err
 			}
 
@@ -224,14 +202,16 @@ func (i *SecureIndex) updateCurrentDeleteNext(currentLabel []byte, currentIdenti
 	if err != nil {
 		return err
 	}
-	// Get the sealed ID from the IO Provider. If the next does not exist, then an
-	// ErrNotFound is returned and handled in the Delete function.
-	nextSealedID, err := i.getSealedIdentifier(nextLabel)
-	if err != nil {
-		return err
+	// Get the next Identifier. If ErrNotFound, then the current Identifier is the one
+	// with the largest value of counter, and therefore it can simply be deleted without
+	// any other updates.
+	nextIdentifier, err := i.getNextIdentifier(currentIdentifier, tagger, cryptor)
+	if err == io.ErrNotFound {
+		if err = i.deleteSealedIdentifier(currentLabel); err != nil {
+			return err
+		}
+		return nil
 	}
-
-	nextIdentifier, err := nextSealedID.Unseal(nextLabel, cryptor)
 	if err != nil {
 		return err
 	}
@@ -255,38 +235,52 @@ func (i *SecureIndex) updateCurrentDeleteNext(currentLabel []byte, currentIdenti
 	return nil
 }
 
-// lastIdentifier computes the current last Identifier containing the given keyword, i.e. the
+// getLastIdentifier computes the current last Identifier containing the given keyword, i.e. the
 // current Identifier with the largest value of counter.
-func (i *SecureIndex) lastIdentifier(keyword string) (data.Identifier, error) {
+func (i *SecureIndex) getLastIdentifier(keyword string) (data.Identifier, error) {
 	tagger, cryptor, err := i.getTaggerAndCryptor(keyword)
 	if err != nil {
 		return data.Identifier{}, err
 	}
 
-	// Starting with label with counter = 0, check if the corresponding sealed Identifier exists in the
-	// IO Provider. As long as the sealed Identifier exists, repeat with the next counter value.
+	// Starting with label with counter = 0, check if the corresponding Identifier exists. As long
+	// as the Identifier exists, repeat with the next counter value.
 	decryptedID := data.Identifier{}
 
 	for {
-		label, err := decryptedID.NextLabel(tagger)
-		if err != nil {
-			return data.Identifier{}, err
-		}
-
-		// Get the sealed Identifier from the IO Provider. If ErrNotFound, then the last Identifier
-		//has been found, and the function should return it.
-		sealedID, err := i.getSealedIdentifier(label)
+		// Get the next Identifier. If ErrNotFound, then the last Identifier has been found, and the
+		// function should return it.
+		nextDecrypted, err := i.getNextIdentifier(decryptedID, tagger, cryptor)
 		if err == io.ErrNotFound {
 			return decryptedID, nil
 		} else if err != nil {
 			return data.Identifier{}, err
 		}
 
-		decryptedID, err = sealedID.Unseal(label, cryptor)
-		if err != nil {
-			return data.Identifier{}, err
-		}
+		decryptedID = nextDecrypted
 	}
+}
+
+// getNextIdentifier returns the next Identifier, given a current Identifier.
+func (i *SecureIndex) getNextIdentifier(currentIdentifier data.Identifier, tagger crypto.TaggerInterface, cryptor crypto.CryptorInterface) (data.Identifier, error) {
+	nextLabel, err := currentIdentifier.NextLabel(tagger)
+	if err != nil {
+		return data.Identifier{}, err
+	}
+
+	// If the next sealed Identifier does not exist in the IO Provider, then an ErrNotFound
+	// is returned.
+	nextSealedID, err := i.getSealedIdentifier(nextLabel)
+	if err != nil {
+		return data.Identifier{}, err
+	}
+
+	nextIdentifier, err := nextSealedID.Unseal(nextLabel, cryptor)
+	if err != nil {
+		return data.Identifier{}, err
+	}
+
+	return nextIdentifier, nil
 }
 
 // verifyAccess verifies the caller. It verifies both that the caller is authenticated by the
@@ -394,13 +388,13 @@ func (i *SecureIndex) deleteSealedIdentifier(tag []byte) error {
 //                    Conversions                     //
 ////////////////////////////////////////////////////////
 
-// Given a uint64 counter, compute the tag and return it as a uuid.
-func computeLabelUUID(tag []byte) (uuid.UUID, error) {
+// computeLabelUUID converts the label given as input to a uuid.
+func computeLabelUUID(label []byte) (uuid.UUID, error) {
 	// THIS BASEUUID IS PART OF A TEMPORARY SOLUTION AND SHOULD BE DELETED IN AN UPDATED VERSION.
 	baseUUID, _ := uuid.FromString("f939afb8-e5fb-47b5-a7b5-784d41252359")
 
 	// Convert label to a uuid.
-	return uuidFromString(baseUUID, base64.StdEncoding.EncodeToString(tag)), nil
+	return uuidFromString(baseUUID, base64.StdEncoding.EncodeToString(label)), nil
 }
 
 // uuidFromString uses a V5 UUID to get a deterministic ID based on the input.
