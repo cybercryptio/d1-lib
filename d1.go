@@ -46,7 +46,6 @@ type D1 struct {
 	objectCryptor crypto.CryptorInterface
 	accessCryptor crypto.CryptorInterface
 	tokenCryptor  crypto.CryptorInterface
-	indexKey      []byte
 }
 
 // New creates a new instance of D1 configured with the given providers.
@@ -76,7 +75,6 @@ func New(keyProvider key.Provider, ioProvider io.Provider, idProvider id.Provide
 		objectCryptor: &objectCryptor,
 		accessCryptor: &accessCryptor,
 		tokenCryptor:  &tokenCryptor,
-		indexKey:      keys.IEK,
 	}, nil
 }
 
@@ -425,33 +423,4 @@ func (d *D1) AuthorizeIdentity(token string, oid uuid.UUID) error {
 
 	_, err = d.authorizeAccess(&identity, id.ScopeGetAccessGroups, access)
 	return err
-}
-
-////////////////////////////////////////////////////////
-//                       Index                        //
-////////////////////////////////////////////////////////
-
-// NewIndex creates a new index that can be used to map keywords to IDs (e.g. documents). This
-// means that the index can be used to keep track of which keywords are contained in which IDs.
-func (d *D1) NewIndex() data.Index {
-	return data.NewIndex()
-}
-
-// Add adds the keyword/ID pair to index i.
-func (d *D1) Add(keyword, id string, i *data.Index) error {
-	if err := i.Add(d.indexKey, keyword, id); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// Search finds all IDs that contain the given keyword and returns them in plaintext.
-func (d *D1) Search(keyword string, i *data.Index) ([]string, error) {
-	decryptedIDs, err := i.Search(d.indexKey, keyword)
-	if err != nil {
-		return nil, err
-	}
-
-	return decryptedIDs, nil
 }
