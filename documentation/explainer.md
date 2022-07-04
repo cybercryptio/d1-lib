@@ -31,7 +31,7 @@ An **Identity** is an object that contains data about the caller of the library.
 
 ### Scope
 
-**Scopes** are used to control access to the [**Encrypted Objects**](#object). **Identities** have associated **Scopes**, and they can only perfrom operations on [**Data**](#data-concepts) when they have the required scopes. [See our documentation for examples of how to enforce access control using the D1 library.](https://pkg.go.dev/github.com/cybercryptio/d1-lib#example-package-AccessControl)
+**Scopes** are used to control access to the [**Encrypted Objects**](#object). **Identities** have associated **Scopes**, and they can only perform operations on [**Data**](#data-concepts) when they have the required scopes. [See our documentation for examples of how to enforce access control using the D1 library.](https://pkg.go.dev/github.com/cybercryptio/d1-lib#example-package-AccessControl)
 
 ### Identity Token
 
