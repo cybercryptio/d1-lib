@@ -31,9 +31,7 @@ An **Identity** is an object that contains data about the caller of the library.
 
 ### Scope
 
-TODO: How do scopes relate to object access? Why do scopes control both acess to functions and also objects?
-
-**Scopes** are used to control access both to the cryptographic functions provided by the library as well as to the [**Encrypted Objects**](#object). **Identities** have associated **Scopes**, and they can only access the functions for which they have the required **Scopes**. Additionally,...
+**Scopes** are used to control access to the [**Encrypted Objects**](#object). **Identities** have associated **Scopes**, and they can only perfrom operations on [**Data**](#data-concepts) when they have the required scopes. [See our documentation for examples of how to enforce access control using the D1 library.](https://pkg.go.dev/github.com/cybercryptio/d1-lib#example-package-AccessControl)
 
 ### Identity Token
 
@@ -53,13 +51,9 @@ A **User** is a data structure used by the **Standalone Identity Provider** to s
 
 #### Group
 
-TODO
+A **Group** is a data structure used by the **Standalone Identity Provider** to manage sets of **Users**. **Groups** have their own associated **Scopes** and can be used to manage access to [**Encrypted Objects**](#object) for multiple users at a time.
 
-A **Group** represents a set of **Users**. Every **Group** is represented by a Universally Unique Identifier (UUID) as defined in the [RFC-4122](https://datatracker.ietf.org/doc/html/rfc4122) standard. Every **Group** has at least one **User**. Each **User** has an associated default **Group** which is created upon creating the **User** and which initially contains only the ID of the **User**.
-
-**Groups** can contain arbitrary data that is common to its **Users**. This data can be used, for example, to attach roles or permissions to groups in order to implement role-based access control schemes. 
-
-Only **Users** who are part of a **Group** are allowed to modify it. 
+Only **Users** who are part of a **Group** are allowed to modify its members or **Scopes**.
 
 ## *Data concepts*
 
