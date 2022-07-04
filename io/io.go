@@ -37,7 +37,7 @@ type DataType uint16
 const (
 	DataTypeSealedObject DataType = iota
 	DataTypeSealedAccess
-	DataTypeSealedID
+	DataTypeSealedIdentifier
 	DataTypeEnd
 )
 
