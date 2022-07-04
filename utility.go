@@ -26,13 +26,13 @@ import (
 	"github.com/cybercryptio/d1-lib/io"
 )
 
-// authorizeAccess checks whether the authorizing user is allowed to access the provided access
+// authorizeAccess checks whether the authorizing Identity is allowed to access the provided access
 // object. If so, the unsealed access object is returned.
 //
-// A user is authorized to access an object if at least one of the following is true:
-// * The the user's identity ID is part of the Access and the user's identity scope contains the
+// An Identity is authorized to access an object if at least one of the following is true:
+// * The the Identity's ID is part of the Access and the Identity's scope contains the
 //   required scope.
-// * One of the user's group IDs is part of the Access and that group's scope contains the required
+// * One of the Identity's group IDs is part of the Access and that group's scope contains the required
 //   scope.
 func (d *D1) authorizeAccess(identity *id.Identity, scopes id.Scope, sealedAccess *data.SealedAccess) (data.Access, error) {
 	plainAccess, err := sealedAccess.Unseal(d.accessCryptor)

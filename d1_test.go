@@ -1160,7 +1160,7 @@ func TestRemoveAccess(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err = enc.AuthorizeUser(token, id); err == nil {
+	if err = enc.AuthorizeIdentity(token, id); err == nil {
 		t.Fatal("Unauthorized user is authorized anyway")
 	}
 }
@@ -1188,18 +1188,18 @@ func TestAuthorizeUser(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err = enc.AuthorizeUser(token1, id); err != nil {
+	if err = enc.AuthorizeIdentity(token1, id); err != nil {
 		t.Fatal(err)
 	}
 
-	if err = enc.AuthorizeUser(token2, id); err == nil {
+	if err = enc.AuthorizeIdentity(token2, id); err == nil {
 		t.Fatal("Unauthorized user is authorized anyway")
 	}
 }
 
 func TestAuthorizeUserUnauthenticated(t *testing.T) {
 	enc := newTestD1(t)
-	err := enc.AuthorizeUser("bad token", uuid.Must(uuid.NewV4()))
+	err := enc.AuthorizeIdentity("bad token", uuid.Must(uuid.NewV4()))
 	if !errors.Is(err, ErrNotAuthenticated) {
 		t.Fatalf("Expected error '%s' but got '%s'", ErrNotAuthenticated, err)
 	}
@@ -1210,7 +1210,7 @@ func TestAuthorizeUserWrongAPIScope(t *testing.T) {
 	enc := newTestD1(t)
 	scope := id.ScopeAll ^ id.ScopeGetAccessGroups // All scopes except GetAccessGroups
 	_, token := newTestUser(t, &enc, scope)
-	err := enc.AuthorizeUser(token, uuid.Must(uuid.NewV4()))
+	err := enc.AuthorizeIdentity(token, uuid.Must(uuid.NewV4()))
 	if !errors.Is(err, ErrNotAuthorized) {
 		t.Fatalf("Expected error '%s' but got '%s'", ErrNotAuthorized, err)
 	}
@@ -1235,7 +1235,7 @@ func TestAuthorizeUserWrongGroupScope(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = enc.AuthorizeUser(token2, oid)
+	err = enc.AuthorizeIdentity(token2, oid)
 	if !errors.Is(err, ErrNotAuthorized) {
 		t.Fatalf("Expected error '%s' but got '%s'", ErrNotAuthorized, err)
 	}

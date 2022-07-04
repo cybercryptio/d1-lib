@@ -31,10 +31,10 @@ import (
 )
 
 // Error returned if the caller cannot be authenticated by the Identity Provider.
-var ErrNotAuthenticated = errors.New("user not authenticated")
+var ErrNotAuthenticated = errors.New("not authenticated")
 
-// Error returned if a user tries to access data they are not authorized for.
-var ErrNotAuthorized = errors.New("user not authorized")
+// Error returned if the caller tries to access data they are not authorized for.
+var ErrNotAuthorized = errors.New("not authorized")
 
 // D1 is the entry point to the library. All main functionality is exposed through methods
 // on this struct.
@@ -85,8 +85,8 @@ func New(keyProvider key.Provider, ioProvider io.Provider, idProvider id.Provide
 ////////////////////////////////////////////////////////
 
 // Encrypt creates a new sealed object containing the provided plaintext data as well as an access
-// list that controls access to that data. The calling user is automatically added to the access
-// list. To grant other users access, see AddGroupsToAccess and AddUserToGroups.
+// list that controls access to that data. The Identity of the caller is automatically added to the
+// access list. To grant access to other callers, see AddGroupsToAccess.
 //
 // The returned ID is the unique identifier of the sealed object. It is used to identify the object
 // and related data about the object to the IO Provider, and needs to be provided when decrypting
@@ -135,7 +135,7 @@ func (d *D1) Encrypt(token string, object *data.Object) (uuid.UUID, error) {
 }
 
 // Update creates a new sealed object containing the provided plaintext data but uses a previously
-// created access list to control access to that data. The authorizing user must be part of the
+// created access list to control access to that data. The authorizing Identity must be part of the
 // provided access list, either directly or through group membership.
 //
 // The input ID is the identifier obtained by previously calling Encrypt.
@@ -183,7 +183,7 @@ func (d *D1) Update(token string, oid uuid.UUID, object *data.Object) error {
 	return nil
 }
 
-// Decrypt fetches a sealed object and extracts the plaintext. The authorizing user must be part of
+// Decrypt fetches a sealed object and extracts the plaintext. The authorizing Identity must be part of
 // the provided access list, either directly or through group membership.
 //
 // The input ID is the identifier obtained by previously calling Encrypt.
@@ -218,7 +218,7 @@ func (d *D1) Decrypt(token string, oid uuid.UUID) (data.Object, error) {
 	return object.Unseal(plainAccess.WrappedOEK, d.objectCryptor)
 }
 
-// Delete deletes a sealed object. The authorizing user must be part of
+// Delete deletes a sealed object. The authorizing Identity must be part of
 // the provided access list, either directly or through group membership.
 //
 // The input ID is the identifier obtained by previously calling Encrypt.
@@ -300,11 +300,11 @@ func (d *D1) GetTokenContents(token *data.SealedToken) ([]byte, error) {
 ////////////////////////////////////////////////////////
 
 // GetAccessGroups extracts the set of group IDs contained in the object's access list. The
-// authorizing user must be part of the access list.
+// authorizing Identity must be part of the access list.
 //
 // The input ID is the identifier obtained by previously calling Encrypt.
 //
-// The set of group IDs is somewhat sensitive data, as it reveals what groups/users have access to
+// The set of group IDs is somewhat sensitive data, as it reveals what Identities have access to
 // the associated object.
 //
 // Required scopes:
@@ -332,7 +332,7 @@ func (d *D1) GetAccessGroups(token string, oid uuid.UUID) (map[uuid.UUID]struct{
 }
 
 // AddGroupsToAccess appends the provided groups to the object's access list, giving them access to
-// the associated object. The authorizing user must be part of the access list.
+// the associated object. The authorizing Identity must be part of the access list.
 //
 // The input ID is the identifier obtained by previously calling Encrypt.
 //
@@ -367,7 +367,7 @@ func (d *D1) AddGroupsToAccess(token string, oid uuid.UUID, groups ...uuid.UUID)
 }
 
 // RemoveGroupsFromAccess removes the provided groups from the object's access list, preventing them
-// from accessing the associated object. The authorizing user must be part of the access object.
+// from accessing the associated object. The authorizing Identity must be part of the access object.
 //
 // The input ID is the identifier obtained by previously calling Encrypt.
 //
@@ -401,15 +401,15 @@ func (d *D1) RemoveGroupsFromAccess(token string, oid uuid.UUID, groups ...uuid.
 	return d.putSealedAccess(access, true)
 }
 
-// AuthorizeUser checks whether the provided user is part of the object's access list, i.e. whether
-// they are authorized to access the associated object. An error is returned if the user is not
+// AuthorizeIdentity checks whether the provided Identity is part of the object's access list, i.e. whether
+// they are authorized to access the associated object. An error is returned if the Identity is not
 // authorized.
 //
 // The input ID is the identifier obtained by previously calling Encrypt.
 //
 // Required scopes:
 // - GetAccessGroups
-func (d *D1) AuthorizeUser(token string, oid uuid.UUID) error {
+func (d *D1) AuthorizeIdentity(token string, oid uuid.UUID) error {
 	identity, err := d.idProvider.GetIdentity(token)
 	if err != nil {
 		return ErrNotAuthenticated
