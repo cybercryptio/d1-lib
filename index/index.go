@@ -17,13 +17,9 @@ package index
 
 import (
 	"bytes"
-	"encoding/base64"
 	"encoding/gob"
 	"errors"
 	"fmt"
-
-	"github.com/gofrs/uuid"
-	"golang.org/x/crypto/sha3"
 
 	"github.com/cybercryptio/d1-lib/crypto"
 	"github.com/cybercryptio/d1-lib/data"
@@ -320,12 +316,7 @@ func (i *SecureIndex) putSealedIdentifier(tag []byte, sealedID *data.SealedIdent
 		return err
 	}
 
-	label, err := computeLabelUUID(tag)
-	if err != nil {
-		return err
-	}
-
-	return i.ioProvider.Put(label, io.DataTypeSealedIdentifier, sealedIDBuffer.Bytes())
+	return i.ioProvider.Put(tag, io.DataTypeSealedIdentifier, sealedIDBuffer.Bytes())
 }
 
 // updateSealedIdentifier encodes an updated sealed Identifier and updates it in the IO Provider.
@@ -336,22 +327,12 @@ func (i *SecureIndex) updateSealedIdentifier(tag []byte, sealedID *data.SealedId
 		return err
 	}
 
-	label, err := computeLabelUUID(tag)
-	if err != nil {
-		return err
-	}
-
-	return i.ioProvider.Update(label, io.DataTypeSealedIdentifier, sealedIDBuffer.Bytes())
+	return i.ioProvider.Update(tag, io.DataTypeSealedIdentifier, sealedIDBuffer.Bytes())
 }
 
 // getSealedIdentifier fetches bytes from the IO Provider and decodes them into a sealed Identifier.
 func (i *SecureIndex) getSealedIdentifier(tag []byte) (*data.SealedIdentifier, error) {
-	label, err := computeLabelUUID(tag)
-	if err != nil {
-		return nil, err
-	}
-
-	sealedIDBytes, err := i.ioProvider.Get(label, io.DataTypeSealedIdentifier)
+	sealedIDBytes, err := i.ioProvider.Get(tag, io.DataTypeSealedIdentifier)
 	if err != nil {
 		return nil, err
 	}
@@ -368,30 +349,5 @@ func (i *SecureIndex) getSealedIdentifier(tag []byte) (*data.SealedIdentifier, e
 
 // deleteSealedIdentifier deletes a sealed Identifier from the IO Provider.
 func (i *SecureIndex) deleteSealedIdentifier(tag []byte) error {
-	label, err := computeLabelUUID(tag)
-	if err != nil {
-		return err
-	}
-
-	return i.ioProvider.Delete(label, io.DataTypeSealedIdentifier)
-}
-
-////////////////////////////////////////////////////////
-//                    Conversions                     //
-////////////////////////////////////////////////////////
-
-// computeLabelUUID converts the label given as input to a uuid.
-func computeLabelUUID(label []byte) (uuid.UUID, error) {
-	// THIS BASEUUID IS PART OF A TEMPORARY SOLUTION AND SHOULD BE DELETED IN AN UPDATED VERSION.
-	baseUUID, _ := uuid.FromString("f939afb8-e5fb-47b5-a7b5-784d41252359")
-
-	// Convert label to a uuid.
-	return uuidFromString(baseUUID, base64.StdEncoding.EncodeToString(label)), nil
-}
-
-// uuidFromString uses a V5 UUID to get a deterministic ID based on the input.
-func uuidFromString(base uuid.UUID, input string) uuid.UUID {
-	// We use SHA3 here to avoid any issues with SHA1 which is used in `uuid.NewV5`.
-	subjHash := sha3.Sum512([]byte(input))
-	return uuid.NewV5(base, string(subjHash[:]))
+	return i.ioProvider.Delete(tag, io.DataTypeSealedIdentifier)
 }
