@@ -244,7 +244,7 @@ func (s *Standalone) DeleteUser(token string, uid uuid.UUID) error {
 		return err
 	}
 
-	return s.ioProvider.Delete(uid, DataTypeSealedUser)
+	return s.ioProvider.Delete(uid.Bytes(), DataTypeSealedUser)
 }
 
 // NewGroup creates a new group and adds the calling user to it.
@@ -293,14 +293,14 @@ func (s *Standalone) putUser(uid uuid.UUID, user *User, update bool) error {
 	}
 
 	if update {
-		return s.ioProvider.Update(sealedUser.UID, DataTypeSealedUser, userBuffer.Bytes())
+		return s.ioProvider.Update(sealedUser.UID.Bytes(), DataTypeSealedUser, userBuffer.Bytes())
 	}
-	return s.ioProvider.Put(sealedUser.UID, DataTypeSealedUser, userBuffer.Bytes())
+	return s.ioProvider.Put(sealedUser.UID.Bytes(), DataTypeSealedUser, userBuffer.Bytes())
 }
 
 // getUser fetches bytes from the IO Provider, decodes them into a sealed user, and unseals it.
 func (s *Standalone) getUser(uid uuid.UUID) (*User, error) {
-	userBytes, err := s.ioProvider.Get(uid, DataTypeSealedUser)
+	userBytes, err := s.ioProvider.Get(uid.Bytes(), DataTypeSealedUser)
 	if err != nil {
 		return nil, err
 	}
@@ -334,12 +334,12 @@ func (s *Standalone) putGroup(gid uuid.UUID, group *Group) error {
 		return err
 	}
 
-	return s.ioProvider.Put(sealedGroup.GID, DataTypeSealedGroup, groupBuffer.Bytes())
+	return s.ioProvider.Put(sealedGroup.GID.Bytes(), DataTypeSealedGroup, groupBuffer.Bytes())
 }
 
 // getGroup fetches bytes from the IO Provider, decodes them into a sealed group, and unseals it.
 func (s *Standalone) getGroup(gid uuid.UUID) (*Group, error) {
-	groupBytes, err := s.ioProvider.Get(gid, DataTypeSealedGroup)
+	groupBytes, err := s.ioProvider.Get(gid.Bytes(), DataTypeSealedGroup)
 	if err != nil {
 		return nil, err
 	}
