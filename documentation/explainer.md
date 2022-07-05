@@ -35,7 +35,7 @@ An **Identity** is an object that contains data about the caller of the library.
 
 ### Identity Token
 
-**Identity Tokens** are strings provided by the library callers so that they can be authenticated by the **Identity Provider**. When authenticating a call, the **Identity Provider** validates the token and returns an **Identity** object with the caller data.
+**Identity Tokens** are strings provided by the library callers so that they can be authenticated by the **Identity Provider**. When authenticating a call, the **Identity Provider** validates the token and returns an **Identity** object with the caller data. These tokens should preferably be opaque to anyone but the **Identity Provider**.
 
 ### Standalone Identity Provider
 
