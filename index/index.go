@@ -325,7 +325,7 @@ func (i *SecureIndex) putSealedIdentifier(tag []byte, sealedID *data.SealedIdent
 		return err
 	}
 
-	return i.ioProvider.Put(label, io.DataTypeSealedID, sealedIDBuffer.Bytes())
+	return i.ioProvider.Put(label, io.DataTypeSealedIdentifier, sealedIDBuffer.Bytes())
 }
 
 // updateSealedIdentifier encodes an updated sealed Identifier and updates it in the IO Provider.
@@ -341,7 +341,7 @@ func (i *SecureIndex) updateSealedIdentifier(tag []byte, sealedID *data.SealedId
 		return err
 	}
 
-	return i.ioProvider.Update(label, io.DataTypeSealedID, sealedIDBuffer.Bytes())
+	return i.ioProvider.Update(label, io.DataTypeSealedIdentifier, sealedIDBuffer.Bytes())
 }
 
 // getSealedIdentifier fetches bytes from the IO Provider and decodes them into a sealed Identifier.
@@ -351,7 +351,7 @@ func (i *SecureIndex) getSealedIdentifier(tag []byte) (*data.SealedIdentifier, e
 		return nil, err
 	}
 
-	sealedIDBytes, err := i.ioProvider.Get(label, io.DataTypeSealedID)
+	sealedIDBytes, err := i.ioProvider.Get(label, io.DataTypeSealedIdentifier)
 	if err != nil {
 		return nil, err
 	}
@@ -373,7 +373,7 @@ func (i *SecureIndex) deleteSealedIdentifier(tag []byte) error {
 		return err
 	}
 
-	return i.ioProvider.Delete(label, io.DataTypeSealedID)
+	return i.ioProvider.Delete(label, io.DataTypeSealedIdentifier)
 }
 
 ////////////////////////////////////////////////////////
