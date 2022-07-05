@@ -18,8 +18,6 @@ package io
 import (
 	"fmt"
 	"sync"
-
-	"github.com/gofrs/uuid"
 )
 
 // Mem implements an in-memory version of an IO Provider.
@@ -32,12 +30,12 @@ func NewMem() Mem {
 	return Mem{sync.Map{}}
 }
 
-func newKey(id uuid.UUID, dataType DataType) string {
-	key := fmt.Sprintf("%s:%s", id.String(), dataType.String())
+func newKey(id []byte, dataType DataType) string {
+	key := fmt.Sprintf("%x:%s", id, dataType.String())
 	return key
 }
 
-func (m *Mem) Put(id uuid.UUID, dataType DataType, data []byte) error {
+func (m *Mem) Put(id []byte, dataType DataType, data []byte) error {
 	key := newKey(id, dataType)
 	if _, ok := m.data.Load(key); ok {
 		return ErrAlreadyExists
@@ -46,7 +44,7 @@ func (m *Mem) Put(id uuid.UUID, dataType DataType, data []byte) error {
 	return nil
 }
 
-func (m *Mem) Get(id uuid.UUID, dataType DataType) ([]byte, error) {
+func (m *Mem) Get(id []byte, dataType DataType) ([]byte, error) {
 	key := newKey(id, dataType)
 	out, ok := m.data.Load(key)
 	if !ok {
@@ -56,7 +54,7 @@ func (m *Mem) Get(id uuid.UUID, dataType DataType) ([]byte, error) {
 	return data, nil
 }
 
-func (m *Mem) Update(id uuid.UUID, dataType DataType, data []byte) error {
+func (m *Mem) Update(id []byte, dataType DataType, data []byte) error {
 	key := newKey(id, dataType)
 	if _, ok := m.data.Load(key); !ok {
 		return ErrNotFound
@@ -65,7 +63,7 @@ func (m *Mem) Update(id uuid.UUID, dataType DataType, data []byte) error {
 	return nil
 }
 
-func (m *Mem) Delete(id uuid.UUID, dataType DataType) error {
+func (m *Mem) Delete(id []byte, dataType DataType) error {
 	key := newKey(id, dataType)
 	m.data.Delete(key)
 	return nil

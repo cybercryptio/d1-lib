@@ -20,8 +20,6 @@ import (
 
 	"bytes"
 	"errors"
-
-	"github.com/gofrs/uuid"
 )
 
 // Test that putting and subsequently getting data returns the right bytes for all data types.
@@ -29,7 +27,7 @@ func TestMemPutAndGet(t *testing.T) {
 	mem := NewMem()
 
 	data := []byte("mock data")
-	id := uuid.Must(uuid.NewV4())
+	id := []byte("mock id")
 
 	for dt := DataType(0); dt < DataTypeEnd; dt++ {
 		testData := append(data, dt.Bytes()...)
@@ -54,7 +52,7 @@ func TestMemPutAlreadyExists(t *testing.T) {
 	mem := NewMem()
 
 	data := []byte("mock data")
-	id := uuid.Must(uuid.NewV4())
+	id := []byte("mock id")
 
 	for dt := DataType(0); dt < DataTypeEnd; dt++ {
 		testData := append(data, dt.Bytes()...)
@@ -74,7 +72,7 @@ func TestMemPutAlreadyExists(t *testing.T) {
 func TestMemNotFound(t *testing.T) {
 	mem := NewMem()
 
-	id := uuid.Must(uuid.NewV4())
+	id := []byte("mock id")
 
 	data, err := mem.Get(id, DataTypeSealedObject)
 	if !errors.Is(err, ErrNotFound) {
@@ -91,7 +89,7 @@ func TestMemUpdate(t *testing.T) {
 
 	data := []byte("mock data")
 	updated := []byte("updated mock data")
-	id := uuid.Must(uuid.NewV4())
+	id := []byte("mock id")
 
 	for dt := DataType(0); dt < DataTypeEnd; dt++ {
 		err := mem.Put(id, dt, append(data, dt.Bytes()...))
@@ -120,7 +118,7 @@ func TestMemUpdate(t *testing.T) {
 func TestMemUpdateNotFound(t *testing.T) {
 	mem := NewMem()
 
-	id := uuid.Must(uuid.NewV4())
+	id := []byte("mock id")
 
 	err := mem.Update(id, DataTypeSealedObject, []byte("mock data"))
 	if !errors.Is(err, ErrNotFound) {
@@ -133,7 +131,7 @@ func TestMemDelete(t *testing.T) {
 	mem := NewMem()
 
 	data := []byte("mock data")
-	id := uuid.Must(uuid.NewV4())
+	id := []byte("mock id")
 
 	for dt := DataType(0); dt < DataTypeEnd; dt++ {
 		err := mem.Put(id, dt, append(data, dt.Bytes()...))
@@ -160,7 +158,7 @@ func TestMemDelete(t *testing.T) {
 func TestMemDeleteNotFound(t *testing.T) {
 	mem := NewMem()
 
-	id := uuid.Must(uuid.NewV4())
+	id := []byte("mock id")
 
 	err := mem.Delete(id, DataTypeSealedObject)
 	if err != nil {
