@@ -40,10 +40,10 @@ An **Identity** is an object that contains data about the caller of the library.
 ### Standalone Identity Provider
 
 The **Standalone Identity Provider** is an **Identity Provider** implementation designed to easily get up and running for the library users who do not have an existing IAM system in place. It provides the following functionalities:
-- creating and managing **Users**, **Groups** and **Identity Tokens**;
-- translating between **Identity Tokens** and **Identities**;
-- storing the user data with the configured **IO Provider**;
-- encrypting **Users**, **Groups** and **Identity Tokens** using the configured encryption keys: User Encryption Key (UEK), Group Encryption Key (GEK), Token Encryption Key (TEK).
+- Creating and managing **Users**, **Groups** and **Identity Tokens**;
+- Translating between **Identity Tokens** and **Identities**;
+- Storing the user data with the configured **IO Provider**;
+- Encrypting **Users**, **Groups** and **Identity Tokens** using the configured encryption keys: User Encryption Key (UEK), Group Encryption Key (GEK), Token Encryption Key (TEK).
 
 #### User
 
