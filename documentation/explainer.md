@@ -6,7 +6,7 @@ This document defines the main concepts and use cases for the D1 library.
 
 ## *Provider concepts*
 
-**Providers** are interfaces that the library relies on for delivering functionality that is necessary, but orthogonal to the implemented cryptographic mechanisms. The users of the library can plug in various implementations of the same **Provider** behavior, depending on their use-case.
+**Providers** are interfaces that the library relies on for delivering functionality that is necessary, but orthogonal, to the implemented cryptographic mechanisms. The users of the library can plug in various implementations of the same **Provider** behavior, depending on their use-case.
 
 ![providers.png](images/providers.png)
 
