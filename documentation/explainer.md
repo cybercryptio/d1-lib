@@ -39,7 +39,7 @@ An **Identity** is an object that contains data about the caller of the library.
 
 ### Standalone Identity Provider
 
-The **Standalone Identity Provider** is an **Identity Provider** implementation designed to easily get up and running for the library users who do not have an existing IAM system in place. It provides the following functionalities:
+The [**Standalone Identity Provider**](https://pkg.go.dev/github.com/cybercryptio/d1-lib/id#Standalone) is an **Identity Provider** implementation designed to easily get up and running for the library users who do not have an existing IAM system in place. It provides the following functionalities:
 - Creating and managing **Users**, **Groups** and **Identity Tokens**;
 - Translating between **Identity Tokens** and **Identities**;
 - Storing the user data with the configured **IO Provider**;
