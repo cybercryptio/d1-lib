@@ -58,14 +58,14 @@ func (d *D1) putSealedObject(object *data.SealedObject, update bool) error {
 	}
 
 	if update {
-		return d.ioProvider.Update(object.OID, io.DataTypeSealedObject, objectBuffer.Bytes())
+		return d.ioProvider.Update(object.OID.Bytes(), io.DataTypeSealedObject, objectBuffer.Bytes())
 	}
-	return d.ioProvider.Put(object.OID, io.DataTypeSealedObject, objectBuffer.Bytes())
+	return d.ioProvider.Put(object.OID.Bytes(), io.DataTypeSealedObject, objectBuffer.Bytes())
 }
 
 // getSealedObject fetches bytes from the IO Provider and decodes them into a sealed object.
 func (d *D1) getSealedObject(oid uuid.UUID) (*data.SealedObject, error) {
-	objectBytes, err := d.ioProvider.Get(oid, io.DataTypeSealedObject)
+	objectBytes, err := d.ioProvider.Get(oid.Bytes(), io.DataTypeSealedObject)
 	if err != nil {
 		return nil, err
 	}
@@ -83,7 +83,7 @@ func (d *D1) getSealedObject(oid uuid.UUID) (*data.SealedObject, error) {
 
 // deleteSealedObject deletes a sealed object from the IO Provider.
 func (d *D1) deleteSealedObject(oid uuid.UUID) error {
-	return d.ioProvider.Delete(oid, io.DataTypeSealedObject)
+	return d.ioProvider.Delete(oid.Bytes(), io.DataTypeSealedObject)
 }
 
 // putSealedAccess encodes a sealed access and sends it to the IO Provider, either as a "Put" or an
@@ -96,14 +96,14 @@ func (d *D1) putSealedAccess(access *data.SealedAccess, update bool) error {
 	}
 
 	if update {
-		return d.ioProvider.Update(access.OID, io.DataTypeSealedAccess, accessBuffer.Bytes())
+		return d.ioProvider.Update(access.OID.Bytes(), io.DataTypeSealedAccess, accessBuffer.Bytes())
 	}
-	return d.ioProvider.Put(access.OID, io.DataTypeSealedAccess, accessBuffer.Bytes())
+	return d.ioProvider.Put(access.OID.Bytes(), io.DataTypeSealedAccess, accessBuffer.Bytes())
 }
 
 // getSealedAccess fetches bytes from the IO Provider and decodes them into a sealed access.
 func (d *D1) getSealedAccess(oid uuid.UUID) (*data.SealedAccess, error) {
-	accessBytes, err := d.ioProvider.Get(oid, io.DataTypeSealedAccess)
+	accessBytes, err := d.ioProvider.Get(oid.Bytes(), io.DataTypeSealedAccess)
 	if err != nil {
 		return nil, err
 	}
@@ -121,5 +121,5 @@ func (d *D1) getSealedAccess(oid uuid.UUID) (*data.SealedAccess, error) {
 
 // deleteSealedAccess deletes a sealed object from the IO Provider.
 func (d *D1) deleteSealedAccess(oid uuid.UUID) error {
-	return d.ioProvider.Delete(oid, io.DataTypeSealedAccess)
+	return d.ioProvider.Delete(oid.Bytes(), io.DataTypeSealedAccess)
 }

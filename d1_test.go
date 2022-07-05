@@ -396,7 +396,7 @@ func TestUpdateNotFound(t *testing.T) {
 //                       Delete                       //
 ////////////////////////////////////////////////////////
 
-func checkDataIsDeleted(t *testing.T, ioProvider io.Provider, id uuid.UUID, dataTypes ...io.DataType) {
+func checkDataIsDeleted(t *testing.T, ioProvider io.Provider, id []byte, dataTypes ...io.DataType) {
 	for _, dataType := range dataTypes {
 		sealedData, err := ioProvider.Get(id, dataType)
 		if !errors.Is(err, io.ErrNotFound) {
@@ -436,7 +436,7 @@ func TestDelete(t *testing.T) {
 	}
 
 	// Double-check with the IO Provider that the sealed data is gone.
-	checkDataIsDeleted(t, enc.ioProvider, id,
+	checkDataIsDeleted(t, enc.ioProvider, id.Bytes(),
 		io.DataTypeSealedAccess,
 		io.DataTypeSealedObject,
 	)
@@ -524,7 +524,7 @@ func TestDeleteFailureAndRetry(t *testing.T) {
 
 			// Temporarily inject failures into the delete function.
 			delete := ioProxy.DeleteFunc
-			ioProxy.DeleteFunc = func(id uuid.UUID, dataType io.DataType) error {
+			ioProxy.DeleteFunc = func(id []byte, dataType io.DataType) error {
 				if dataType == test.dataType {
 					return test.err
 				}
@@ -537,7 +537,7 @@ func TestDeleteFailureAndRetry(t *testing.T) {
 
 			// Double-check with the IO Provider that the sealed access/object is still there.
 			// NOTE: We don't check the other sealed entries, since they may or may not be gone at this point.
-			_, err = enc.ioProvider.Get(id, test.dataType)
+			_, err = enc.ioProvider.Get(id.Bytes(), test.dataType)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -550,7 +550,7 @@ func TestDeleteFailureAndRetry(t *testing.T) {
 			}
 
 			// Double-check with the IO Provider that the sealed data is gone.
-			checkDataIsDeleted(t, enc.ioProvider, id,
+			checkDataIsDeleted(t, enc.ioProvider, id.Bytes(),
 				io.DataTypeSealedAccess,
 				io.DataTypeSealedObject,
 			)
