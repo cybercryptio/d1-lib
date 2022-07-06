@@ -20,8 +20,6 @@ import (
 
 	"bytes"
 	"errors"
-
-	"github.com/gofrs/uuid"
 )
 
 // Test that putting and subsequently getting data returns the right bytes for all data types.
@@ -32,7 +30,7 @@ func TestBoltPutAndGet(t *testing.T) {
 	}
 
 	data := []byte("mock data")
-	id := uuid.Must(uuid.NewV4())
+	id := []byte("mock id")
 
 	for dt := DataType(0); dt < DataTypeEnd; dt++ {
 		testData := append(data, dt.Bytes()...)
@@ -60,7 +58,7 @@ func TestBoltPutAlreadyExists(t *testing.T) {
 	}
 
 	data := []byte("mock data")
-	id := uuid.Must(uuid.NewV4())
+	id := []byte("mock id")
 
 	for dt := DataType(0); dt < DataTypeEnd; dt++ {
 		testData := append(data, dt.Bytes()...)
@@ -83,7 +81,7 @@ func TestBoltNotFound(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	id := uuid.Must(uuid.NewV4())
+	id := []byte("mock id")
 
 	data, err := bolt.Get(id, DataTypeSealedObject)
 	if !errors.Is(err, ErrNotFound) {
@@ -111,7 +109,7 @@ func TestBoltUpdate(t *testing.T) {
 
 	data := []byte("mock data")
 	updated := []byte("updated mock data")
-	id := uuid.Must(uuid.NewV4())
+	id := []byte("mock id")
 
 	for dt := DataType(0); dt < DataTypeEnd; dt++ {
 		err := bolt.Put(id, dt, append(data, dt.Bytes()...))
@@ -143,7 +141,7 @@ func TestBoltUpdateNotFound(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	id := uuid.Must(uuid.NewV4())
+	id := []byte("mock id")
 
 	err = bolt.Update(id, DataTypeSealedObject, []byte("mock data"))
 	if !errors.Is(err, ErrNotFound) {
@@ -159,7 +157,7 @@ func TestBoltDelete(t *testing.T) {
 	}
 
 	data := []byte("mock data")
-	id := uuid.Must(uuid.NewV4())
+	id := []byte("mock id")
 
 	for dt := DataType(0); dt < DataTypeEnd; dt++ {
 		err := bolt.Put(id, dt, append(data, dt.Bytes()...))
@@ -189,7 +187,7 @@ func TestBoltDeleteNotFound(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	id := uuid.Must(uuid.NewV4())
+	id := []byte("mock id")
 
 	err = bolt.Delete(id, DataTypeSealedObject)
 	if err != nil {

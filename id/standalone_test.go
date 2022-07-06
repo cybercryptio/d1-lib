@@ -43,13 +43,13 @@ func newTestStandalone(t *testing.T) *Standalone {
 }
 
 func manipulateUser(t *testing.T, uid uuid.UUID, standalone *Standalone) {
-	userBytes, err := standalone.ioProvider.Get(uid, DataTypeSealedUser)
+	userBytes, err := standalone.ioProvider.Get(uid.Bytes(), DataTypeSealedUser)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	copy(userBytes[:5], make([]byte, 5))
-	if err := standalone.ioProvider.Update(uid, DataTypeSealedUser, userBytes); err != nil {
+	if err := standalone.ioProvider.Update(uid.Bytes(), DataTypeSealedUser, userBytes); err != nil {
 		t.Fatal(err)
 	}
 }

@@ -18,7 +18,6 @@ package io
 import (
 	"time"
 
-	"github.com/gofrs/uuid"
 	bolt "go.etcd.io/bbolt"
 )
 
@@ -52,8 +51,8 @@ func NewBolt(path string) (Bolt, error) {
 	return Bolt{store, objectBucket}, nil
 }
 
-func (b *Bolt) Put(id uuid.UUID, dataType DataType, data []byte) error {
-	key := append(id.Bytes(), dataType.Bytes()...)
+func (b *Bolt) Put(id []byte, dataType DataType, data []byte) error {
+	key := append(id, dataType.Bytes()...)
 	return b.store.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket(b.objectBucket)
 		if b.Get(key) != nil {
@@ -63,8 +62,8 @@ func (b *Bolt) Put(id uuid.UUID, dataType DataType, data []byte) error {
 	})
 }
 
-func (b *Bolt) Get(id uuid.UUID, dataType DataType) ([]byte, error) {
-	key := append(id.Bytes(), dataType.Bytes()...)
+func (b *Bolt) Get(id []byte, dataType DataType) ([]byte, error) {
+	key := append(id, dataType.Bytes()...)
 	var out []byte
 	err := b.store.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket(b.objectBucket)
@@ -80,8 +79,8 @@ func (b *Bolt) Get(id uuid.UUID, dataType DataType) ([]byte, error) {
 	return out, nil
 }
 
-func (b *Bolt) Update(id uuid.UUID, dataType DataType, data []byte) error {
-	key := append(id.Bytes(), dataType.Bytes()...)
+func (b *Bolt) Update(id []byte, dataType DataType, data []byte) error {
+	key := append(id, dataType.Bytes()...)
 	return b.store.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket(b.objectBucket)
 		if b.Get(key) == nil {
@@ -91,8 +90,8 @@ func (b *Bolt) Update(id uuid.UUID, dataType DataType, data []byte) error {
 	})
 }
 
-func (b *Bolt) Delete(id uuid.UUID, dataType DataType) error {
-	key := append(id.Bytes(), dataType.Bytes()...)
+func (b *Bolt) Delete(id []byte, dataType DataType) error {
+	key := append(id, dataType.Bytes()...)
 	return b.store.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket(b.objectBucket)
 		return b.Delete(key)
