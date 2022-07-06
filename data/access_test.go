@@ -16,6 +16,7 @@
 package data
 
 import (
+	"fmt"
 	"testing"
 
 	"reflect"
@@ -25,41 +26,41 @@ import (
 	"github.com/cybercryptio/d1-lib/crypto"
 )
 
-var accessGroups = []uuid.UUID{
-	uuid.Must(uuid.FromString("10000000-0000-0000-0000-000000000000")),
-	uuid.Must(uuid.FromString("20000000-0000-0000-0000-000000000000")),
-	uuid.Must(uuid.FromString("30000000-0000-0000-0000-000000000000")),
-	uuid.Must(uuid.FromString("40000000-0000-0000-0000-000000000000")),
+var groupIDs = []string{
+	"groupID1",
+	"groupID2",
+	"groupID3",
+	"groupID4",
 }
 
 func TestAccessGetGroupIDs(t *testing.T) {
-	groupID := uuid.Must(uuid.NewV4())
+	groupID := "groupID"
 	access := NewAccess(nil)
 	access.AddGroups(groupID)
 
-	uuids := access.GetGroups()
-	if _, ok := uuids[groupID]; len(uuids) == 0 || !ok {
+	accessGroups := access.GetGroups()
+	if _, ok := accessGroups[groupID]; len(accessGroups) == 0 || !ok {
 		t.Error("Expected GetGroups to return a group ID")
 	}
 }
 
 func TestAccessGetZeroGroupIDs(t *testing.T) {
 	access := NewAccess(nil)
-	uuids := access.GetGroups()
-	if len(uuids) != 0 {
+	accessGroups := access.GetGroups()
+	if len(accessGroups) != 0 {
 		t.Error("GetGroups should have returned empty array")
 	}
 }
 
 func TestAccessContainsGroup(t *testing.T) {
 	access := NewAccess(nil)
-	access.AddGroups(accessGroups...)
+	access.AddGroups(groupIDs...)
 
-	if !access.ContainsGroups(accessGroups...) {
+	if !access.ContainsGroups(groupIDs...) {
 		t.Error("ContainsGroup returned false")
 	}
 
-	if access.ContainsGroups(uuid.Must(uuid.NewV4())) {
+	if access.ContainsGroups("non-existent group ID") {
 		t.Error("ContainsGroup returned true")
 	}
 }
@@ -68,7 +69,7 @@ func TestAccessAdd(t *testing.T) {
 	access := NewAccess(nil)
 
 	for i := 0; i < 256; i++ {
-		g := uuid.Must(uuid.NewV4())
+		g := fmt.Sprintf("groupID%d", i)
 		access.AddGroups(g)
 		if !access.ContainsGroups(g) {
 			t.Error("AddGroup failed")
@@ -78,7 +79,7 @@ func TestAccessAdd(t *testing.T) {
 
 func TestAccessAddDuplicate(t *testing.T) {
 	access := NewAccess(nil)
-	g := uuid.Must(uuid.NewV4())
+	g := "groupID"
 	access.AddGroups(g)
 	access.AddGroups(g)
 	if !access.ContainsGroups(g) {
@@ -88,9 +89,9 @@ func TestAccessAddDuplicate(t *testing.T) {
 
 func TestAccessRemoveGroup(t *testing.T) {
 	access := NewAccess(nil)
-	access.AddGroups(accessGroups...)
+	access.AddGroups(groupIDs...)
 
-	for _, g := range accessGroups {
+	for _, g := range groupIDs {
 		access.RemoveGroups(g)
 		if access.ContainsGroups(g) {
 			t.Error("RemoveGroup failed")
@@ -106,7 +107,7 @@ func TestAccessSeal(t *testing.T) {
 	}
 
 	access := NewAccess(nil)
-	access.AddGroups(accessGroups...)
+	access.AddGroups(groupIDs...)
 
 	id := uuid.Must(uuid.NewV4())
 	sealed, err := access.Seal(id, &cryptor)
@@ -134,7 +135,7 @@ func TestAccessVerifyCiphertext(t *testing.T) {
 	}
 
 	access := NewAccess(nil)
-	access.AddGroups(accessGroups...)
+	access.AddGroups(groupIDs...)
 
 	id := uuid.Must(uuid.NewV4())
 	sealed, err := access.Seal(id, &cryptor)
@@ -159,7 +160,7 @@ func TestAccessVerifyID(t *testing.T) {
 	}
 
 	access := NewAccess(nil)
-	access.AddGroups(accessGroups...)
+	access.AddGroups(groupIDs...)
 
 	id := uuid.Must(uuid.NewV4())
 	sealed, err := access.Seal(id, &cryptor)
