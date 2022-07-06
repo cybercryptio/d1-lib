@@ -20,8 +20,6 @@ import (
 
 	"reflect"
 
-	"github.com/gofrs/uuid"
-
 	"github.com/cybercryptio/d1-lib/crypto"
 )
 
@@ -33,7 +31,7 @@ func TestGroupSeal(t *testing.T) {
 	}
 
 	group := newGroup(ScopeEncrypt)
-	sealed, err := group.seal(uuid.Must(uuid.NewV4()), &cryptor)
+	sealed, err := group.seal("groupID", &cryptor)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -55,7 +53,7 @@ func TestGroupVerifyCiphertext(t *testing.T) {
 	}
 
 	group := newGroup(ScopeEncrypt)
-	sealed, err := group.seal(uuid.Must(uuid.NewV4()), &cryptor)
+	sealed, err := group.seal("groupID", &cryptor)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,7 +75,7 @@ func TestGroupVerifyID(t *testing.T) {
 	}
 
 	group := newGroup(ScopeEncrypt)
-	sealed, err := group.seal(uuid.Must(uuid.NewV4()), &cryptor)
+	sealed, err := group.seal("groupID", &cryptor)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -85,7 +83,7 @@ func TestGroupVerifyID(t *testing.T) {
 	if !sealed.verify(&cryptor) {
 		t.Fatal("Verification failed")
 	}
-	sealed.GID = uuid.Must(uuid.NewV4())
+	sealed.GID = "wrongID"
 	if sealed.verify(&cryptor) {
 		t.Fatal("Verification should have failed")
 	}
@@ -99,11 +97,11 @@ func TestGroupID(t *testing.T) {
 	}
 
 	group := newGroup(ScopeEncrypt)
-	sealed1, err := group.seal(uuid.Must(uuid.NewV4()), &cryptor)
+	sealed1, err := group.seal("groupID1", &cryptor)
 	if err != nil {
 		t.Fatal(err)
 	}
-	sealed2, err := group.seal(uuid.Must(uuid.NewV4()), &cryptor)
+	sealed2, err := group.seal("groupID2", &cryptor)
 	if err != nil {
 		t.Fatal(err)
 	}
