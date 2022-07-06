@@ -16,20 +16,19 @@
 package id
 
 import (
+	"fmt"
 	"testing"
 
 	"reflect"
 
-	"github.com/gofrs/uuid"
-
 	"github.com/cybercryptio/d1-lib/crypto"
 )
 
-var userGroups = []uuid.UUID{
-	uuid.Must(uuid.FromString("10000000-0000-0000-0000-000000000000")),
-	uuid.Must(uuid.FromString("20000000-0000-0000-0000-000000000000")),
-	uuid.Must(uuid.FromString("30000000-0000-0000-0000-000000000000")),
-	uuid.Must(uuid.FromString("40000000-0000-0000-0000-000000000000")),
+var groupIDs = []string{
+	"groupID1",
+	"groupID2",
+	"groupID3",
+	"groupID4",
 }
 
 func TestGetGroupIDs(t *testing.T) {
@@ -37,11 +36,11 @@ func TestGetGroupIDs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	groupID := uuid.Must(uuid.NewV4())
+	groupID := "groupID"
 	user.addGroups(groupID)
 
-	uuids := user.getGroups()
-	if _, ok := uuids[groupID]; len(uuids) == 0 || !ok {
+	userGroups := user.getGroups()
+	if _, ok := userGroups[groupID]; len(userGroups) == 0 || !ok {
 		t.Error("Expected GetGroups to return a group ID")
 	}
 }
@@ -52,8 +51,8 @@ func TestGetZeroGroupIDs(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	uuids := user.getGroups()
-	if len(uuids) != 0 {
+	userGroups := user.getGroups()
+	if len(userGroups) != 0 {
 		t.Error("GetGroups should have returned empty array")
 	}
 }
@@ -63,13 +62,13 @@ func TestUserContainsGroup(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	user.addGroups(userGroups...)
+	user.addGroups(groupIDs...)
 
-	if !user.containsGroups(userGroups...) {
+	if !user.containsGroups(groupIDs...) {
 		t.Error("ContainsGroup returned false")
 	}
 
-	if user.containsGroups(uuid.Must(uuid.NewV4())) {
+	if user.containsGroups("non-existent user ID") {
 		t.Error("ContainsGroup returned true")
 	}
 }
@@ -81,7 +80,7 @@ func TestUserAdd(t *testing.T) {
 	}
 
 	for i := 0; i < 256; i++ {
-		g := uuid.Must(uuid.NewV4())
+		g := fmt.Sprintf("groupID%d", i)
 		user.addGroups(g)
 		if !user.containsGroups(g) {
 			t.Error("AddGroup failed")
@@ -94,7 +93,7 @@ func TestUserAddDuplicate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	g := uuid.Must(uuid.NewV4())
+	g := "groupID"
 	user.addGroups(g)
 	user.addGroups(g)
 	if !user.containsGroups(g) {
@@ -107,9 +106,9 @@ func TestUserRemoveGroup(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	user.addGroups(userGroups...)
+	user.addGroups(groupIDs...)
 
-	for _, g := range userGroups {
+	for _, g := range groupIDs {
 		user.removeGroups(g)
 		if user.containsGroups(g) {
 			t.Error("RemoveGroup failed")
@@ -128,9 +127,9 @@ func TestUserSeal(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	user.addGroups(userGroups...)
+	user.addGroups(groupIDs...)
 
-	id := uuid.Must(uuid.NewV4())
+	id := "userID"
 	sealed, err := user.seal(id, &cryptor)
 	if err != nil {
 		t.Fatal(err)
@@ -159,9 +158,9 @@ func TestUserVerifyCiphertext(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	user.addGroups(userGroups...)
+	user.addGroups(groupIDs...)
 
-	id := uuid.Must(uuid.NewV4())
+	id := "userID"
 	sealed, err := user.seal(id, &cryptor)
 	if err != nil {
 		t.Fatal(err)
@@ -187,9 +186,9 @@ func TestUserVerifyID(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	user.addGroups(userGroups...)
+	user.addGroups(groupIDs...)
 
-	id := uuid.Must(uuid.NewV4())
+	id := "userID"
 	sealed, err := user.seal(id, &cryptor)
 	if err != nil {
 		t.Fatal(err)
@@ -198,7 +197,7 @@ func TestUserVerifyID(t *testing.T) {
 	if !sealed.verify(&cryptor) {
 		t.Fatal("Verification failed")
 	}
-	sealed.UID = uuid.Must(uuid.NewV4())
+	sealed.UID = "wrongID"
 	if sealed.verify(&cryptor) {
 		t.Fatal("Verification should have failed")
 	}
