@@ -15,24 +15,24 @@
 
 package id
 
-import (
-	"github.com/gofrs/uuid"
-)
-
+// AccessGroup represents a group of Identities. The Provider implementations should ensure that the
+// ID string is unique across all instances.
 type AccessGroup struct {
-	ID     uuid.UUID
+	ID     string
 	Scopes Scope
 }
 
+// Identity represents data about the caller of the library. The Provider implementations should
+// ensure that the ID string is unique across all instances.
 type Identity struct {
-	ID     uuid.UUID
+	ID     string
 	Scopes Scope
-	Groups map[uuid.UUID]AccessGroup
+	Groups map[string]AccessGroup
 }
 
 // GetIDs returns all IDs related to the identity, i.e. the identity ID and all its group IDs.
-func (i *Identity) GetIDs() map[uuid.UUID]struct{} {
-	ids := make(map[uuid.UUID]struct{}, len(i.Groups)+1)
+func (i *Identity) GetIDs() map[string]struct{} {
+	ids := make(map[string]struct{}, len(i.Groups)+1)
 	ids[i.ID] = struct{}{}
 	for gid := range i.Groups {
 		ids[gid] = struct{}{}
@@ -41,7 +41,7 @@ func (i *Identity) GetIDs() map[uuid.UUID]struct{} {
 }
 
 // GetIDScope returns the scopes associated with a given ID (identity or group ID).
-func (i *Identity) GetIDScope(id uuid.UUID) Scope {
+func (i *Identity) GetIDScope(id string) Scope {
 	if id == i.ID {
 		return i.Scopes
 	}
