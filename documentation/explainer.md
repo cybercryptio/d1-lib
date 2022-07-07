@@ -25,9 +25,11 @@ The **Identity Provider** is the source of identifying information about the cal
 ### Identity
 
 An **Identity** is an object that contains data about the caller of the library. This data includes:
-- a Universally Unique Identifier (UUID) as defined in the [RFC-4122](https://datatracker.ietf.org/doc/html/rfc4122) standard;
+- a string that uniquely identifies each instance;
 - the [**Scopes**](#scope) of the caller;
 - the **Groups** that the caller belongs to.
+
+The **Identity Provider** implementation must decide the format of the identifying strings for **Identities** and **Groups**, as well as ensure their uniqueness across instances.
 
 ### Scope
 
@@ -47,7 +49,7 @@ The [**Standalone Identity Provider**](https://pkg.go.dev/github.com/cybercrypti
 
 #### User
 
-A **User** is a data structure used by the **Standalone Identity Provider** to store data about the callers of the library. A **User** authenticates to the **Standalone Identity Provider** with a Universally Unique Identifier (UUID) and a password provided upon user creation. A **User** structure contains the salt and hash of the **User's** password, its **Scopes** and a set of **Groups** that the **User** is a member of.
+A **User** is a data structure used by the **Standalone Identity Provider** to store data about the callers of the library. **Users** are uniquely identified using a Universally Unique Identifier (UUID) as defined in the [RFC-4122](https://datatracker.ietf.org/doc/html/rfc4122) standard, and they authenticate to the **Standalone Identity Provider** with their UUID string and a password provided upon user creation. A **User** structure contains the salt and hash of the **User's** password, its **Scopes** and a set of **Groups** that the **User** is a member of.
 
 #### Group
 
