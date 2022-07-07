@@ -157,7 +157,7 @@ func (s *Standalone) LoginUser(uid, password string) (string, int64, error) {
 
 // ChangeUserPassword authenticates the provided user with the given password and generates a new
 // password for the user.
-func (s *Standalone) ChangeUserPassword(uid string, oldPassword string) (string, error) {
+func (s *Standalone) ChangeUserPassword(uid, oldPassword string) (string, error) {
 	user, err := s.getUser(uid)
 	if err != nil {
 		return "", err
