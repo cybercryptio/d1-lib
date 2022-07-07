@@ -16,8 +16,6 @@
 package id
 
 import (
-	"github.com/gofrs/uuid"
-
 	"github.com/cybercryptio/d1-lib/crypto"
 )
 
@@ -29,8 +27,8 @@ type Group struct {
 
 // SealedGroup is an encrypted structure which contains data about a user group.
 type SealedGroup struct {
-	// The unique ID of the group.
-	GID uuid.UUID
+	// The group identifier.
+	GID string
 
 	Ciphertext []byte
 	WrappedKey []byte
@@ -42,8 +40,8 @@ func newGroup(scopes ...Scope) Group {
 }
 
 // seal encrypts the group.
-func (g *Group) seal(gid uuid.UUID, cryptor crypto.CryptorInterface) (SealedGroup, error) {
-	wrappedKey, ciphertext, err := cryptor.Encrypt(g, gid.Bytes())
+func (g *Group) seal(gid string, cryptor crypto.CryptorInterface) (SealedGroup, error) {
+	wrappedKey, ciphertext, err := cryptor.Encrypt(g, gid)
 	if err != nil {
 		return SealedGroup{}, err
 	}
@@ -54,7 +52,7 @@ func (g *Group) seal(gid uuid.UUID, cryptor crypto.CryptorInterface) (SealedGrou
 // unseal decrypts the sealed group.
 func (g *SealedGroup) unseal(cryptor crypto.CryptorInterface) (Group, error) {
 	plainGroup := Group{}
-	if err := cryptor.Decrypt(&plainGroup, g.GID.Bytes(), g.WrappedKey, g.Ciphertext); err != nil {
+	if err := cryptor.Decrypt(&plainGroup, g.GID, g.WrappedKey, g.Ciphertext); err != nil {
 		return Group{}, err
 	}
 	return plainGroup, nil

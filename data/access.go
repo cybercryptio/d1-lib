@@ -24,8 +24,9 @@ import (
 // Access is used to manage access to encrypted objects. Note: All member fields need to be exported
 // in order for gob to serialize them.
 type Access struct {
-	// The set of groups that have access to the associated object.
-	Groups map[uuid.UUID]struct{}
+	// The set of groups that have access to the associated object. The format of the key strings
+	// depends on how the ID Provider implements group identifiers.
+	Groups map[string]struct{}
 
 	// The wrapped encryption key for the associated object.
 	WrappedOEK []byte
@@ -43,7 +44,7 @@ type SealedAccess struct {
 // NewAccess creates a new access object which contains the provided wrapped key and no groups.
 func NewAccess(wrappedOEK []byte) Access {
 	return Access{
-		Groups:     map[uuid.UUID]struct{}{},
+		Groups:     map[string]struct{}{},
 		WrappedOEK: wrappedOEK,
 	}
 }
@@ -65,14 +66,14 @@ func (a *Access) Seal(oid uuid.UUID, cryptor crypto.CryptorInterface) (SealedAcc
 }
 
 // AddGroups appends the provided group IDs to the access object.
-func (a *Access) AddGroups(ids ...uuid.UUID) {
+func (a *Access) AddGroups(ids ...string) {
 	for _, id := range ids {
 		a.Groups[id] = struct{}{}
 	}
 }
 
 // RemoveGroups removes the provided group IDs from the access object.
-func (a *Access) RemoveGroups(ids ...uuid.UUID) {
+func (a *Access) RemoveGroups(ids ...string) {
 	for _, id := range ids {
 		delete(a.Groups, id)
 	}
@@ -80,7 +81,7 @@ func (a *Access) RemoveGroups(ids ...uuid.UUID) {
 
 // ContainsGroups returns true if all provided group IDs are contained in the access object, and
 // false otherwise.
-func (a *Access) ContainsGroups(ids ...uuid.UUID) bool {
+func (a *Access) ContainsGroups(ids ...string) bool {
 	for _, id := range ids {
 		if _, exists := a.Groups[id]; !exists {
 			return false
@@ -90,7 +91,7 @@ func (a *Access) ContainsGroups(ids ...uuid.UUID) bool {
 }
 
 // GetGroups returns the set of group IDs contained in the access object.
-func (a *Access) GetGroups() map[uuid.UUID]struct{} {
+func (a *Access) GetGroups() map[string]struct{} {
 	return a.Groups
 }
 

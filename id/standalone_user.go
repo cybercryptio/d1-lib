@@ -18,8 +18,6 @@ package id
 import (
 	"errors"
 
-	"github.com/gofrs/uuid"
-
 	"github.com/cybercryptio/d1-lib/crypto"
 )
 
@@ -35,13 +33,13 @@ type User struct {
 	Scopes Scope
 
 	// A list of groups the user is a member of.
-	Groups map[uuid.UUID]struct{}
+	Groups map[string]struct{}
 }
 
 // SealedUser is an encrypted structure which contains data about a user.
 type SealedUser struct {
-	// The unique ID of the user.
-	UID uuid.UUID
+	// The user identifier.
+	UID string
 
 	Ciphertext []byte
 	WrappedKey []byte
@@ -59,7 +57,7 @@ func newUser(scopes ...Scope) (User, string, error) {
 	user := User{
 		SaltAndHash: saltAndHash,
 		Scopes:      ScopeUnion(scopes...),
-		Groups:      make(map[uuid.UUID]struct{}),
+		Groups:      make(map[string]struct{}),
 	}
 
 	return user, pwd, nil
@@ -91,8 +89,8 @@ func (u *User) changePassword(oldPassword string) (string, error) {
 }
 
 // seal encrypts the user.
-func (u *User) seal(uid uuid.UUID, cryptor crypto.CryptorInterface) (SealedUser, error) {
-	wrappedKey, ciphertext, err := cryptor.Encrypt(u, uid.Bytes())
+func (u *User) seal(uid string, cryptor crypto.CryptorInterface) (SealedUser, error) {
+	wrappedKey, ciphertext, err := cryptor.Encrypt(u, uid)
 	if err != nil {
 		return SealedUser{}, err
 	}
@@ -100,14 +98,14 @@ func (u *User) seal(uid uuid.UUID, cryptor crypto.CryptorInterface) (SealedUser,
 }
 
 // addGroups appends the provided group IDs to the user's group list.
-func (u *User) addGroups(gids ...uuid.UUID) {
+func (u *User) addGroups(gids ...string) {
 	for _, gid := range gids {
 		u.Groups[gid] = struct{}{}
 	}
 }
 
 // removeGroups removes the provided group IDs from the user's group list.
-func (u *User) removeGroups(gids ...uuid.UUID) {
+func (u *User) removeGroups(gids ...string) {
 	for _, gid := range gids {
 		delete(u.Groups, gid)
 	}
@@ -115,7 +113,7 @@ func (u *User) removeGroups(gids ...uuid.UUID) {
 
 // containsGroups returns true if all provided group IDs are contained in the user's group list, and
 // false otherwise.
-func (u *User) containsGroups(gids ...uuid.UUID) bool {
+func (u *User) containsGroups(gids ...string) bool {
 	for _, gid := range gids {
 		if _, exists := u.Groups[gid]; !exists {
 			return false
@@ -125,14 +123,14 @@ func (u *User) containsGroups(gids ...uuid.UUID) bool {
 }
 
 // getGroups returns the set of group IDs contained in the user's group list.
-func (u *User) getGroups() map[uuid.UUID]struct{} {
+func (u *User) getGroups() map[string]struct{} {
 	return u.Groups
 }
 
 // unseal decrypts the sealed user.
 func (u *SealedUser) unseal(cryptor crypto.CryptorInterface) (User, error) {
 	plainUser := User{}
-	if err := cryptor.Decrypt(&plainUser, u.UID.Bytes(), u.WrappedKey, u.Ciphertext); err != nil {
+	if err := cryptor.Decrypt(&plainUser, u.UID, u.WrappedKey, u.Ciphertext); err != nil {
 		return User{}, err
 	}
 	return plainUser, nil

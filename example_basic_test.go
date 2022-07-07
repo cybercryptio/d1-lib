@@ -24,7 +24,6 @@ import (
 	"github.com/cybercryptio/d1-lib/id"
 	"github.com/cybercryptio/d1-lib/io"
 	"github.com/cybercryptio/d1-lib/key"
-	"github.com/gofrs/uuid"
 )
 
 // These are insecure keys used only for demonstration purposes.
@@ -47,7 +46,7 @@ var idProvider, _ = id.NewStandalone(
 	&ioProvider,
 )
 
-func NewUser() (uuid.UUID, uuid.UUID, string) {
+func NewUser() (string, string, string) {
 	uid, password, err := (&idProvider).NewUser(id.ScopeAll)
 	if err != nil {
 		log.Fatalf("Error creating user: %v", err)

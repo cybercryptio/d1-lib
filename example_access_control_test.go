@@ -19,9 +19,10 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/gofrs/uuid"
+
 	d1lib "github.com/cybercryptio/d1-lib"
 	"github.com/cybercryptio/d1-lib/data"
-	"github.com/gofrs/uuid"
 )
 
 // The UserData struct models the data of a user. It contains both private data that should be kept confidential and public data that can be shared
@@ -37,8 +38,8 @@ type PrivateUserData struct {
 }
 
 type PublicUserData struct {
-	uid uuid.UUID
-	gid uuid.UUID
+	uid string
+	gid string
 	oid uuid.UUID
 }
 

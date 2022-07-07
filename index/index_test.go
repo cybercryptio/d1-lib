@@ -19,8 +19,6 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/gofrs/uuid"
-
 	"github.com/cybercryptio/d1-lib/id"
 	"github.com/cybercryptio/d1-lib/io"
 	"github.com/cybercryptio/d1-lib/key"
@@ -53,7 +51,7 @@ func newTestSecureIndex(t *testing.T) SecureIndex {
 	return secureIndex
 }
 
-func newTestUser(t *testing.T, secureIndex *SecureIndex, scopes ...id.Scope) (uuid.UUID, string) {
+func newTestUser(t *testing.T, secureIndex *SecureIndex, scopes ...id.Scope) (string, string) {
 	idProvider := secureIndex.idProvider.(*id.Standalone)
 
 	id, password, err := idProvider.NewUser(scopes...)

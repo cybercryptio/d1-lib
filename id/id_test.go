@@ -17,18 +17,16 @@ package id
 
 import (
 	"testing"
-
-	"github.com/gofrs/uuid"
 )
 
 func TestGetIDs(t *testing.T) {
-	iid := uuid.Must(uuid.NewV4())
-	gids := []uuid.UUID{uuid.Must(uuid.NewV4()), uuid.Must(uuid.NewV4()), uuid.Must(uuid.NewV4())}
+	iid := "iid"
+	gids := []string{"gid1", "gid2", "gid3"}
 
 	identity := &Identity{
 		ID:     iid,
 		Scopes: ScopeNone,
-		Groups: map[uuid.UUID]AccessGroup{
+		Groups: map[string]AccessGroup{
 			gids[0]: {gids[0], ScopeNone},
 			gids[1]: {gids[1], ScopeNone},
 			gids[2]: {gids[2], ScopeNone},
@@ -50,13 +48,13 @@ func TestGetIDs(t *testing.T) {
 }
 
 func TestIDScope(t *testing.T) {
-	iid := uuid.Must(uuid.NewV4())
-	gid := uuid.Must(uuid.NewV4())
+	iid := "iid"
+	gid := "gid"
 
 	identity := &Identity{
 		ID:     iid,
 		Scopes: ScopeEncrypt,
-		Groups: map[uuid.UUID]AccessGroup{
+		Groups: map[string]AccessGroup{
 			gid: {gid, ScopeDecrypt},
 		},
 	}
@@ -67,7 +65,7 @@ func TestIDScope(t *testing.T) {
 	if scope := identity.GetIDScope(gid); scope != ScopeDecrypt {
 		t.Fatalf("Expected scope %b but got %b", ScopeDecrypt, scope)
 	}
-	if scope := identity.GetIDScope(uuid.Must(uuid.NewV4())); scope != ScopeNone {
+	if scope := identity.GetIDScope("non-existent ID"); scope != ScopeNone {
 		t.Fatalf("Expected scope %b but got %b", ScopeNone, scope)
 	}
 }

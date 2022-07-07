@@ -307,7 +307,7 @@ func (d *D1) GetTokenContents(token *data.SealedToken) ([]byte, error) {
 //
 // Required scopes:
 // - GetAccessGroups
-func (d *D1) GetAccessGroups(token string, oid uuid.UUID) (map[uuid.UUID]struct{}, error) {
+func (d *D1) GetAccessGroups(token string, oid uuid.UUID) (map[string]struct{}, error) {
 	identity, err := d.idProvider.GetIdentity(token)
 	if err != nil {
 		return nil, ErrNotAuthenticated
@@ -336,7 +336,7 @@ func (d *D1) GetAccessGroups(token string, oid uuid.UUID) (map[uuid.UUID]struct{
 //
 // Required scopes:
 // - ModifyAccessGroups
-func (d *D1) AddGroupsToAccess(token string, oid uuid.UUID, groups ...uuid.UUID) error {
+func (d *D1) AddGroupsToAccess(token string, oid uuid.UUID, groups ...string) error {
 	identity, err := d.idProvider.GetIdentity(token)
 	if err != nil {
 		return ErrNotAuthenticated
@@ -371,7 +371,7 @@ func (d *D1) AddGroupsToAccess(token string, oid uuid.UUID, groups ...uuid.UUID)
 //
 // Required scopes:
 // - ModifyAccessGroups
-func (d *D1) RemoveGroupsFromAccess(token string, oid uuid.UUID, groups ...uuid.UUID) error {
+func (d *D1) RemoveGroupsFromAccess(token string, oid uuid.UUID, groups ...string) error {
 	identity, err := d.idProvider.GetIdentity(token)
 	if err != nil {
 		return ErrNotAuthenticated

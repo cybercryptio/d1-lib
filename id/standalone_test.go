@@ -20,8 +20,6 @@ import (
 
 	"reflect"
 
-	"github.com/gofrs/uuid"
-
 	"github.com/cybercryptio/d1-lib/io"
 )
 
@@ -42,14 +40,14 @@ func newTestStandalone(t *testing.T) *Standalone {
 	return &standalone
 }
 
-func manipulateUser(t *testing.T, uid uuid.UUID, standalone *Standalone) {
-	userBytes, err := standalone.ioProvider.Get(uid.Bytes(), DataTypeSealedUser)
+func manipulateUser(t *testing.T, uid string, standalone *Standalone) {
+	userBytes, err := standalone.ioProvider.Get([]byte(uid), DataTypeSealedUser)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	copy(userBytes[:5], make([]byte, 5))
-	if err := standalone.ioProvider.Update(uid.Bytes(), DataTypeSealedUser, userBytes); err != nil {
+	if err := standalone.ioProvider.Update([]byte(uid), DataTypeSealedUser, userBytes); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -473,7 +471,7 @@ func TestNewGroupInvalidUser(t *testing.T) {
 	if err == nil {
 		t.Fatal("Invalid user able to create a new group")
 	}
-	if gid != uuid.Nil {
+	if gid != "" {
 		t.Fatal("NewGroup failed, but returned group ID anyway")
 	}
 }
