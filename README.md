@@ -41,16 +41,16 @@ import github.com/cybercryptio/d1-lib
 
 ## Usage
 
-For examples on how to use the D1 library [see our Examples section in the documentation](TODO).
-
-## Security
-
-For more details about the security guarantees offered by the D1 library [see our Security Architecture Documentation](TODO).
+For examples on how to use the D1 library [see the Examples section in the godocs](https://pkg.go.dev/github.com/cybercryptio/d1-lib#example-package-BasicEncryptDecrypt).
 
 ## High level overview
 
 For a high level overview of the main concepts and use cases of the D1 library [see our Explainer Document](documentation/explainer.md).
 
-# License
+## API Reference
+
+The API reference is published available on the Go Packages website at [https://pkg.go.dev/github.com/cybercryptio/d1-lib](https://pkg.go.dev/github.com/cybercryptio/d1-lib)
+
+## License
 
 The software in the CYBERCRYPT D1-Lib repository is dual-licensed under AGPL and a commercial license. If you wish to use the library under a commercial license please visit [cybercrypt.io](https://cybercrypt.io/) for details on how to obtain a commercial license.
