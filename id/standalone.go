@@ -131,7 +131,7 @@ func (s *Standalone) NewUser(scopes ...Scope) (string, string, error) {
 
 // LoginUser checks whether the password provided matches the user. If authentication is successful
 // a token is generated and returned alongside its expiry time in Unix time.
-func (s *Standalone) LoginUser(uid string, password string) (string, int64, error) {
+func (s *Standalone) LoginUser(uid, password string) (string, int64, error) {
 	user, err := s.getUser(uid)
 	if err != nil {
 		return "", 0, ErrNotAuthenticated
