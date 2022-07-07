@@ -176,7 +176,7 @@ func (s *Standalone) ChangeUserPassword(uid, oldPassword string) (string, error)
 
 // AddUserToGroups adds the user to the provided groups. The authorizing user must be a member of
 // all the groups.
-func (s *Standalone) AddUserToGroups(token string, uid string, gids ...string) error {
+func (s *Standalone) AddUserToGroups(token, uid string, gids ...string) error {
 	// Authenticate calling user
 	identity, err := s.GetIdentity(token)
 	if err != nil {
