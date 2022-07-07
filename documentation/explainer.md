@@ -12,7 +12,7 @@ This document defines the main concepts and use cases for the D1 library.
 
 ### Key Provider
 
-The **Key Provider** is the source of cryptographic key material for the library. Implementations of its [interface](https://pkg.go.dev/github.com/cybercryptio/d1-lib/key#Provider) must be able to provide four 256-bit keys: Key Encryption Key (KEK), Access Encryption Key (AEK), Token Encryption Key (TEK), Index Encryption Key (IEK). For more information about keys and their uses [see our Security Architecture Documentation](TODO).
+The **Key Provider** is the source of cryptographic key material for the library. Implementations of its [interface](https://pkg.go.dev/github.com/cybercryptio/d1-lib/key#Provider) must be able to provide four 256-bit keys: Key Encryption Key (KEK), Access Encryption Key (AEK), Token Encryption Key (TEK), Index Encryption Key (IEK).
 
 ### IO Provider
 
