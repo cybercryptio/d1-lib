@@ -236,7 +236,7 @@ func (s *Standalone) RemoveUserFromGroups(token, uid string, gids ...string) err
 }
 
 // DeleteUser deletes the user from the IO Provider.
-func (s *Standalone) DeleteUser(token string, uid string) error {
+func (s *Standalone) DeleteUser(token, uid string) error {
 	// Authenticate calling user
 	if _, err := s.GetIdentity(token); err != nil {
 		return err
