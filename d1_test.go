@@ -16,6 +16,7 @@
 package d1
 
 import (
+	"fmt"
 	"testing"
 
 	"errors"
@@ -57,7 +58,7 @@ func newTestD1(t *testing.T) D1 {
 	return d1
 }
 
-func newTestUser(t *testing.T, d1 *D1, scopes ...id.Scope) (uuid.UUID, string) {
+func newTestUser(t *testing.T, d1 *D1, scopes ...id.Scope) (string, string) {
 	idProvider := d1.idProvider.(*id.Standalone)
 
 	id, password, err := idProvider.NewUser(scopes...)
@@ -73,7 +74,7 @@ func newTestUser(t *testing.T, d1 *D1, scopes ...id.Scope) (uuid.UUID, string) {
 	return id, token
 }
 
-func newTestGroup(t *testing.T, d1 *D1, token string, scope id.Scope, uids ...uuid.UUID) uuid.UUID {
+func newTestGroup(t *testing.T, d1 *D1, token string, scope id.Scope, uids ...string) string {
 	idProvider := d1.idProvider.(*id.Standalone)
 
 	gid, err := idProvider.NewGroup(token, scope)
@@ -682,9 +683,9 @@ func TestGetAccessGroups(t *testing.T) {
 	uid, token := newTestUser(t, &enc, id.ScopeEncrypt, id.ScopeModifyAccessGroups, id.ScopeGetAccessGroups)
 
 	numIDs := 5
-	ids := make([]uuid.UUID, 0, numIDs)
+	ids := make([]string, 0, numIDs)
 	for i := 0; i < numIDs; i++ {
-		ids = append(ids, uuid.Must(uuid.NewV4()))
+		ids = append(ids, fmt.Sprintf("GroupID%d", i))
 	}
 
 	plainObject := data.Object{
@@ -849,7 +850,7 @@ func TestAddRemoveGroupsFromAccess(t *testing.T) {
 
 func TestAddGroupsToAccessUnauthenticated(t *testing.T) {
 	enc := newTestD1(t)
-	err := enc.AddGroupsToAccess("bad token", uuid.Must(uuid.NewV4()), uuid.Must(uuid.NewV4()))
+	err := enc.AddGroupsToAccess("bad token", uuid.Must(uuid.NewV4()), "groupID")
 	if !errors.Is(err, ErrNotAuthenticated) {
 		t.Fatalf("Expected error '%s' but got '%s'", ErrNotAuthenticated, err)
 	}
@@ -857,7 +858,7 @@ func TestAddGroupsToAccessUnauthenticated(t *testing.T) {
 
 func TestRemoveGroupsFromAccessUnauthenticated(t *testing.T) {
 	enc := newTestD1(t)
-	err := enc.RemoveGroupsFromAccess("bad token", uuid.Must(uuid.NewV4()), uuid.Must(uuid.NewV4()))
+	err := enc.RemoveGroupsFromAccess("bad token", uuid.Must(uuid.NewV4()), "groupID")
 	if !errors.Is(err, ErrNotAuthenticated) {
 		t.Fatalf("Expected error '%s' but got '%s'", ErrNotAuthenticated, err)
 	}
@@ -868,7 +869,7 @@ func TestAddGroupsToAccessWrongAPIScope(t *testing.T) {
 	enc := newTestD1(t)
 	scope := id.ScopeAll ^ id.ScopeModifyAccessGroups // All scopes except ModifyAccessGroups
 	_, token := newTestUser(t, &enc, scope)
-	err := enc.AddGroupsToAccess(token, uuid.Must(uuid.NewV4()), uuid.Must(uuid.NewV4()))
+	err := enc.AddGroupsToAccess(token, uuid.Must(uuid.NewV4()), "groupID")
 	if !errors.Is(err, ErrNotAuthorized) {
 		t.Fatalf("Expected error '%s' but got '%s'", ErrNotAuthorized, err)
 	}
@@ -879,7 +880,7 @@ func TestRemoveGroupsToAccessWrongAPIScope(t *testing.T) {
 	enc := newTestD1(t)
 	scope := id.ScopeAll ^ id.ScopeModifyAccessGroups // All scopes except ModifyAccessGroups
 	_, token := newTestUser(t, &enc, scope)
-	err := enc.RemoveGroupsFromAccess(token, uuid.Must(uuid.NewV4()), uuid.Must(uuid.NewV4()))
+	err := enc.RemoveGroupsFromAccess(token, uuid.Must(uuid.NewV4()), "groupID")
 	if !errors.Is(err, ErrNotAuthorized) {
 		t.Fatalf("Expected error '%s' but got '%s'", ErrNotAuthorized, err)
 	}
@@ -904,7 +905,7 @@ func TestAddGroupsToAccessWrongGroupScope(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = enc.AddGroupsToAccess(token2, oid, uuid.Must(uuid.NewV4()))
+	err = enc.AddGroupsToAccess(token2, oid, "groupID")
 	if !errors.Is(err, ErrNotAuthorized) {
 		t.Fatalf("Expected error '%s' but got '%s'", ErrNotAuthorized, err)
 	}
@@ -929,7 +930,7 @@ func TestRemoveGroupsFromAccessWrongGroupScope(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = enc.RemoveGroupsFromAccess(token2, oid, uuid.Must(uuid.NewV4()))
+	err = enc.RemoveGroupsFromAccess(token2, oid, "groupID")
 	if !errors.Is(err, ErrNotAuthorized) {
 		t.Fatalf("Expected error '%s' but got '%s'", ErrNotAuthorized, err)
 	}
@@ -1101,7 +1102,7 @@ func TestSharingObjectPart4(t *testing.T) {
 	numUsers := 5
 
 	enc := newTestD1(t)
-	uids := make([]uuid.UUID, 0, numUsers)
+	uids := make([]string, 0, numUsers)
 	tokens := make([]string, 0, numUsers)
 
 	for i := 0; i < numUsers; i++ {
