@@ -96,7 +96,7 @@ Out:    ["id2", "id3"]
 
 In this section, some more technical details about the implementation are given.
 
-Given a keyword and an identifer for an `Add` query, a label is computed based on the keyword as well as on a *counter* (explained below), and an Identifier struct representing the identifier is created. The label is then mapped to the Identifier as shown below, and the "label -> Identifier" correlation is stored in the secure index. The Identifier is sealed before it is stored in order to avoid having plaintext keywords or identifiers outside of the D1 Library. Note that the keyword is used to seal the Identifier which means that the sealed Identifier can only be unsealed if the keyword is known.
+Given a keyword and an identifer for an `Add` query, a label is computed based on a secret key, the keyword, and a *counter* (explained below), and an Identifier struct representing the identifier is created. The label is then mapped to the Identifier as shown below, and the "label -> Identifier" correlation is stored in the secure index. The Identifier is sealed before it is stored in order to avoid having plaintext keywords or identifiers outside of the D1 Library. Note that the keyword is used to seal the Identifier which means that the sealed Identifier can only be unsealed if the keyword is known.
 
 In storage:
 ```go
