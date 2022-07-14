@@ -115,7 +115,7 @@ The D1 library implements a secure index which can be used to create Searchable 
 
 A secure index is an encrypted map on which 3 operations can be queried, `Add`, `Search`, and `Delete`.
 
-(Usually, the elements in a hash map are called keys and values. In this context the keys are referred to as *labels* in order to not mix them up with encryption keys.) 
+> Usually, the elements in a hash map are called keys and values. In this context the keys are referred to as *labels* in order to not mix them up with encryption keys.
 
 * `Add` takes as input a keyword and an identifier (e.g. a document ID), computes an encrypted label -> value pair, and stores it in a secure index. The label -> value pair maps the given keyword to the given identifier.
 * `Search` takes as input a keyword, computes the corresponding encrypted labels, finds the encrypted values in the secure index that the labels map to, decrypts them, and returns the plaintext identifiers to the user.
