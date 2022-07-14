@@ -107,6 +107,56 @@ The D1 library can be used to implement various access control schemes for prote
 
 ## Searchable encrypted data
 
-The D1 library implements Searchable Symmetric Encryption which allows users to search for keywords in encrypted data without decrypting it. The contents of the Data Objects and the number of keywords are hidden from the searching party.
+The D1 library implements a secure index which can be used to create Searchable Symmetric Encryption which allows users to search for keywords in encrypted data without decrypting it. 
 
 ![sse.svg](images/sse.svg)
+
+### Secure index
+
+A secure index is an encrypted map on which 3 operations can be queried, `Add`, `Search`, and `Delete`.
+
+(Usually, the elements in a hash map are called keys and values. In this context the keys are referred to as *labels* in order to not mix them up with encryption keys.) 
+
+* `Add` takes as input a keyword and an identifier (e.g. a document ID), computes an encrypted label -> value pair, and stores it in a secure index. The label -> value pair maps the given keyword to the given identifier.
+* `Search` takes as input a keyword, computes the corresponding encrypted labels, finds the encrypted values in the secure index that the labels map to, decrypts them, and returns the plaintext identifiers to the user.
+* `Delete` takes as input a keyword and an identifier, computes the encrypted label -> value pair, and deletes that pair from the secure index.
+
+The security properties that the implementation brings are:
+* The total number of keyword/identifier pairs is hidden from the caller (but not from the IO Provider).
+* The total number of identifiers is hidden from both the caller and the IO Provider.
+* The D1 Library does not leak unencrypted keywords or identifiers to any other parties than the caller.
+* The IO Provider cannot learn anything from the queries about which identifiers contain which keywords as everything (keywords and identifiers) is encrypted in the IO Provider.
+
+### Usage
+Consider a scenario with 3 different documents identified as `id1`, `id2`, `id3`, respectively. The documents contain, among other words, the following keywords, and the keyword/identifier pairs can be added to the secure index.
+
+* `id1` contains the keyword `keyword1`. 
+* `id1` and `id2` both contain the keyword `keyword2`.
+* `id2` contains the keyword `keyword3`.
+* `id1`, `id2`, and `id3` all contain the keyword `keyword4`.
+
+Given a keyword for a `Search` query, all the identifiers that contain the given keyword can then be identified, even when the documents are encrypted. Given e.g. `keyword4` for a `Search` query, the output will be `["id1", "id2", "id3"]`. If keyword `keyword4` and identifier `id1` are then given to a `Delete` query, then the output from the `Search` query on input `keyword4` will now be `["id2", "id3"]`.
+
+### Implementation
+
+In this section, some more technical details about the implementation are given.
+
+Given a keyword and an identifer for an `Add` query, a label is computed based on a secret key, the keyword, and a *counter* (explained below), and an Identifier struct representing the identifier is created. The label is then mapped to the Identifier as shown below, and the "label -> Identifier" correlation is stored in the secure index. The Identifier is encrypted before it is stored in order to avoid having plaintext keywords or identifiers outside of the D1 Library. Note that the keyword is used to seal the Identifier which means that the encrypted Identifier can only be decrypted if the keyword is known.
+
+In secure index:
+```go
+label(keyword, counter) -> encrypted Identifier(keyword, identifier)
+```
+
+An Identifier struct (before encryption) contains the identifier itself as well as a `NextCounter` as shown below. `NextCounter` is used to compute the next label based on the same keyword. If the keyword has only been mapped to a single identifier, then its encrypted Identifier's `NextCounter` is 0. Given a keyword for a `Search` query, all the identifiers that it maps to, i.e. all the identifiers that contain the given keyword, are then easily found by going through the chain of `NextCounter`'s and computing the corresponding label for each counter. The chain is illustrated below. It is ensured that the counter used to compute the first label in the chain is always known.
+
+```go
+Identifier = {
+    Identifier:   "id1",
+    NextCounter:  1,
+}
+```
+
+![sse-chain.png](images/sse-chain.png)
+
+Given a keyword and an identifer for a `Delete` query, the correct label/encrypted Identifier pair is found and deleted. The chain remains intact as the previous `NextCounter` is updated to the deleted encrypted Identifier's `NextCounter`.
