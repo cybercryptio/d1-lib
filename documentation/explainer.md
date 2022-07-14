@@ -148,7 +148,7 @@ In secure index:
 label(secret key, keyword, counter) -> encrypted Identifier(keyword, identifier)
 ```
 
-An Identifier struct (before encryption) contains the identifier itself as well as a `NextCounter` as shown below. `NextCounter` is used to compute the next label based on the same keyword. If the keyword has only been mapped to a single identifier, then its encrypted Identifier's `NextCounter` is 0. Given a keyword for a `Search` query, all the identifiers that it maps to, i.e. all the identifiers that contain the given keyword, are then easily found by going through the chain of `NextCounter`'s and computing the corresponding label for each counter. The chain is illustrated below. It is ensured that the counter used to compute the first label in the chain is always known.
+To allow for multiple identifier per keyword, the Identifier struct (before encryption) also contains a `NextCounter` as shown below. `NextCounter` is used to compute the next label based on the same keyword. If the keyword has only been mapped to a single identifier, then its encrypted Identifier's `NextCounter` is 0. Given a keyword for a `Search` query, all the identifiers that it maps to, i.e. all the identifiers that contain the given keyword, are then easily found by going through the chain of `NextCounter`'s and computing the corresponding label for each counter. The chain is illustrated below. It is ensured that the counter used to compute the first label in the chain is always known.
 
 ```go
 Identifier = {
