@@ -141,14 +141,7 @@ Given a keyword for a `Search` query, all the identifiers that contain the given
 
 In this section, some more technical details about the implementation are given.
 
-Given a keyword and an identifer for an `Add` query, a label is computed based on a secret key, the keyword, and a *counter* (explained below), and an Identifier struct representing the identifier is created. The label is then mapped to the Identifier as shown below, and the "label -> Identifier" correlation is stored in the secure index. The Identifier is encrypted before it is stored in order to avoid having plaintext keywords or identifiers outside of the D1 Library. Note that the keyword is used when encrypting the Identifier which means that the encrypted Identifier can only be decrypted if the keyword is known.
-
-In secure index:
-```go
-label(secret key, keyword, counter) -> encrypted Identifier(keyword, identifier)
-```
-
-To allow for multiple identifier per keyword, the Identifier struct (before encryption) also contains a `NextCounter` as shown below. `NextCounter` is used to compute the next label based on the same keyword. If the keyword has only been mapped to a single identifier, then its encrypted Identifier's `NextCounter` is 0. Given a keyword for a `Search` query, all the identifiers that it maps to, i.e. all the identifiers that contain the given keyword, are then easily found by going through the chain of `NextCounter`'s and computing the corresponding label for each counter. The chain is illustrated below. It is ensured that the counter used to compute the first label in the chain is always known.
+Given a keyword and an identifer for an `Add` query, a label is computed based on a secret key, the keyword, and a *counter* (explained below), and an Identifier struct representing the identifier is created.
 
 ```go
 Identifier = {
@@ -156,6 +149,15 @@ Identifier = {
     NextCounter:  1,
 }
 ```
+
+The label is then mapped to the Identifier as shown below, and the "label -> Identifier" correlation is stored in the secure index. The Identifier is encrypted before it is stored in order to avoid having plaintext keywords or identifiers outside of the D1 Library. Note that the keyword is used when encrypting the Identifier which means that the encrypted Identifier can only be decrypted if the keyword is known.
+
+In secure index:
+```go
+label(secret key, keyword, counter) -> encrypted Identifier(keyword, identifier)
+```
+
+To allow for multiple identifier per keyword, the Identifier struct (before encryption) also contains a `NextCounter` as shown below. `NextCounter` is used to compute the next label based on the same keyword. If the keyword has only been mapped to a single identifier, then its encrypted Identifier's `NextCounter` is 0. Given a keyword for a `Search` query, all the identifiers that it maps to, i.e. all the identifiers that contain the given keyword, are then easily found by going through the chain of `NextCounter`'s and computing the corresponding label for each counter. The chain is illustrated below. It is ensured that the counter used to compute the first label in the chain is always known.
 
 ![sse-chain.png](images/sse-chain.png)
 
