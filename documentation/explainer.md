@@ -123,7 +123,7 @@ A secure index is an encrypted map on which 3 operations can be queried, `Add`, 
 
 The security properties that the implementation brings are:
 * The total number of keyword/identifier pairs is hidden from the caller (but not from the IO Provider).
-* The total number of identifiers is hidden from both the caller and the IO Provider.
+* The total number of identifiers and keywords is hidden from both the caller and the IO Provider.
 * The D1 Library does not leak unencrypted keywords or identifiers to any other parties than the caller.
 * The IO Provider cannot learn anything from the queries about which identifiers contain which keywords as everything (keywords and identifiers) is encrypted in the IO Provider.
 
