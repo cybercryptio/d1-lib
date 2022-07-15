@@ -190,7 +190,7 @@ func (i *SecureIndex) deleteNode(label []byte, node data.Node, tagger crypto.Tag
 	// Get the next Node. If ErrNotFound, then the current Node is the one
 	// with the largest value of counter, and therefore it can simply be deleted without
 	// any other updates.
-	next, err := i.getNextNode(identifier, tagger, cryptor)
+	next, err := i.getNextNode(node, tagger, cryptor)
 	if err == io.ErrNotFound {
 		if err = i.deleteSealedNode(label); err != nil {
 			return err
