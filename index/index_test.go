@@ -406,14 +406,14 @@ func TestGetLastNode(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		lastID, err := index.getLastNode(keyword)
+		lastNode, err := index.getLastNode(keyword)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if lastID.Identifier != identifiers[i] {
+		if lastNode.Identifier != identifiers[i] {
 			t.Fatal("getLastNode returned wrong last Node.")
 		}
-		if lastID.NextCounter != uint64(i+1) {
+		if lastNode.NextCounter != uint64(i+1) {
 			t.Fatal("getLastNode returned wrong last Node.")
 		}
 	}
@@ -424,14 +424,14 @@ func TestGetLastNodeBeforeAdd(t *testing.T) {
 
 	keyword := "keyword"
 
-	lastID, err := index.getLastNode(keyword)
+	lastNode, err := index.getLastNode(keyword)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if lastID.Identifier != "" {
+	if lastNode.Identifier != "" {
 		t.Fatal("getLastNode returned non-empty Node, but no keyword/identifier pairs have been added.")
 	}
-	if lastID.NextCounter != 0 {
+	if lastNode.NextCounter != 0 {
 		t.Fatal("getLastNode returned non-empty Node, but no keyword/identifier pairs have been added.")
 	}
 }
@@ -450,25 +450,25 @@ func TestGetLastNodeWrongKeyword(t *testing.T) {
 	keywordShort := "first keywor"
 	keywordLong := "first keywordd"
 
-	lastID, err := index.getLastNode(keywordShort)
+	lastNode, err := index.getLastNode(keywordShort)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if lastID.Identifier != "" {
+	if lastNode.Identifier != "" {
 		t.Fatal("getLastNode returned non-empty Node when given wrong keyword.")
 	}
-	if lastID.NextCounter != 0 {
+	if lastNode.NextCounter != 0 {
 		t.Fatal("getLastNode returned non-empty Node when given wrong keyword.")
 	}
 
-	lastID, err = index.getLastNode(keywordLong)
+	lastNode, err = index.getLastNode(keywordLong)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if lastID.Identifier != "" {
+	if lastNode.Identifier != "" {
 		t.Fatal("getLastNode returned non-empty Node when given wrong keyword.")
 	}
-	if lastID.NextCounter != 0 {
+	if lastNode.NextCounter != 0 {
 		t.Fatal("getLastNode returned non-empty Node when given wrong keyword.")
 	}
 }
