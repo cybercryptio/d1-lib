@@ -30,19 +30,19 @@ func TestNextLabel(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	identifier1 := Identifier{Identifier: "first id", NextCounter: 1}
-	identifier2 := Identifier{Identifier: "second id", NextCounter: 1}
-	identifier3 := Identifier{Identifier: "third id", NextCounter: 2}
+	node1 := Node{Identifier: "first id", NextCounter: 1}
+	node2 := Node{Identifier: "second id", NextCounter: 1}
+	node3 := Node{Identifier: "third id", NextCounter: 2}
 
-	nextLabel1, err := identifier1.NextLabel(&tagger)
+	nextLabel1, err := node1.NextLabel(&tagger)
 	if err != nil {
 		t.Fatal(err)
 	}
-	nextLabel2, err := identifier2.NextLabel(&tagger)
+	nextLabel2, err := node2.NextLabel(&tagger)
 	if err != nil {
 		t.Fatal(err)
 	}
-	nextLabel3, err := identifier3.NextLabel(&tagger)
+	nextLabel3, err := node3.NextLabel(&tagger)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -68,14 +68,14 @@ func TestNextLabelDifferentTaggers(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	identifier1 := Identifier{Identifier: "first id", NextCounter: 1}
-	identifier2 := Identifier{Identifier: "first id", NextCounter: 1}
+	node1 := Node{Identifier: "first id", NextCounter: 1}
+	node2 := Node{Identifier: "first id", NextCounter: 1}
 
-	nextLabel1, err := identifier1.NextLabel(&tagger1)
+	nextLabel1, err := node1.NextLabel(&tagger1)
 	if err != nil {
 		t.Fatal(err)
 	}
-	nextLabel2, err := identifier2.NextLabel(&tagger2)
+	nextLabel2, err := node2.NextLabel(&tagger2)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -84,19 +84,19 @@ func TestNextLabelDifferentTaggers(t *testing.T) {
 	}
 }
 
-func TestIdentifierSeal(t *testing.T) {
+func TestNodeSeal(t *testing.T) {
 	key := make([]byte, 32)
 	cryptor, err := crypto.NewAESCryptor(key)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	identifier := Identifier{Identifier: "first id", NextCounter: 1}
+	node := Node{Identifier: "first id", NextCounter: 1}
 
 	rand := &crypto.NativeRandom{}
 	label, _ := rand.GetBytes(32)
 
-	sealed, err := identifier.Seal(label, &cryptor)
+	sealed, err := node.Seal(label, &cryptor)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -105,24 +105,24 @@ func TestIdentifierSeal(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(identifier, unsealed) {
+	if !reflect.DeepEqual(node, unsealed) {
 		t.Fatal("Unsealed object not equal to original")
 	}
 }
 
-func TestIdentifierVerifyCiphertext(t *testing.T) {
+func TestNodeVerifyCiphertext(t *testing.T) {
 	key := make([]byte, 32)
 	cryptor, err := crypto.NewAESCryptor(key)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	identifier := Identifier{Identifier: "first id", NextCounter: 1}
+	node := Node{Identifier: "first id", NextCounter: 1}
 
 	rand := &crypto.NativeRandom{}
 	label, _ := rand.GetBytes(32)
 
-	sealed, err := identifier.Seal(label, &cryptor)
+	sealed, err := node.Seal(label, &cryptor)
 	if err != nil {
 		t.Fatal(err)
 	}

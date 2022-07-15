@@ -21,45 +21,45 @@ import (
 	"github.com/cybercryptio/d1-lib/crypto"
 )
 
-// Identifier contains an identifier (e.g. a document ID) and the counter used to compute the next sealed Identifier.
-type Identifier struct {
+// Node contains an identifier (e.g. a document ID) and the counter used to compute the next label.
+type Node struct {
 	Identifier  string
 	NextCounter uint64
 }
 
 // NextLabel computes the next label based on the value of NextCounter.
-func (i *Identifier) NextLabel(tagger crypto.TaggerInterface) ([]byte, error) {
+func (n *Node) NextLabel(tagger crypto.TaggerInterface) ([]byte, error) {
 	// Converts the NextCounter uint64 to byte array before computing label.
 	buf := make([]byte, binary.MaxVarintLen64)
-	n := binary.PutUvarint(buf, i.NextCounter)
+	m := binary.PutUvarint(buf, n.NextCounter)
 
-	return tagger.Tag(buf[:n])
+	return tagger.Tag(buf[:m])
 }
 
-// SealedIdentifier is an encrypted structure which defines an occurrence of a specific keyword in a specific identifier.
-type SealedIdentifier struct {
+// SealedNode is an encrypted structure which defines an occurrence of a specific keyword in a specific identifier.
+type SealedNode struct {
 	Ciphertext []byte
 	WrappedKey []byte
 }
 
-// Seal encrypts the plaintext Identifier.
-func (i *Identifier) Seal(label []byte, cryptor crypto.CryptorInterface) (SealedIdentifier, error) {
-	wrappedKey, ciphertext, err := cryptor.Encrypt(i, label)
+// Seal encrypts the plaintext Node.
+func (n *Node) Seal(label []byte, cryptor crypto.CryptorInterface) (SealedNode, error) {
+	wrappedKey, ciphertext, err := cryptor.Encrypt(n, label)
 	if err != nil {
-		return SealedIdentifier{}, err
+		return SealedNode{}, err
 	}
 
-	return SealedIdentifier{
+	return SealedNode{
 		Ciphertext: ciphertext,
 		WrappedKey: wrappedKey,
 	}, nil
 }
 
-// Unseal decrypts the sealed Identifier.
-func (i *SealedIdentifier) Unseal(label []byte, cryptor crypto.CryptorInterface) (Identifier, error) {
-	plainID := Identifier{}
-	if err := cryptor.Decrypt(&plainID, label, i.WrappedKey, i.Ciphertext); err != nil {
-		return Identifier{}, err
+// Unseal decrypts the sealed Node.
+func (n *SealedNode) Unseal(label []byte, cryptor crypto.CryptorInterface) (Node, error) {
+	plainNode := Node{}
+	if err := cryptor.Decrypt(&plainNode, label, n.WrappedKey, n.Ciphertext); err != nil {
+		return Node{}, err
 	}
-	return plainID, nil
+	return plainNode, nil
 }
