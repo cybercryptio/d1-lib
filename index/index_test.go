@@ -394,7 +394,7 @@ func TestDeleteSeveral(t *testing.T) {
 	}
 }
 
-func TestGetLastIdentifier(t *testing.T) {
+func TestGetLastNode(t *testing.T) {
 	index := newTestSecureIndex(t)
 	_, token := newTestUser(t, &index, id.ScopeIndex)
 
@@ -406,37 +406,37 @@ func TestGetLastIdentifier(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		lastID, err := index.getLastIdentifier(keyword)
+		lastNode, err := index.getLastNode(keyword)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if lastID.Identifier != identifiers[i] {
-			t.Fatal("getLastIdentifier returned wrong last Identifier.")
+		if lastNode.Identifier != identifiers[i] {
+			t.Fatal("getLastNode returned wrong last Node.")
 		}
-		if lastID.NextCounter != uint64(i+1) {
-			t.Fatal("getLastIdentifier returned wrong last Identifier.")
+		if lastNode.NextCounter != uint64(i+1) {
+			t.Fatal("getLastNode returned wrong last Node.")
 		}
 	}
 }
 
-func TestGetLastIdentifierBeforeAdd(t *testing.T) {
+func TestGetLastNodeBeforeAdd(t *testing.T) {
 	index := newTestSecureIndex(t)
 
 	keyword := "keyword"
 
-	lastID, err := index.getLastIdentifier(keyword)
+	lastNode, err := index.getLastNode(keyword)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if lastID.Identifier != "" {
-		t.Fatal("getLastIdentifier returned non-empty Identifier, but no keyword/identifier pairs have been added.")
+	if lastNode.Identifier != "" {
+		t.Fatal("getLastNode returned non-empty Node, but no keyword/identifier pairs have been added.")
 	}
-	if lastID.NextCounter != 0 {
-		t.Fatal("getLastIdentifier returned non-empty Identifier, but no keyword/identifier pairs have been added.")
+	if lastNode.NextCounter != 0 {
+		t.Fatal("getLastNode returned non-empty Node, but no keyword/identifier pairs have been added.")
 	}
 }
 
-func TestGetLastIdentifierWrongKeyword(t *testing.T) {
+func TestGetLastNodeWrongKeyword(t *testing.T) {
 	index := newTestSecureIndex(t)
 	_, token := newTestUser(t, &index, id.ScopeIndex)
 
@@ -450,25 +450,25 @@ func TestGetLastIdentifierWrongKeyword(t *testing.T) {
 	keywordShort := "first keywor"
 	keywordLong := "first keywordd"
 
-	lastID, err := index.getLastIdentifier(keywordShort)
+	lastNode, err := index.getLastNode(keywordShort)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if lastID.Identifier != "" {
-		t.Fatal("getLastIdentifier returned non-empty Identifier when given wrong keyword.")
+	if lastNode.Identifier != "" {
+		t.Fatal("getLastNode returned non-empty Node when given wrong keyword.")
 	}
-	if lastID.NextCounter != 0 {
-		t.Fatal("getLastIdentifier returned non-empty Identifier when given wrong keyword.")
+	if lastNode.NextCounter != 0 {
+		t.Fatal("getLastNode returned non-empty Node when given wrong keyword.")
 	}
 
-	lastID, err = index.getLastIdentifier(keywordLong)
+	lastNode, err = index.getLastNode(keywordLong)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if lastID.Identifier != "" {
-		t.Fatal("getLastIdentifier returned non-empty Identifier when given wrong keyword.")
+	if lastNode.Identifier != "" {
+		t.Fatal("getLastNode returned non-empty Node when given wrong keyword.")
 	}
-	if lastID.NextCounter != 0 {
-		t.Fatal("getLastIdentifier returned non-empty Identifier when given wrong keyword.")
+	if lastNode.NextCounter != 0 {
+		t.Fatal("getLastNode returned non-empty Node when given wrong keyword.")
 	}
 }

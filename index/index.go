@@ -76,33 +76,33 @@ func (i *SecureIndex) Add(token, keyword, identifier string) error {
 		return err
 	}
 
-	// Compute the current last sealed Identifier containing the given keyword, i.e. the sealed
-	// Identifier with the largest value of the counter.
-	last, err := i.getLastIdentifier(keyword)
+	// Compute the current last sealed Node containing the given keyword, i.e. the sealed
+	// Node with the largest value of the counter.
+	last, err := i.getLastNode(keyword)
 	if err != nil {
 		return err
 	}
 
-	// Compute new label and plaintext Identifier, seal it, and send it to the IO Provider.
+	// Compute new label and plaintext Node, seal it, and send it to the IO Provider.
 	label, err := last.NextLabel(tagger)
 	if err != nil {
 		return err
 	}
 
-	newID := data.Identifier{Identifier: identifier, NextCounter: last.NextCounter + 1}
+	newNode := data.Node{Identifier: identifier, NextCounter: last.NextCounter + 1}
 
-	sealedID, err := newID.Seal(label, cryptor)
+	sealedNode, err := newNode.Seal(label, cryptor)
 	if err != nil {
 		return err
 	}
-	if err = i.putSealedIdentifier(label, &sealedID); err != nil {
+	if err = i.putSealedNode(label, &sealedNode); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-// Search returns all decrypted Identifiers that the given keyword is contained in.
+// Search returns all identifiers that the given keyword is contained in.
 func (i *SecureIndex) Search(token, keyword string) ([]string, error) {
 	if err := i.verifyAccess(token); err != nil {
 		return nil, err
@@ -113,16 +113,16 @@ func (i *SecureIndex) Search(token, keyword string) ([]string, error) {
 		return nil, err
 	}
 
-	// Starting with label with counter = 0, check if the corresponding sealed Identifier exists in the
-	// IO Provider. As long as the sealed Identifier exists, decrypt it, append it to decryptedIDs, and
+	// Starting with label with counter = 0, check if the corresponding sealed Node exists in the
+	// IO Provider. As long as the sealed Node exists, decrypt it, append it to decryptedNodes, and
 	// repeat with the next counter value.
-	decryptedID := data.Identifier{}
-	decryptedIDs := []string{}
+	decryptedNode := data.Node{}
+	identifiers := []string{}
 
 	for {
-		// Get the next Identifier. If ErrNotFound, all the Identifiers that contain the given keyword
+		// Get the next Node. If ErrNotFound, all the identifiers that contain the given keyword
 		// have been found, and the function should return them.
-		decryptedID, err = i.getNextIdentifier(decryptedID, tagger, cryptor)
+		decryptedNode, err = i.getNextNode(decryptedNode, tagger, cryptor)
 		if err == io.ErrNotFound {
 			break
 		}
@@ -130,10 +130,10 @@ func (i *SecureIndex) Search(token, keyword string) ([]string, error) {
 			return nil, err
 		}
 
-		decryptedIDs = append(decryptedIDs, decryptedID.Identifier)
+		identifiers = append(identifiers, decryptedNode.Identifier)
 	}
 
-	return decryptedIDs, nil
+	return identifiers, nil
 }
 
 // Delete deletes all occurrences of a keyword/identifier pair from the secure index.
@@ -147,15 +147,15 @@ func (i *SecureIndex) Delete(token, keyword, identifier string) error {
 		return err
 	}
 
-	// Starting with label with counter = 0, get the corresponding Identifier and check if
+	// Starting with label with counter = 0, get the corresponding Node and check if
 	// its Identifier is equal to the identifier given as input. If not, repeat with the next
 	// counter value.
-	current := data.Identifier{}
+	current := data.Node{}
 
 	for {
-		// Get the next Identifier. If ErrNotFound, there are no more Identifiers to check (and
+		// Get the next Node. If ErrNotFound, there are no more Nodes to check (and
 		// delete), and the function can terminate.
-		next, err := i.getNextIdentifier(current, tagger, cryptor)
+		next, err := i.getNextNode(current, tagger, cryptor)
 		if err == io.ErrNotFound {
 			break
 		}
@@ -170,7 +170,7 @@ func (i *SecureIndex) Delete(token, keyword, identifier string) error {
 			if err != nil {
 				return err
 			}
-			err = i.deleteIdentifier(label, next, tagger, cryptor)
+			err = i.deleteNode(label, next, tagger, cryptor)
 			if err != nil {
 				return err
 			}
@@ -182,17 +182,17 @@ func (i *SecureIndex) Delete(token, keyword, identifier string) error {
 	return nil
 }
 
-// deleteIdentifier is a part of the Delete operation. It deletes an identifier "A" by doing one of
+// deleteNode is a part of the Delete operation. It deletes a node "A" by doing one of
 // two things:
-// * If "A" is the last identifier, "A" itself is simply deleted.
-// * If there is a next identifier "B", "A" is overwritten with "B"s data and "B" is deleted.
-func (i *SecureIndex) deleteIdentifier(label []byte, identifier data.Identifier, tagger crypto.TaggerInterface, cryptor crypto.CryptorInterface) error {
-	// Get the next Identifier. If ErrNotFound, then the current Identifier is the one
+// * If "A" is the last node, "A" itself is simply deleted.
+// * If there is a next node "B", "A" is overwritten with "B"s data and "B" is deleted.
+func (i *SecureIndex) deleteNode(label []byte, node data.Node, tagger crypto.TaggerInterface, cryptor crypto.CryptorInterface) error {
+	// Get the next Node. If ErrNotFound, then the current Node is the one
 	// with the largest value of counter, and therefore it can simply be deleted without
 	// any other updates.
-	next, err := i.getNextIdentifier(identifier, tagger, cryptor)
+	next, err := i.getNextNode(node, tagger, cryptor)
 	if err == io.ErrNotFound {
-		if err = i.deleteSealedIdentifier(label); err != nil {
+		if err = i.deleteSealedNode(label); err != nil {
 			return err
 		}
 		return nil
@@ -201,74 +201,74 @@ func (i *SecureIndex) deleteIdentifier(label []byte, identifier data.Identifier,
 		return err
 	}
 
-	// Overwrite original identifier with the next identifier
-	updatedSealedID, err := next.Seal(label, cryptor)
+	// Overwrite original node with the next node
+	updatedSealedNode, err := next.Seal(label, cryptor)
 	if err != nil {
 		return err
 	}
-	if err = i.updateSealedIdentifier(label, &updatedSealedID); err != nil {
+	if err = i.updateSealedNode(label, &updatedSealedNode); err != nil {
 		return err
 	}
 
 	// Delete next.
-	nextLabel, err := identifier.NextLabel(tagger)
+	nextLabel, err := node.NextLabel(tagger)
 	if err != nil {
 		return err
 	}
-	if err = i.deleteSealedIdentifier(nextLabel); err != nil {
+	if err = i.deleteSealedNode(nextLabel); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-// getLastIdentifier computes the current last Identifier containing the given keyword, i.e. the
-// current Identifier with the largest value of counter.
-func (i *SecureIndex) getLastIdentifier(keyword string) (data.Identifier, error) {
+// getLastNode computes the current last Node containing the given keyword, i.e. the
+// current Node with the largest value of counter.
+func (i *SecureIndex) getLastNode(keyword string) (data.Node, error) {
 	tagger, cryptor, err := i.getTaggerAndCryptor(keyword)
 	if err != nil {
-		return data.Identifier{}, err
+		return data.Node{}, err
 	}
 
-	// Starting with label with counter = 0, check if the corresponding Identifier exists. As long
-	// as the Identifier exists, repeat with the next counter value.
-	decryptedID := data.Identifier{}
+	// Starting with label with counter = 0, check if the corresponding Node exists. As long
+	// as the Node exists, repeat with the next counter value.
+	decryptedNode := data.Node{}
 
 	for {
-		// Get the next Identifier. If ErrNotFound, then the last Identifier has been found, and the
+		// Get the next Node. If ErrNotFound, then the last Node has been found, and the
 		// function should return it.
-		nextDecrypted, err := i.getNextIdentifier(decryptedID, tagger, cryptor)
+		nextDecrypted, err := i.getNextNode(decryptedNode, tagger, cryptor)
 		if err == io.ErrNotFound {
-			return decryptedID, nil
+			return decryptedNode, nil
 		}
 		if err != nil {
-			return data.Identifier{}, err
+			return data.Node{}, err
 		}
 
-		decryptedID = nextDecrypted
+		decryptedNode = nextDecrypted
 	}
 }
 
-// getNextIdentifier returns the next Identifier, given a current Identifier.
-func (i *SecureIndex) getNextIdentifier(currentIdentifier data.Identifier, tagger crypto.TaggerInterface, cryptor crypto.CryptorInterface) (data.Identifier, error) {
-	nextLabel, err := currentIdentifier.NextLabel(tagger)
+// getNextNode returns the next Node, given a current Node.
+func (i *SecureIndex) getNextNode(currentNode data.Node, tagger crypto.TaggerInterface, cryptor crypto.CryptorInterface) (data.Node, error) {
+	nextLabel, err := currentNode.NextLabel(tagger)
 	if err != nil {
-		return data.Identifier{}, err
+		return data.Node{}, err
 	}
 
-	// If the next sealed Identifier does not exist in the IO Provider, then an ErrNotFound
+	// If the next sealed Node does not exist in the IO Provider, then an ErrNotFound
 	// is returned.
-	nextSealedID, err := i.getSealedIdentifier(nextLabel)
+	nextSealedNode, err := i.getSealedNode(nextLabel)
 	if err != nil {
-		return data.Identifier{}, err
+		return data.Node{}, err
 	}
 
-	nextIdentifier, err := nextSealedID.Unseal(nextLabel, cryptor)
+	nextNode, err := nextSealedNode.Unseal(nextLabel, cryptor)
 	if err != nil {
-		return data.Identifier{}, err
+		return data.Node{}, err
 	}
 
-	return nextIdentifier, nil
+	return nextNode, nil
 }
 
 // verifyAccess verifies the caller. It verifies both that the caller is authenticated by the
@@ -308,46 +308,46 @@ func (i *SecureIndex) getTaggerAndCryptor(keyword string) (crypto.TaggerInterfac
 //                    IO Provider                     //
 ////////////////////////////////////////////////////////
 
-// putSealedIdentifier encodes a sealed Identifier and sends it to the IO Provider.
-func (i *SecureIndex) putSealedIdentifier(tag []byte, sealedID *data.SealedIdentifier) error {
-	var sealedIDBuffer bytes.Buffer
-	enc := gob.NewEncoder(&sealedIDBuffer)
+// putSealedNode encodes a sealed Node and sends it to the IO Provider.
+func (i *SecureIndex) putSealedNode(tag []byte, sealedNode *data.SealedNode) error {
+	var sealedNodeBuffer bytes.Buffer
+	enc := gob.NewEncoder(&sealedNodeBuffer)
+	if err := enc.Encode(sealedNode); err != nil {
+		return err
+	}
+
+	return i.ioProvider.Put(tag, io.DataTypeSealedNode, sealedNodeBuffer.Bytes())
+}
+
+// updateSealedNode encodes an updated sealed Node and updates it in the IO Provider.
+func (i *SecureIndex) updateSealedNode(tag []byte, sealedID *data.SealedNode) error {
+	var sealedNodeBuffer bytes.Buffer
+	enc := gob.NewEncoder(&sealedNodeBuffer)
 	if err := enc.Encode(sealedID); err != nil {
 		return err
 	}
 
-	return i.ioProvider.Put(tag, io.DataTypeSealedIdentifier, sealedIDBuffer.Bytes())
+	return i.ioProvider.Update(tag, io.DataTypeSealedNode, sealedNodeBuffer.Bytes())
 }
 
-// updateSealedIdentifier encodes an updated sealed Identifier and updates it in the IO Provider.
-func (i *SecureIndex) updateSealedIdentifier(tag []byte, sealedID *data.SealedIdentifier) error {
-	var sealedIDBuffer bytes.Buffer
-	enc := gob.NewEncoder(&sealedIDBuffer)
-	if err := enc.Encode(sealedID); err != nil {
-		return err
-	}
-
-	return i.ioProvider.Update(tag, io.DataTypeSealedIdentifier, sealedIDBuffer.Bytes())
-}
-
-// getSealedIdentifier fetches bytes from the IO Provider and decodes them into a sealed Identifier.
-func (i *SecureIndex) getSealedIdentifier(tag []byte) (*data.SealedIdentifier, error) {
-	sealedIDBytes, err := i.ioProvider.Get(tag, io.DataTypeSealedIdentifier)
+// getSealedNode fetches bytes from the IO Provider and decodes them into a sealed Node.
+func (i *SecureIndex) getSealedNode(tag []byte) (*data.SealedNode, error) {
+	sealedNodeBytes, err := i.ioProvider.Get(tag, io.DataTypeSealedNode)
 	if err != nil {
 		return nil, err
 	}
 
-	sealedID := &data.SealedIdentifier{}
-	dec := gob.NewDecoder(bytes.NewReader(sealedIDBytes))
-	err = dec.Decode(sealedID)
+	sealedNode := &data.SealedNode{}
+	dec := gob.NewDecoder(bytes.NewReader(sealedNodeBytes))
+	err = dec.Decode(sealedNode)
 	if err != nil {
 		return nil, err
 	}
 
-	return sealedID, nil
+	return sealedNode, nil
 }
 
-// deleteSealedIdentifier deletes a sealed Identifier from the IO Provider.
-func (i *SecureIndex) deleteSealedIdentifier(tag []byte) error {
-	return i.ioProvider.Delete(tag, io.DataTypeSealedIdentifier)
+// deleteSealedNode deletes a sealed Node from the IO Provider.
+func (i *SecureIndex) deleteSealedNode(tag []byte) error {
+	return i.ioProvider.Delete(tag, io.DataTypeSealedNode)
 }
