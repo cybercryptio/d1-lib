@@ -141,7 +141,7 @@ Given a keyword for a `Search` query, all the identifiers that contain the given
 
 In this section, some more technical details about the implementation are given.
 
-Given a keyword and an identifer for an `Add` query, a label is computed based on a secret key, the keyword, and a *counter* (explained below), and a Node representing the identifier is created.
+Given a keyword and an identifer for an `Add` query, a `Label` is computed based on a secret key, the keyword, and a *counter* (explained below), and a `Node` representing the identifier is created.
 
 ```go
 Node = {
@@ -150,15 +150,15 @@ Node = {
 }
 ```
 
-The label is then mapped to the Node as shown below, and the "label -> Node" correlation is stored in the secure index. Both the label and the Node are encrypted before they are stored in order to avoid having plaintext keywords or identifiers outside of the D1 Library. Note that the keyword is used when encrypting the Node which means that the encrypted Node can only be decrypted if the keyword is known.
+The `Label` is then mapped to the `Node` as shown below, and the "`Label` -> `Node`" correlation is stored in the secure index. Both the `Label` and the `Node` are encrypted before they are stored in order to avoid having plaintext keywords or identifiers outside of the D1 Library. Note that the keyword is used when encrypting the `Node` which means that the encrypted `Node` can only be decrypted if the keyword is known.
 
 In secure index:
 ```go
-encrypted label(secret key, keyword, counter) -> encrypted Node(keyword, identifier)
+encrypted Label(secret key, keyword, counter) -> encrypted Node(keyword, identifier)
 ```
 
-To allow for multiple identifiers per keyword, the Node (before encryption) also contains a `NextCounter` as shown above. `NextCounter` is used to compute the next label based on the same keyword. If the keyword has only been mapped to a single identifier, then its encrypted Node's `NextCounter` is 0. Given a keyword for a `Search` query, all the identifiers that it maps to, i.e. all the identifiers that contain the given keyword, are then easily found by going through the chain of `NextCounter`'s and computing the corresponding label for each counter. The chain is illustrated below. It is ensured that the counter used to compute the first label in the chain is always known.
+To allow for multiple identifiers per keyword, the `Node` (before encryption) also contains a `NextCounter` as shown above. `NextCounter` is used to compute the next `Label` based on the same keyword. If the keyword has only been mapped to a single identifier, then its encrypted `Node`'s `NextCounter` is 0. Given a keyword for a `Search` query, all the identifiers that it maps to, i.e. all the identifiers that contain the given keyword, are then easily found by going through the chain of `NextCounter`'s and computing the corresponding `Label` for each counter. The chain is illustrated below. It is ensured that the counter used to compute the first `Label` in the chain is always known.
 
 ![sse-chain.png](images/sse-chain.png)
 
-Given a keyword and an identifer for a `Delete` query, the correct label/Node pair is found and deleted. The chain remains intact as the previous `NextCounter` is updated to the deleted Node's `NextCounter`.
+Given a keyword and an identifer for a `Delete` query, the correct `Label`/`Node` pair is found and deleted. The chain remains intact as the previous `NextCounter` is updated to the deleted `Node`'s `NextCounter`.
