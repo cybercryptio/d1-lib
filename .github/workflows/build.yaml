@@ -46,6 +46,6 @@ jobs:
     - name: Create tag
       if: github.ref_name == 'master'
       run: |
-        git tag v${{ steps.gitversion.outputs.semVer }}
+        git tag -f v${{ steps.gitversion.outputs.semVer }}
         git push origin v${{ steps.gitversion.outputs.semVer }}
 
