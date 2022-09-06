@@ -1167,7 +1167,7 @@ func TestRemoveAccess(t *testing.T) {
 }
 
 ////////////////////////////////////////////////////////
-//                    AuthorizeUser                   //
+//                  AuthorizeIdentity                 //
 ////////////////////////////////////////////////////////
 
 // Scenario:
@@ -1194,6 +1194,36 @@ func TestAuthorizeUser(t *testing.T) {
 	}
 
 	if err = enc.AuthorizeIdentity(token2, id); err == nil {
+		t.Fatal("Unauthorized user is authorized anyway")
+	}
+}
+
+func TestAuthorizeUserExtraGroups(t *testing.T) {
+	enc := newTestD1(t)
+	_, token1 := newTestUser(t, &enc, id.ScopeEncrypt, id.ScopeGetAccessGroups)
+	user2, token2 := newTestUser(t, &enc, id.ScopeGetAccessGroups)
+	_, token3 := newTestUser(t, &enc, id.ScopeGetAccessGroups)
+
+	plainObject := data.Object{
+		Plaintext:      []byte("plaintext"),
+		AssociatedData: []byte("associated_data"),
+	}
+
+	// Add user2 at encryption time
+	id, err := enc.Encrypt(token1, &plainObject, user2)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Both the encrypter and user2 should have access
+	if err = enc.AuthorizeIdentity(token1, id); err != nil {
+		t.Fatal(err)
+	}
+	if err = enc.AuthorizeIdentity(token2, id); err != nil {
+		t.Fatal(err)
+	}
+
+	if err = enc.AuthorizeIdentity(token3, id); err == nil {
 		t.Fatal("Unauthorized user is authorized anyway")
 	}
 }

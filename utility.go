@@ -30,10 +30,10 @@ import (
 // object. If so, the unsealed access object is returned.
 //
 // An Identity is authorized to access an object if at least one of the following is true:
-// * The the Identity's ID is part of the Access and the Identity's scope contains the
-//   required scope.
-// * One of the Identity's group IDs is part of the Access and that group's scope contains the required
-//   scope.
+//   - The the Identity's ID is part of the Access and the Identity's scope contains the
+//     required scope.
+//   - One of the Identity's group IDs is part of the Access and that group's scope contains the required
+//     scope.
 func (d *D1) authorizeAccess(identity *id.Identity, scopes id.Scope, sealedAccess *data.SealedAccess) (data.Access, error) {
 	plainAccess, err := sealedAccess.Unseal(d.accessCryptor)
 	if err != nil {
