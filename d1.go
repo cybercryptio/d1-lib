@@ -84,7 +84,8 @@ func New(keyProvider key.Provider, ioProvider io.Provider, idProvider id.Provide
 
 // Encrypt creates a new sealed object containing the provided plaintext data as well as an access
 // list that controls access to that data. The Identity of the caller is automatically added to the
-// access list. To grant access to other callers, see AddGroupsToAccess.
+// access list. To grant access to other callers either specify them in the optional 'groups'
+// argument or see AddGroupsToAccess.
 //
 // The returned ID is the unique identifier of the sealed object. It is used to identify the object
 // and related data about the object to the IO Provider, and needs to be provided when decrypting
@@ -95,7 +96,7 @@ func New(keyProvider key.Provider, ioProvider io.Provider, idProvider id.Provide
 //
 // Required scopes:
 // - Encrypt
-func (d *D1) Encrypt(token string, object *data.Object) (uuid.UUID, error) {
+func (d *D1) Encrypt(token string, object *data.Object, groups ...string) (uuid.UUID, error) {
 	identity, err := d.idProvider.GetIdentity(token)
 	if err != nil {
 		return uuid.Nil, ErrNotAuthenticated
@@ -115,7 +116,7 @@ func (d *D1) Encrypt(token string, object *data.Object) (uuid.UUID, error) {
 	}
 
 	access := data.NewAccess(wrappedOEK)
-	access.AddGroups(identity.ID)
+	access.AddGroups(append(groups, identity.ID)...)
 	sealedAccess, err := access.Seal(oid, d.accessCryptor)
 	if err != nil {
 		return uuid.Nil, err
