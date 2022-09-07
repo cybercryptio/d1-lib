@@ -16,6 +16,7 @@
 package d1_test
 
 import (
+	"context"
 	"fmt"
 	"log"
 
@@ -23,20 +24,22 @@ import (
 )
 
 func ExampleD1_CreateToken() {
+	ctx := context.Background()
+
 	// Instantiate the D1 library with the given keys.
-	d1, err := d1lib.New(&keyProvider, &ioProvider, &idProvider)
+	d1, err := d1lib.New(ctx, &keyProvider, &ioProvider, &idProvider)
 	if err != nil {
 		log.Fatalf("Error instantiating D1: %v", err)
 	}
 
 	// Create a token with encrypted contents and default expiry time.
-	token, err := d1.CreateToken([]byte("token contents"))
+	token, err := d1.CreateToken(ctx, []byte("token contents"))
 	if err != nil {
 		log.Fatalf("Error creating token: %v", err)
 	}
 
 	// Validate the token and fetch its decrypted contents. This call will fail if the token has expired or has been tampered with.
-	tokenContents, err := d1.GetTokenContents(&token)
+	tokenContents, err := d1.GetTokenContents(ctx, &token)
 	if err != nil {
 		log.Fatalf("Invalid token: %v", err)
 	}

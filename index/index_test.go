@@ -16,8 +16,10 @@
 package index
 
 import (
-	"reflect"
 	"testing"
+
+	"context"
+	"reflect"
 
 	"github.com/cybercryptio/d1-lib/id"
 	"github.com/cybercryptio/d1-lib/io"
@@ -25,6 +27,7 @@ import (
 )
 
 func newTestSecureIndex(t *testing.T) SecureIndex {
+	ctx := context.Background()
 	keyProvider := key.NewStatic(key.Keys{
 		KEK: []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 		AEK: []byte{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
@@ -44,7 +47,7 @@ func newTestSecureIndex(t *testing.T) SecureIndex {
 		t.Fatal(err)
 	}
 
-	secureIndex, err := NewSecureIndex(&keyProvider, &ioProvider, &idProvider)
+	secureIndex, err := NewSecureIndex(ctx, &keyProvider, &ioProvider, &idProvider)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -52,14 +55,15 @@ func newTestSecureIndex(t *testing.T) SecureIndex {
 }
 
 func newTestUser(t *testing.T, secureIndex *SecureIndex, scopes ...id.Scope) (string, string) {
+	ctx := context.Background()
 	idProvider := secureIndex.idProvider.(*id.Standalone)
 
-	id, password, err := idProvider.NewUser(scopes...)
+	id, password, err := idProvider.NewUser(ctx, scopes...)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	token, _, err := idProvider.LoginUser(id, password)
+	token, _, err := idProvider.LoginUser(ctx, id, password)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -68,18 +72,20 @@ func newTestUser(t *testing.T, secureIndex *SecureIndex, scopes ...id.Scope) (st
 }
 
 func TestAdd(t *testing.T) {
+	ctx := context.Background()
 	index := newTestSecureIndex(t)
 	_, token := newTestUser(t, &index, id.ScopeIndex)
 
 	keyword := "first keyword"
 	identifier := "first id"
 
-	if err := index.Add(token, keyword, identifier); err != nil {
+	if err := index.Add(ctx, token, keyword, identifier); err != nil {
 		t.Fatal(err)
 	}
 }
 
 func TestAddSeveral(t *testing.T) {
+	ctx := context.Background()
 	index := newTestSecureIndex(t)
 	_, token := newTestUser(t, &index, id.ScopeIndex)
 
@@ -88,7 +94,7 @@ func TestAddSeveral(t *testing.T) {
 
 	for i := 0; i < len(keywords); i++ {
 		for j := 0; j < len(identifiers); j++ {
-			if err := index.Add(token, keywords[i], identifiers[j]); err != nil {
+			if err := index.Add(ctx, token, keywords[i], identifiers[j]); err != nil {
 				t.Fatal(err)
 			}
 		}
@@ -96,6 +102,7 @@ func TestAddSeveral(t *testing.T) {
 }
 
 func TestSearch(t *testing.T) {
+	ctx := context.Background()
 	index := newTestSecureIndex(t)
 	_, token := newTestUser(t, &index, id.ScopeIndex)
 
@@ -103,11 +110,11 @@ func TestSearch(t *testing.T) {
 	identifiers := []string{"id1", "id2", "id3", "id4", "id5"}
 
 	for i := 0; i < len(identifiers); i++ {
-		if err := index.Add(token, keyword, identifiers[i]); err != nil {
+		if err := index.Add(ctx, token, keyword, identifiers[i]); err != nil {
 			t.Fatal(err)
 		}
 
-		IDs, err := index.Search(token, keyword)
+		IDs, err := index.Search(ctx, token, keyword)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -118,20 +125,21 @@ func TestSearch(t *testing.T) {
 }
 
 func TestSearchWrongKeyword(t *testing.T) {
+	ctx := context.Background()
 	index := newTestSecureIndex(t)
 	_, token := newTestUser(t, &index, id.ScopeIndex)
 
 	keyword := "first keyword"
 	identifier := "first id"
 
-	if err := index.Add(token, keyword, identifier); err != nil {
+	if err := index.Add(ctx, token, keyword, identifier); err != nil {
 		t.Fatal(err)
 	}
 
 	keywordShort := "first keywor"
 	keywordLong := "first keywordd"
 
-	IDs, err := index.Search(token, keywordShort)
+	IDs, err := index.Search(ctx, token, keywordShort)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -139,7 +147,7 @@ func TestSearchWrongKeyword(t *testing.T) {
 		t.Fatal("Search returned decrypted Identifiers when given wrong keyword.")
 	}
 
-	IDs, err = index.Search(token, keywordLong)
+	IDs, err = index.Search(ctx, token, keywordLong)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -149,21 +157,22 @@ func TestSearchWrongKeyword(t *testing.T) {
 }
 
 func TestDelete(t *testing.T) {
+	ctx := context.Background()
 	index := newTestSecureIndex(t)
 	_, token := newTestUser(t, &index, id.ScopeIndex)
 
 	keyword := "first keyword"
 	identifier := "first id"
 
-	if err := index.Add(token, keyword, identifier); err != nil {
+	if err := index.Add(ctx, token, keyword, identifier); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := index.Delete(token, keyword, identifier); err != nil {
+	if err := index.Delete(ctx, token, keyword, identifier); err != nil {
 		t.Fatal(err)
 	}
 
-	IDs, err := index.Search(token, keyword)
+	IDs, err := index.Search(ctx, token, keyword)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -173,25 +182,26 @@ func TestDelete(t *testing.T) {
 }
 
 func TestDeleteAdd(t *testing.T) {
+	ctx := context.Background()
 	index := newTestSecureIndex(t)
 	_, token := newTestUser(t, &index, id.ScopeIndex)
 
 	keyword := "first keyword"
 	identifier := "first id"
 
-	if err := index.Add(token, keyword, identifier); err != nil {
+	if err := index.Add(ctx, token, keyword, identifier); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := index.Delete(token, keyword, identifier); err != nil {
+	if err := index.Delete(ctx, token, keyword, identifier); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := index.Add(token, keyword, identifier); err != nil {
+	if err := index.Add(ctx, token, keyword, identifier); err != nil {
 		t.Fatal(err)
 	}
 
-	IDs, err := index.Search(token, keyword)
+	IDs, err := index.Search(ctx, token, keyword)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -201,23 +211,24 @@ func TestDeleteAdd(t *testing.T) {
 }
 
 func TestAddTwiceDelete(t *testing.T) {
+	ctx := context.Background()
 	index := newTestSecureIndex(t)
 	_, token := newTestUser(t, &index, id.ScopeIndex)
 
 	keyword := "first keyword"
 	identifier := "first id"
 
-	if err := index.Add(token, keyword, identifier); err != nil {
+	if err := index.Add(ctx, token, keyword, identifier); err != nil {
 		t.Fatal(err)
 	}
-	if err := index.Add(token, keyword, identifier); err != nil {
+	if err := index.Add(ctx, token, keyword, identifier); err != nil {
 		t.Fatal(err)
 	}
-	if err := index.Delete(token, keyword, identifier); err != nil {
+	if err := index.Delete(ctx, token, keyword, identifier); err != nil {
 		t.Fatal(err)
 	}
 
-	IDs, err := index.Search(token, keyword)
+	IDs, err := index.Search(ctx, token, keyword)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -227,29 +238,30 @@ func TestAddTwiceDelete(t *testing.T) {
 }
 
 func TestDeleteAddDelete(t *testing.T) {
+	ctx := context.Background()
 	index := newTestSecureIndex(t)
 	_, token := newTestUser(t, &index, id.ScopeIndex)
 
 	keyword := "first keyword"
 	identifier := "first id"
 
-	if err := index.Add(token, keyword, identifier); err != nil {
+	if err := index.Add(ctx, token, keyword, identifier); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := index.Delete(token, keyword, identifier); err != nil {
+	if err := index.Delete(ctx, token, keyword, identifier); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := index.Add(token, keyword, identifier); err != nil {
+	if err := index.Add(ctx, token, keyword, identifier); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := index.Delete(token, keyword, identifier); err != nil {
+	if err := index.Delete(ctx, token, keyword, identifier); err != nil {
 		t.Fatal(err)
 	}
 
-	IDs, err := index.Search(token, keyword)
+	IDs, err := index.Search(ctx, token, keyword)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -259,6 +271,7 @@ func TestDeleteAddDelete(t *testing.T) {
 }
 
 func TestDeleteFirst(t *testing.T) {
+	ctx := context.Background()
 	index := newTestSecureIndex(t)
 	_, token := newTestUser(t, &index, id.ScopeIndex)
 
@@ -266,16 +279,16 @@ func TestDeleteFirst(t *testing.T) {
 	identifiers := [5]string{"id1", "id2", "id3", "id4", "id5"}
 
 	for i := 0; i < len(identifiers); i++ {
-		if err := index.Add(token, keyword, identifiers[i]); err != nil {
+		if err := index.Add(ctx, token, keyword, identifiers[i]); err != nil {
 			t.Fatal(err)
 		}
 	}
 
-	if err := index.Delete(token, keyword, identifiers[0]); err != nil {
+	if err := index.Delete(ctx, token, keyword, identifiers[0]); err != nil {
 		t.Fatal(err)
 	}
 
-	IDs, err := index.Search(token, keyword)
+	IDs, err := index.Search(ctx, token, keyword)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -291,6 +304,7 @@ func TestDeleteFirst(t *testing.T) {
 }
 
 func TestDeleteLast(t *testing.T) {
+	ctx := context.Background()
 	index := newTestSecureIndex(t)
 	_, token := newTestUser(t, &index, id.ScopeIndex)
 
@@ -298,16 +312,16 @@ func TestDeleteLast(t *testing.T) {
 	identifiers := [5]string{"id1", "id2", "id3", "id4", "id5"}
 
 	for i := 0; i < len(identifiers); i++ {
-		if err := index.Add(token, keyword, identifiers[i]); err != nil {
+		if err := index.Add(ctx, token, keyword, identifiers[i]); err != nil {
 			t.Fatal(err)
 		}
 	}
 
-	if err := index.Delete(token, keyword, identifiers[len(identifiers)-1]); err != nil {
+	if err := index.Delete(ctx, token, keyword, identifiers[len(identifiers)-1]); err != nil {
 		t.Fatal(err)
 	}
 
-	IDs, err := index.Search(token, keyword)
+	IDs, err := index.Search(ctx, token, keyword)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -322,6 +336,7 @@ func TestDeleteLast(t *testing.T) {
 }
 
 func TestDeleteFromMiddle(t *testing.T) {
+	ctx := context.Background()
 	index := newTestSecureIndex(t)
 	_, token := newTestUser(t, &index, id.ScopeIndex)
 
@@ -329,16 +344,16 @@ func TestDeleteFromMiddle(t *testing.T) {
 	identifiers := [5]string{"id1", "id2", "id3", "id4", "id5"}
 
 	for i := 0; i < len(identifiers); i++ {
-		if err := index.Add(token, keyword, identifiers[i]); err != nil {
+		if err := index.Add(ctx, token, keyword, identifiers[i]); err != nil {
 			t.Fatal(err)
 		}
 	}
 
-	if err := index.Delete(token, keyword, identifiers[2]); err != nil {
+	if err := index.Delete(ctx, token, keyword, identifiers[2]); err != nil {
 		t.Fatal(err)
 	}
 
-	IDs, err := index.Search(token, keyword)
+	IDs, err := index.Search(ctx, token, keyword)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -357,6 +372,7 @@ func TestDeleteFromMiddle(t *testing.T) {
 }
 
 func TestDeleteSeveral(t *testing.T) {
+	ctx := context.Background()
 	index := newTestSecureIndex(t)
 	_, token := newTestUser(t, &index, id.ScopeIndex)
 
@@ -364,22 +380,22 @@ func TestDeleteSeveral(t *testing.T) {
 	identifiers := [5]string{"id1", "id2", "id3", "id4", "id5"}
 
 	for i := 0; i < len(identifiers); i++ {
-		if err := index.Add(token, keyword, identifiers[i]); err != nil {
+		if err := index.Add(ctx, token, keyword, identifiers[i]); err != nil {
 			t.Fatal(err)
 		}
 	}
 
-	if err := index.Delete(token, keyword, identifiers[0]); err != nil {
+	if err := index.Delete(ctx, token, keyword, identifiers[0]); err != nil {
 		t.Fatal(err)
 	}
-	if err := index.Delete(token, keyword, identifiers[1]); err != nil {
+	if err := index.Delete(ctx, token, keyword, identifiers[1]); err != nil {
 		t.Fatal(err)
 	}
-	if err := index.Delete(token, keyword, identifiers[4]); err != nil {
+	if err := index.Delete(ctx, token, keyword, identifiers[4]); err != nil {
 		t.Fatal(err)
 	}
 
-	IDs, err := index.Search(token, keyword)
+	IDs, err := index.Search(ctx, token, keyword)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -395,6 +411,7 @@ func TestDeleteSeveral(t *testing.T) {
 }
 
 func TestGetLastNode(t *testing.T) {
+	ctx := context.Background()
 	index := newTestSecureIndex(t)
 	_, token := newTestUser(t, &index, id.ScopeIndex)
 
@@ -402,11 +419,11 @@ func TestGetLastNode(t *testing.T) {
 	identifiers := [5]string{"id1", "id2", "id3", "id4", "id5"}
 
 	for i := 0; i < len(identifiers); i++ {
-		if err := index.Add(token, keyword, identifiers[i]); err != nil {
+		if err := index.Add(ctx, token, keyword, identifiers[i]); err != nil {
 			t.Fatal(err)
 		}
 
-		lastNode, err := index.getLastNode(keyword)
+		lastNode, err := index.getLastNode(ctx, keyword)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -420,11 +437,12 @@ func TestGetLastNode(t *testing.T) {
 }
 
 func TestGetLastNodeBeforeAdd(t *testing.T) {
+	ctx := context.Background()
 	index := newTestSecureIndex(t)
 
 	keyword := "keyword"
 
-	lastNode, err := index.getLastNode(keyword)
+	lastNode, err := index.getLastNode(ctx, keyword)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -437,20 +455,21 @@ func TestGetLastNodeBeforeAdd(t *testing.T) {
 }
 
 func TestGetLastNodeWrongKeyword(t *testing.T) {
+	ctx := context.Background()
 	index := newTestSecureIndex(t)
 	_, token := newTestUser(t, &index, id.ScopeIndex)
 
 	keyword := "first keyword"
 	identifier := "first id"
 
-	if err := index.Add(token, keyword, identifier); err != nil {
+	if err := index.Add(ctx, token, keyword, identifier); err != nil {
 		t.Fatal(err)
 	}
 
 	keywordShort := "first keywor"
 	keywordLong := "first keywordd"
 
-	lastNode, err := index.getLastNode(keywordShort)
+	lastNode, err := index.getLastNode(ctx, keywordShort)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -461,7 +480,7 @@ func TestGetLastNodeWrongKeyword(t *testing.T) {
 		t.Fatal("getLastNode returned non-empty Node when given wrong keyword.")
 	}
 
-	lastNode, err = index.getLastNode(keywordLong)
+	lastNode, err = index.getLastNode(ctx, keywordLong)
 	if err != nil {
 		t.Fatal(err)
 	}

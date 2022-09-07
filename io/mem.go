@@ -16,6 +16,7 @@
 package io
 
 import (
+	"context"
 	"fmt"
 	"sync"
 )
@@ -35,7 +36,7 @@ func newKey(id []byte, dataType DataType) string {
 	return key
 }
 
-func (m *Mem) Put(id []byte, dataType DataType, data []byte) error {
+func (m *Mem) Put(_ context.Context, id []byte, dataType DataType, data []byte) error {
 	key := newKey(id, dataType)
 	if _, ok := m.data.Load(key); ok {
 		return ErrAlreadyExists
@@ -44,7 +45,7 @@ func (m *Mem) Put(id []byte, dataType DataType, data []byte) error {
 	return nil
 }
 
-func (m *Mem) Get(id []byte, dataType DataType) ([]byte, error) {
+func (m *Mem) Get(_ context.Context, id []byte, dataType DataType) ([]byte, error) {
 	key := newKey(id, dataType)
 	out, ok := m.data.Load(key)
 	if !ok {
@@ -54,7 +55,7 @@ func (m *Mem) Get(id []byte, dataType DataType) ([]byte, error) {
 	return data, nil
 }
 
-func (m *Mem) Update(id []byte, dataType DataType, data []byte) error {
+func (m *Mem) Update(_ context.Context, id []byte, dataType DataType, data []byte) error {
 	key := newKey(id, dataType)
 	if _, ok := m.data.Load(key); !ok {
 		return ErrNotFound
@@ -63,7 +64,7 @@ func (m *Mem) Update(id []byte, dataType DataType, data []byte) error {
 	return nil
 }
 
-func (m *Mem) Delete(id []byte, dataType DataType) error {
+func (m *Mem) Delete(_ context.Context, id []byte, dataType DataType) error {
 	key := newKey(id, dataType)
 	m.data.Delete(key)
 	return nil

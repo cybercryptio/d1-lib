@@ -17,6 +17,7 @@ package index
 
 import (
 	"bytes"
+	"context"
 	"encoding/gob"
 	"errors"
 	"fmt"
@@ -48,8 +49,8 @@ type SecureIndex struct {
 }
 
 // NewSecureIndex creates a SecureIndex which is used to manage keyword/identifier pairs.
-func NewSecureIndex(keyProvider key.Provider, ioProvider io.Provider, idProvider id.Provider) (SecureIndex, error) {
-	keys, err := keyProvider.GetKeys()
+func NewSecureIndex(ctx context.Context, keyProvider key.Provider, ioProvider io.Provider, idProvider id.Provider) (SecureIndex, error) {
+	keys, err := keyProvider.GetKeys(ctx)
 	if err != nil {
 		return SecureIndex{}, err
 	}
@@ -66,8 +67,8 @@ func NewSecureIndex(keyProvider key.Provider, ioProvider io.Provider, idProvider
 }
 
 // Add adds a keyword/identifier pair to the secure index.
-func (i *SecureIndex) Add(token, keyword, identifier string) error {
-	if err := i.verifyAccess(token); err != nil {
+func (i *SecureIndex) Add(ctx context.Context, token, keyword, identifier string) error {
+	if err := i.verifyAccess(ctx, token); err != nil {
 		return err
 	}
 
@@ -78,7 +79,7 @@ func (i *SecureIndex) Add(token, keyword, identifier string) error {
 
 	// Compute the current last sealed Node containing the given keyword, i.e. the sealed
 	// Node with the largest value of the counter.
-	last, err := i.getLastNode(keyword)
+	last, err := i.getLastNode(ctx, keyword)
 	if err != nil {
 		return err
 	}
@@ -95,7 +96,7 @@ func (i *SecureIndex) Add(token, keyword, identifier string) error {
 	if err != nil {
 		return err
 	}
-	if err = i.putSealedNode(label, &sealedNode); err != nil {
+	if err = i.putSealedNode(ctx, label, &sealedNode); err != nil {
 		return err
 	}
 
@@ -103,8 +104,8 @@ func (i *SecureIndex) Add(token, keyword, identifier string) error {
 }
 
 // Search returns all identifiers that the given keyword is contained in.
-func (i *SecureIndex) Search(token, keyword string) ([]string, error) {
-	if err := i.verifyAccess(token); err != nil {
+func (i *SecureIndex) Search(ctx context.Context, token, keyword string) ([]string, error) {
+	if err := i.verifyAccess(ctx, token); err != nil {
 		return nil, err
 	}
 
@@ -122,7 +123,7 @@ func (i *SecureIndex) Search(token, keyword string) ([]string, error) {
 	for {
 		// Get the next Node. If ErrNotFound, all the identifiers that contain the given keyword
 		// have been found, and the function should return them.
-		decryptedNode, err = i.getNextNode(decryptedNode, tagger, cryptor)
+		decryptedNode, err = i.getNextNode(ctx, decryptedNode, tagger, cryptor)
 		if err == io.ErrNotFound {
 			break
 		}
@@ -137,8 +138,8 @@ func (i *SecureIndex) Search(token, keyword string) ([]string, error) {
 }
 
 // Delete deletes all occurrences of a keyword/identifier pair from the secure index.
-func (i *SecureIndex) Delete(token, keyword, identifier string) error {
-	if err := i.verifyAccess(token); err != nil {
+func (i *SecureIndex) Delete(ctx context.Context, token, keyword, identifier string) error {
+	if err := i.verifyAccess(ctx, token); err != nil {
 		return err
 	}
 
@@ -155,7 +156,7 @@ func (i *SecureIndex) Delete(token, keyword, identifier string) error {
 	for {
 		// Get the next Node. If ErrNotFound, there are no more Nodes to check (and
 		// delete), and the function can terminate.
-		next, err := i.getNextNode(current, tagger, cryptor)
+		next, err := i.getNextNode(ctx, current, tagger, cryptor)
 		if err == io.ErrNotFound {
 			break
 		}
@@ -170,7 +171,7 @@ func (i *SecureIndex) Delete(token, keyword, identifier string) error {
 			if err != nil {
 				return err
 			}
-			err = i.deleteNode(label, next, tagger, cryptor)
+			err = i.deleteNode(ctx, label, next, tagger, cryptor)
 			if err != nil {
 				return err
 			}
@@ -186,13 +187,13 @@ func (i *SecureIndex) Delete(token, keyword, identifier string) error {
 // two things:
 // * If "A" is the last node, "A" itself is simply deleted.
 // * If there is a next node "B", "A" is overwritten with "B"s data and "B" is deleted.
-func (i *SecureIndex) deleteNode(label []byte, node data.Node, tagger crypto.TaggerInterface, cryptor crypto.CryptorInterface) error {
+func (i *SecureIndex) deleteNode(ctx context.Context, label []byte, node data.Node, tagger crypto.TaggerInterface, cryptor crypto.CryptorInterface) error {
 	// Get the next Node. If ErrNotFound, then the current Node is the one
 	// with the largest value of counter, and therefore it can simply be deleted without
 	// any other updates.
-	next, err := i.getNextNode(node, tagger, cryptor)
+	next, err := i.getNextNode(ctx, node, tagger, cryptor)
 	if err == io.ErrNotFound {
-		if err = i.deleteSealedNode(label); err != nil {
+		if err = i.deleteSealedNode(ctx, label); err != nil {
 			return err
 		}
 		return nil
@@ -206,7 +207,7 @@ func (i *SecureIndex) deleteNode(label []byte, node data.Node, tagger crypto.Tag
 	if err != nil {
 		return err
 	}
-	if err = i.updateSealedNode(label, &updatedSealedNode); err != nil {
+	if err = i.updateSealedNode(ctx, label, &updatedSealedNode); err != nil {
 		return err
 	}
 
@@ -215,7 +216,7 @@ func (i *SecureIndex) deleteNode(label []byte, node data.Node, tagger crypto.Tag
 	if err != nil {
 		return err
 	}
-	if err = i.deleteSealedNode(nextLabel); err != nil {
+	if err = i.deleteSealedNode(ctx, nextLabel); err != nil {
 		return err
 	}
 
@@ -224,7 +225,7 @@ func (i *SecureIndex) deleteNode(label []byte, node data.Node, tagger crypto.Tag
 
 // getLastNode computes the current last Node containing the given keyword, i.e. the
 // current Node with the largest value of counter.
-func (i *SecureIndex) getLastNode(keyword string) (data.Node, error) {
+func (i *SecureIndex) getLastNode(ctx context.Context, keyword string) (data.Node, error) {
 	tagger, cryptor, err := i.getTaggerAndCryptor(keyword)
 	if err != nil {
 		return data.Node{}, err
@@ -237,7 +238,7 @@ func (i *SecureIndex) getLastNode(keyword string) (data.Node, error) {
 	for {
 		// Get the next Node. If ErrNotFound, then the last Node has been found, and the
 		// function should return it.
-		nextDecrypted, err := i.getNextNode(decryptedNode, tagger, cryptor)
+		nextDecrypted, err := i.getNextNode(ctx, decryptedNode, tagger, cryptor)
 		if err == io.ErrNotFound {
 			return decryptedNode, nil
 		}
@@ -250,7 +251,7 @@ func (i *SecureIndex) getLastNode(keyword string) (data.Node, error) {
 }
 
 // getNextNode returns the next Node, given a current Node.
-func (i *SecureIndex) getNextNode(currentNode data.Node, tagger crypto.TaggerInterface, cryptor crypto.CryptorInterface) (data.Node, error) {
+func (i *SecureIndex) getNextNode(ctx context.Context, currentNode data.Node, tagger crypto.TaggerInterface, cryptor crypto.CryptorInterface) (data.Node, error) {
 	nextLabel, err := currentNode.NextLabel(tagger)
 	if err != nil {
 		return data.Node{}, err
@@ -258,7 +259,7 @@ func (i *SecureIndex) getNextNode(currentNode data.Node, tagger crypto.TaggerInt
 
 	// If the next sealed Node does not exist in the IO Provider, then an ErrNotFound
 	// is returned.
-	nextSealedNode, err := i.getSealedNode(nextLabel)
+	nextSealedNode, err := i.getSealedNode(ctx, nextLabel)
 	if err != nil {
 		return data.Node{}, err
 	}
@@ -273,8 +274,8 @@ func (i *SecureIndex) getNextNode(currentNode data.Node, tagger crypto.TaggerInt
 
 // verifyAccess verifies the caller. It verifies both that the caller is authenticated by the
 // Identity Provider, and that the caller has the necessary scopes.
-func (i *SecureIndex) verifyAccess(token string) error {
-	identity, err := i.idProvider.GetIdentity(token)
+func (i *SecureIndex) verifyAccess(ctx context.Context, token string) error {
+	identity, err := i.idProvider.GetIdentity(ctx, token)
 	if err != nil {
 		return ErrNotAuthenticated
 	}
@@ -309,30 +310,30 @@ func (i *SecureIndex) getTaggerAndCryptor(keyword string) (crypto.TaggerInterfac
 ////////////////////////////////////////////////////////
 
 // putSealedNode encodes a sealed Node and sends it to the IO Provider.
-func (i *SecureIndex) putSealedNode(tag []byte, sealedNode *data.SealedNode) error {
+func (i *SecureIndex) putSealedNode(ctx context.Context, tag []byte, sealedNode *data.SealedNode) error {
 	var sealedNodeBuffer bytes.Buffer
 	enc := gob.NewEncoder(&sealedNodeBuffer)
 	if err := enc.Encode(sealedNode); err != nil {
 		return err
 	}
 
-	return i.ioProvider.Put(tag, io.DataTypeSealedNode, sealedNodeBuffer.Bytes())
+	return i.ioProvider.Put(ctx, tag, io.DataTypeSealedNode, sealedNodeBuffer.Bytes())
 }
 
 // updateSealedNode encodes an updated sealed Node and updates it in the IO Provider.
-func (i *SecureIndex) updateSealedNode(tag []byte, sealedID *data.SealedNode) error {
+func (i *SecureIndex) updateSealedNode(ctx context.Context, tag []byte, sealedID *data.SealedNode) error {
 	var sealedNodeBuffer bytes.Buffer
 	enc := gob.NewEncoder(&sealedNodeBuffer)
 	if err := enc.Encode(sealedID); err != nil {
 		return err
 	}
 
-	return i.ioProvider.Update(tag, io.DataTypeSealedNode, sealedNodeBuffer.Bytes())
+	return i.ioProvider.Update(ctx, tag, io.DataTypeSealedNode, sealedNodeBuffer.Bytes())
 }
 
 // getSealedNode fetches bytes from the IO Provider and decodes them into a sealed Node.
-func (i *SecureIndex) getSealedNode(tag []byte) (*data.SealedNode, error) {
-	sealedNodeBytes, err := i.ioProvider.Get(tag, io.DataTypeSealedNode)
+func (i *SecureIndex) getSealedNode(ctx context.Context, tag []byte) (*data.SealedNode, error) {
+	sealedNodeBytes, err := i.ioProvider.Get(ctx, tag, io.DataTypeSealedNode)
 	if err != nil {
 		return nil, err
 	}
@@ -348,6 +349,6 @@ func (i *SecureIndex) getSealedNode(tag []byte) (*data.SealedNode, error) {
 }
 
 // deleteSealedNode deletes a sealed Node from the IO Provider.
-func (i *SecureIndex) deleteSealedNode(tag []byte) error {
-	return i.ioProvider.Delete(tag, io.DataTypeSealedNode)
+func (i *SecureIndex) deleteSealedNode(ctx context.Context, tag []byte) error {
+	return i.ioProvider.Delete(ctx, tag, io.DataTypeSealedNode)
 }

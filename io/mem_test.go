@@ -19,11 +19,13 @@ import (
 	"testing"
 
 	"bytes"
+	"context"
 	"errors"
 )
 
 // Test that putting and subsequently getting data returns the right bytes for all data types.
 func TestMemPutAndGet(t *testing.T) {
+	ctx := context.Background()
 	mem := NewMem()
 
 	data := []byte("mock data")
@@ -31,12 +33,12 @@ func TestMemPutAndGet(t *testing.T) {
 
 	for dt := DataType(0); dt < DataTypeEnd; dt++ {
 		testData := append(data, dt.Bytes()...)
-		err := mem.Put(id, dt, testData)
+		err := mem.Put(ctx, id, dt, testData)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		fetched, err := mem.Get(id, dt)
+		fetched, err := mem.Get(ctx, id, dt)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -49,6 +51,7 @@ func TestMemPutAndGet(t *testing.T) {
 
 // Test that putting existing data returns the right error.
 func TestMemPutAlreadyExists(t *testing.T) {
+	ctx := context.Background()
 	mem := NewMem()
 
 	data := []byte("mock data")
@@ -56,12 +59,12 @@ func TestMemPutAlreadyExists(t *testing.T) {
 
 	for dt := DataType(0); dt < DataTypeEnd; dt++ {
 		testData := append(data, dt.Bytes()...)
-		err := mem.Put(id, dt, testData)
+		err := mem.Put(ctx, id, dt, testData)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		err = mem.Put(id, dt, testData)
+		err = mem.Put(ctx, id, dt, testData)
 		if !errors.Is(err, ErrAlreadyExists) {
 			t.Fatalf("Expected %v but got %v", ErrAlreadyExists, err)
 		}
@@ -70,11 +73,12 @@ func TestMemPutAlreadyExists(t *testing.T) {
 
 // Test that getting non-existing data returns the right error.
 func TestMemNotFound(t *testing.T) {
+	ctx := context.Background()
 	mem := NewMem()
 
 	id := []byte("mock id")
 
-	data, err := mem.Get(id, DataTypeSealedObject)
+	data, err := mem.Get(ctx, id, DataTypeSealedObject)
 	if !errors.Is(err, ErrNotFound) {
 		t.Fatalf("Expected %v but got %v", ErrNotFound, err)
 	}
@@ -85,6 +89,7 @@ func TestMemNotFound(t *testing.T) {
 
 // Test that data can be updated correctly.
 func TestMemUpdate(t *testing.T) {
+	ctx := context.Background()
 	mem := NewMem()
 
 	data := []byte("mock data")
@@ -92,18 +97,18 @@ func TestMemUpdate(t *testing.T) {
 	id := []byte("mock id")
 
 	for dt := DataType(0); dt < DataTypeEnd; dt++ {
-		err := mem.Put(id, dt, append(data, dt.Bytes()...))
+		err := mem.Put(ctx, id, dt, append(data, dt.Bytes()...))
 		if err != nil {
 			t.Fatal(err)
 		}
 
 		testUpdated := append(updated, dt.Bytes()...)
-		err = mem.Update(id, dt, testUpdated)
+		err = mem.Update(ctx, id, dt, testUpdated)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		fetched, err := mem.Get(id, dt)
+		fetched, err := mem.Get(ctx, id, dt)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -116,11 +121,12 @@ func TestMemUpdate(t *testing.T) {
 
 // Test that updating data that doesn't exist errors correctly.
 func TestMemUpdateNotFound(t *testing.T) {
+	ctx := context.Background()
 	mem := NewMem()
 
 	id := []byte("mock id")
 
-	err := mem.Update(id, DataTypeSealedObject, []byte("mock data"))
+	err := mem.Update(ctx, id, DataTypeSealedObject, []byte("mock data"))
 	if !errors.Is(err, ErrNotFound) {
 		t.Fatalf("Expected %v but got %v", ErrNotFound, err)
 	}
@@ -128,23 +134,24 @@ func TestMemUpdateNotFound(t *testing.T) {
 
 // Test that deleting data actually removes it.
 func TestMemDelete(t *testing.T) {
+	ctx := context.Background()
 	mem := NewMem()
 
 	data := []byte("mock data")
 	id := []byte("mock id")
 
 	for dt := DataType(0); dt < DataTypeEnd; dt++ {
-		err := mem.Put(id, dt, append(data, dt.Bytes()...))
+		err := mem.Put(ctx, id, dt, append(data, dt.Bytes()...))
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		err = mem.Delete(id, dt)
+		err = mem.Delete(ctx, id, dt)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		data, err := mem.Get(id, dt)
+		data, err := mem.Get(ctx, id, dt)
 		if !errors.Is(err, ErrNotFound) {
 			t.Fatalf("Expected %v but got %v", ErrNotFound, err)
 		}
@@ -156,11 +163,12 @@ func TestMemDelete(t *testing.T) {
 
 // Test that deleting non-existing data doesn't error.
 func TestMemDeleteNotFound(t *testing.T) {
+	ctx := context.Background()
 	mem := NewMem()
 
 	id := []byte("mock id")
 
-	err := mem.Delete(id, DataTypeSealedObject)
+	err := mem.Delete(ctx, id, DataTypeSealedObject)
 	if err != nil {
 		t.Fatal(err)
 	}

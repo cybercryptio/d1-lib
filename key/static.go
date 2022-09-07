@@ -15,6 +15,10 @@
 
 package key
 
+import (
+	"context"
+)
+
 // Static implements a Key Provider which returns a fixed set of keys.
 type Static struct {
 	keys Keys
@@ -26,6 +30,6 @@ func NewStatic(keys Keys) Static {
 }
 
 // GetKeys returns the static set of keys.
-func (s *Static) GetKeys() (Keys, error) {
+func (s *Static) GetKeys(_ context.Context) (Keys, error) {
 	return s.keys, nil
 }

@@ -15,6 +15,10 @@
 
 package id
 
+import (
+	"context"
+)
+
 // AccessGroup represents a group of Identities. The Provider implementations should ensure that the
 // ID string is unique across all instances.
 type AccessGroup struct {
@@ -52,5 +56,5 @@ func (i *Identity) GetIDScope(id string) Scope {
 }
 
 type Provider interface {
-	GetIdentity(token string) (Identity, error)
+	GetIdentity(ctx context.Context, token string) (Identity, error)
 }

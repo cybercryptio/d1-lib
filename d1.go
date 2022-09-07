@@ -19,6 +19,7 @@ D1 is a library that provides easy access to data encryption with built in acces
 package d1
 
 import (
+	"context"
 	"errors"
 
 	"github.com/gofrs/uuid"
@@ -49,8 +50,8 @@ type D1 struct {
 }
 
 // New creates a new instance of D1 configured with the given providers.
-func New(keyProvider key.Provider, ioProvider io.Provider, idProvider id.Provider) (D1, error) {
-	keys, err := keyProvider.GetKeys()
+func New(ctx context.Context, keyProvider key.Provider, ioProvider io.Provider, idProvider id.Provider) (D1, error) {
+	keys, err := keyProvider.GetKeys(ctx)
 	if err != nil {
 		return D1{}, err
 	}
@@ -96,8 +97,8 @@ func New(keyProvider key.Provider, ioProvider io.Provider, idProvider id.Provide
 //
 // Required scopes:
 // - Encrypt
-func (d *D1) Encrypt(token string, object *data.Object, groups ...string) (uuid.UUID, error) {
-	identity, err := d.idProvider.GetIdentity(token)
+func (d *D1) Encrypt(ctx context.Context, token string, object *data.Object, groups ...string) (uuid.UUID, error) {
+	identity, err := d.idProvider.GetIdentity(ctx, token)
 	if err != nil {
 		return uuid.Nil, ErrNotAuthenticated
 	}
@@ -123,10 +124,10 @@ func (d *D1) Encrypt(token string, object *data.Object, groups ...string) (uuid.
 	}
 
 	// Write data to IO Provider
-	if err := d.putSealedObject(&sealedObject, false); err != nil {
+	if err := d.putSealedObject(ctx, &sealedObject, false); err != nil {
 		return uuid.Nil, err
 	}
-	if err := d.putSealedAccess(&sealedAccess, false); err != nil {
+	if err := d.putSealedAccess(ctx, &sealedAccess, false); err != nil {
 		return uuid.Nil, err
 	}
 
@@ -141,8 +142,8 @@ func (d *D1) Encrypt(token string, object *data.Object, groups ...string) (uuid.
 //
 // Required scopes:
 // - Update
-func (d *D1) Update(token string, oid uuid.UUID, object *data.Object) error {
-	identity, err := d.idProvider.GetIdentity(token)
+func (d *D1) Update(ctx context.Context, token string, oid uuid.UUID, object *data.Object) error {
+	identity, err := d.idProvider.GetIdentity(ctx, token)
 	if err != nil {
 		return ErrNotAuthenticated
 	}
@@ -150,7 +151,7 @@ func (d *D1) Update(token string, oid uuid.UUID, object *data.Object) error {
 		return ErrNotAuthorized
 	}
 
-	access, err := d.getSealedAccess(oid)
+	access, err := d.getSealedAccess(ctx, oid)
 	if err != nil {
 		return err
 	}
@@ -172,10 +173,10 @@ func (d *D1) Update(token string, oid uuid.UUID, object *data.Object) error {
 	}
 
 	// Write data to IO Provider
-	if err := d.putSealedObject(&sealedObject, true); err != nil {
+	if err := d.putSealedObject(ctx, &sealedObject, true); err != nil {
 		return err
 	}
-	if err := d.putSealedAccess(&sealedAccess, true); err != nil {
+	if err := d.putSealedAccess(ctx, &sealedAccess, true); err != nil {
 		return err
 	}
 
@@ -191,8 +192,8 @@ func (d *D1) Update(token string, oid uuid.UUID, object *data.Object) error {
 //
 // Required scopes:
 // - Decrypt
-func (d *D1) Decrypt(token string, oid uuid.UUID) (data.Object, error) {
-	identity, err := d.idProvider.GetIdentity(token)
+func (d *D1) Decrypt(ctx context.Context, token string, oid uuid.UUID) (data.Object, error) {
+	identity, err := d.idProvider.GetIdentity(ctx, token)
 	if err != nil {
 		return data.Object{}, ErrNotAuthenticated
 	}
@@ -200,7 +201,7 @@ func (d *D1) Decrypt(token string, oid uuid.UUID) (data.Object, error) {
 		return data.Object{}, ErrNotAuthorized
 	}
 
-	access, err := d.getSealedAccess(oid)
+	access, err := d.getSealedAccess(ctx, oid)
 	if err != nil {
 		return data.Object{}, err
 	}
@@ -210,7 +211,7 @@ func (d *D1) Decrypt(token string, oid uuid.UUID) (data.Object, error) {
 		return data.Object{}, err
 	}
 
-	object, err := d.getSealedObject(oid)
+	object, err := d.getSealedObject(ctx, oid)
 	if err != nil {
 		return data.Object{}, err
 	}
@@ -224,8 +225,8 @@ func (d *D1) Decrypt(token string, oid uuid.UUID) (data.Object, error) {
 //
 // Required scopes:
 // - Delete
-func (d *D1) Delete(token string, oid uuid.UUID) error {
-	identity, err := d.idProvider.GetIdentity(token)
+func (d *D1) Delete(ctx context.Context, token string, oid uuid.UUID) error {
+	identity, err := d.idProvider.GetIdentity(ctx, token)
 	if err != nil {
 		return ErrNotAuthenticated
 	}
@@ -233,7 +234,7 @@ func (d *D1) Delete(token string, oid uuid.UUID) error {
 		return ErrNotAuthorized
 	}
 
-	access, err := d.getSealedAccess(oid)
+	access, err := d.getSealedAccess(ctx, oid)
 	switch err {
 	case nil:
 		// Ignore and proceed
@@ -261,10 +262,10 @@ func (d *D1) Delete(token string, oid uuid.UUID) error {
 	// to get rid of the dangling access entry.
 	// If we deleted the access first, and then fail to delete the object,
 	// we would have a dangling object we can't access, and therefore can't delete.
-	if err = d.deleteSealedObject(oid); err != nil {
+	if err = d.deleteSealedObject(ctx, oid); err != nil {
 		return err
 	}
-	if err = d.deleteSealedAccess(oid); err != nil {
+	if err = d.deleteSealedAccess(ctx, oid); err != nil {
 		return err
 	}
 
@@ -279,14 +280,14 @@ func (d *D1) Delete(token string, oid uuid.UUID) error {
 // expiry time given by TokenValidity.
 //
 // The contents of the token can be validated and retrieved with the GetTokenContents method.
-func (d *D1) CreateToken(plaintext []byte) (data.SealedToken, error) {
+func (d *D1) CreateToken(ctx context.Context, plaintext []byte) (data.SealedToken, error) {
 	token := data.NewToken(plaintext, data.TokenValidity)
 	return token.Seal(d.tokenCryptor)
 }
 
 // GetTokenContents extracts the plaintext data from a sealed token, provided that the token has not
 // expired.
-func (d *D1) GetTokenContents(token *data.SealedToken) ([]byte, error) {
+func (d *D1) GetTokenContents(ctx context.Context, token *data.SealedToken) ([]byte, error) {
 	plainToken, err := token.Unseal(d.tokenCryptor)
 	if err != nil {
 		return nil, err
@@ -308,8 +309,8 @@ func (d *D1) GetTokenContents(token *data.SealedToken) ([]byte, error) {
 //
 // Required scopes:
 // - GetAccessGroups
-func (d *D1) GetAccessGroups(token string, oid uuid.UUID) (map[string]struct{}, error) {
-	identity, err := d.idProvider.GetIdentity(token)
+func (d *D1) GetAccessGroups(ctx context.Context, token string, oid uuid.UUID) (map[string]struct{}, error) {
+	identity, err := d.idProvider.GetIdentity(ctx, token)
 	if err != nil {
 		return nil, ErrNotAuthenticated
 	}
@@ -317,7 +318,7 @@ func (d *D1) GetAccessGroups(token string, oid uuid.UUID) (map[string]struct{}, 
 		return nil, ErrNotAuthorized
 	}
 
-	access, err := d.getSealedAccess(oid)
+	access, err := d.getSealedAccess(ctx, oid)
 	if err != nil {
 		return nil, err
 	}
@@ -337,8 +338,8 @@ func (d *D1) GetAccessGroups(token string, oid uuid.UUID) (map[string]struct{}, 
 //
 // Required scopes:
 // - ModifyAccessGroups
-func (d *D1) AddGroupsToAccess(token string, oid uuid.UUID, groups ...string) error {
-	identity, err := d.idProvider.GetIdentity(token)
+func (d *D1) AddGroupsToAccess(ctx context.Context, token string, oid uuid.UUID, groups ...string) error {
+	identity, err := d.idProvider.GetIdentity(ctx, token)
 	if err != nil {
 		return ErrNotAuthenticated
 	}
@@ -346,7 +347,7 @@ func (d *D1) AddGroupsToAccess(token string, oid uuid.UUID, groups ...string) er
 		return ErrNotAuthorized
 	}
 
-	access, err := d.getSealedAccess(oid)
+	access, err := d.getSealedAccess(ctx, oid)
 	if err != nil {
 		return err
 	}
@@ -362,7 +363,7 @@ func (d *D1) AddGroupsToAccess(token string, oid uuid.UUID, groups ...string) er
 		return err
 	}
 
-	return d.putSealedAccess(access, true)
+	return d.putSealedAccess(ctx, access, true)
 }
 
 // RemoveGroupsFromAccess removes the provided groups from the object's access list, preventing them
@@ -372,8 +373,8 @@ func (d *D1) AddGroupsToAccess(token string, oid uuid.UUID, groups ...string) er
 //
 // Required scopes:
 // - ModifyAccessGroups
-func (d *D1) RemoveGroupsFromAccess(token string, oid uuid.UUID, groups ...string) error {
-	identity, err := d.idProvider.GetIdentity(token)
+func (d *D1) RemoveGroupsFromAccess(ctx context.Context, token string, oid uuid.UUID, groups ...string) error {
+	identity, err := d.idProvider.GetIdentity(ctx, token)
 	if err != nil {
 		return ErrNotAuthenticated
 	}
@@ -381,7 +382,7 @@ func (d *D1) RemoveGroupsFromAccess(token string, oid uuid.UUID, groups ...strin
 		return ErrNotAuthorized
 	}
 
-	access, err := d.getSealedAccess(oid)
+	access, err := d.getSealedAccess(ctx, oid)
 	if err != nil {
 		return err
 	}
@@ -397,7 +398,7 @@ func (d *D1) RemoveGroupsFromAccess(token string, oid uuid.UUID, groups ...strin
 		return err
 	}
 
-	return d.putSealedAccess(access, true)
+	return d.putSealedAccess(ctx, access, true)
 }
 
 // AuthorizeIdentity checks whether the provided Identity is part of the object's access list, i.e. whether
@@ -408,8 +409,8 @@ func (d *D1) RemoveGroupsFromAccess(token string, oid uuid.UUID, groups ...strin
 //
 // Required scopes:
 // - GetAccessGroups
-func (d *D1) AuthorizeIdentity(token string, oid uuid.UUID) error {
-	identity, err := d.idProvider.GetIdentity(token)
+func (d *D1) AuthorizeIdentity(ctx context.Context, token string, oid uuid.UUID) error {
+	identity, err := d.idProvider.GetIdentity(ctx, token)
 	if err != nil {
 		return ErrNotAuthenticated
 	}
@@ -417,7 +418,7 @@ func (d *D1) AuthorizeIdentity(token string, oid uuid.UUID) error {
 		return ErrNotAuthorized
 	}
 
-	access, err := d.getSealedAccess(oid)
+	access, err := d.getSealedAccess(ctx, oid)
 	if err != nil {
 		return err
 	}

@@ -16,6 +16,7 @@
 package d1_test
 
 import (
+	"context"
 	"fmt"
 	"log"
 
@@ -46,23 +47,23 @@ var idProvider, _ = id.NewStandalone(
 	&ioProvider,
 )
 
-func NewUser() (string, string, string) {
-	uid, password, err := (&idProvider).NewUser(id.ScopeAll)
+func NewUser(ctx context.Context) (string, string, string) {
+	uid, password, err := (&idProvider).NewUser(ctx, id.ScopeAll)
 	if err != nil {
 		log.Fatalf("Error creating user: %v", err)
 	}
 
-	token, _, err := (&idProvider).LoginUser(uid, password)
+	token, _, err := (&idProvider).LoginUser(ctx, uid, password)
 	if err != nil {
 		log.Fatalf("Error logging in user: %v", err)
 	}
 
-	gid, err := idProvider.NewGroup(token, id.ScopeAll)
+	gid, err := idProvider.NewGroup(ctx, token, id.ScopeAll)
 	if err != nil {
 		log.Fatalf("Error creating group: %v", err)
 	}
 
-	err = idProvider.AddUserToGroups(token, uid, gid)
+	err = idProvider.AddUserToGroups(ctx, token, uid, gid)
 	if err != nil {
 		log.Fatalf("Error adding user to group: %v", err)
 	}
@@ -72,14 +73,16 @@ func NewUser() (string, string, string) {
 
 // This is a basic example demonstrating how to use the D1 library to encrypt and decrypt binary data.
 func Example_basicEncryptDecrypt() {
+	ctx := context.Background()
+
 	// Instantiate the D1 library with the given keys.
-	d1, err := d1lib.New(&keyProvider, &ioProvider, &idProvider)
+	d1, err := d1lib.New(ctx, &keyProvider, &ioProvider, &idProvider)
 	if err != nil {
 		log.Fatalf("Error instantiating D1: %v", err)
 	}
 
 	// Create a basic user.
-	_, _, token := NewUser()
+	_, _, token := NewUser(ctx)
 
 	// A simple binary object with associated data.
 	binaryObject := data.Object{
@@ -89,13 +92,13 @@ func Example_basicEncryptDecrypt() {
 
 	// Encrypt the object and get the resulting object ID. By default, only the default group of the
 	// user who encrypted the object is allowed to decrypt the object.
-	oid, err := d1.Encrypt(token, &binaryObject)
+	oid, err := d1.Encrypt(ctx, token, &binaryObject)
 	if err != nil {
 		log.Fatalf("Error encrypting object: %v", err)
 	}
 
 	// Decrypt the object using the given user as the authorizer.
-	decryptedObject, err := d1.Decrypt(token, oid)
+	decryptedObject, err := d1.Decrypt(ctx, token, oid)
 	if err != nil {
 		log.Fatalf("Error decrypting object: %v", err)
 	}

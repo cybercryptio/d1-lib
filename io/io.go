@@ -18,6 +18,7 @@
 package io
 
 import (
+	"context"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -55,17 +56,17 @@ func (d DataType) String() string {
 type Provider interface {
 	// Put sends bytes to the IO Provider. The data is identified by an ID and a data type.
 	// Should return ErrAlreadyExists if the data already exists in the IO Provider.
-	Put(id []byte, dataType DataType, data []byte) error
+	Put(ctx context.Context, id []byte, dataType DataType, data []byte) error
 
 	// Get fetches data from the IO Provider. The data is identified by an ID and a data type.
 	// Should return ErrNotFound if the data does not exist in the IO Provider.
-	Get(id []byte, dataType DataType) ([]byte, error)
+	Get(ctx context.Context, id []byte, dataType DataType) ([]byte, error)
 
 	// Update is similar to Put but updates data previously sent to the IO Provider.
 	// Should return ErrNotFound if the data does not exist in the IO Provider.
-	Update(id []byte, dataType DataType, data []byte) error
+	Update(ctx context.Context, id []byte, dataType DataType, data []byte) error
 
 	// Delete removes data previously sent to the IO Provider.
 	// Should not error if the data does not exist in the IO Provider.
-	Delete(id []byte, dataType DataType) error
+	Delete(ctx context.Context, id []byte, dataType DataType) error
 }

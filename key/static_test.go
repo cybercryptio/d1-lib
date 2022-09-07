@@ -18,10 +18,12 @@ package key
 import (
 	"testing"
 
+	"context"
 	"reflect"
 )
 
 func TestGetKeys(t *testing.T) {
+	ctx := context.Background()
 	keys := Keys{
 		KEK: []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 		AEK: []byte{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
@@ -31,7 +33,7 @@ func TestGetKeys(t *testing.T) {
 
 	static := NewStatic(keys)
 
-	fetchedKeys, err := static.GetKeys()
+	fetchedKeys, err := static.GetKeys(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}

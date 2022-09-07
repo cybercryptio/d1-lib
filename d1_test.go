@@ -16,10 +16,11 @@
 package d1
 
 import (
-	"fmt"
 	"testing"
 
+	"context"
 	"errors"
+	"fmt"
 	"reflect"
 
 	"github.com/gofrs/uuid"
@@ -31,6 +32,7 @@ import (
 )
 
 func newTestD1(t *testing.T) D1 {
+	ctx := context.Background()
 	keyProvider := key.NewStatic(key.Keys{
 		KEK: []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 		AEK: []byte{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
@@ -51,7 +53,7 @@ func newTestD1(t *testing.T) D1 {
 		t.Fatal(err)
 	}
 
-	d1, err := New(&keyProvider, &ioProvider, &idProvider)
+	d1, err := New(ctx, &keyProvider, &ioProvider, &idProvider)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -59,14 +61,15 @@ func newTestD1(t *testing.T) D1 {
 }
 
 func newTestUser(t *testing.T, d1 *D1, scopes ...id.Scope) (string, string) {
+	ctx := context.Background()
 	idProvider := d1.idProvider.(*id.Standalone)
 
-	id, password, err := idProvider.NewUser(scopes...)
+	id, password, err := idProvider.NewUser(ctx, scopes...)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	token, _, err := idProvider.LoginUser(id, password)
+	token, _, err := idProvider.LoginUser(ctx, id, password)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -75,15 +78,16 @@ func newTestUser(t *testing.T, d1 *D1, scopes ...id.Scope) (string, string) {
 }
 
 func newTestGroup(t *testing.T, d1 *D1, token string, scope id.Scope, uids ...string) string {
+	ctx := context.Background()
 	idProvider := d1.idProvider.(*id.Standalone)
 
-	gid, err := idProvider.NewGroup(token, scope)
+	gid, err := idProvider.NewGroup(ctx, token, scope)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	for _, uid := range uids {
-		err := idProvider.AddUserToGroups(token, uid, gid)
+		err := idProvider.AddUserToGroups(ctx, token, uid, gid)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -102,6 +106,7 @@ func newTestGroup(t *testing.T, d1 *D1, token string, scope id.Scope, uids ...st
 // 3) Both are empty
 // 4) Both are non-empty
 func TestPlainObject(t *testing.T) {
+	ctx := context.Background()
 	enc := newTestD1(t)
 	_, token := newTestUser(t, &enc, id.ScopeEncrypt)
 
@@ -131,7 +136,7 @@ func TestPlainObject(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.description, func(t *testing.T) {
-			if _, err := enc.Encrypt(token, &test.data); err != nil {
+			if _, err := enc.Encrypt(ctx, token, &test.data); err != nil {
 				t.Fatal(err)
 			}
 		})
@@ -140,8 +145,9 @@ func TestPlainObject(t *testing.T) {
 
 // It is verified that an unauthenticated user is not able to encrypt.
 func TestEncryptUnauthenticated(t *testing.T) {
+	ctx := context.Background()
 	enc := newTestD1(t)
-	oid, err := enc.Encrypt("bad token", &data.Object{})
+	oid, err := enc.Encrypt(ctx, "bad token", &data.Object{})
 	if !errors.Is(err, ErrNotAuthenticated) {
 		t.Fatalf("Expected error '%s' but got '%s'", ErrNotAuthenticated, err)
 	}
@@ -152,10 +158,11 @@ func TestEncryptUnauthenticated(t *testing.T) {
 
 // Test that a user without the Encrypt scope cannot encrypt.
 func TestEncryptWrongAPIScope(t *testing.T) {
+	ctx := context.Background()
 	enc := newTestD1(t)
 	scope := id.ScopeAll ^ id.ScopeEncrypt // All scopes except Encrypt
 	_, token := newTestUser(t, &enc, scope)
-	oid, err := enc.Encrypt(token, &data.Object{})
+	oid, err := enc.Encrypt(ctx, token, &data.Object{})
 	if !errors.Is(err, ErrNotAuthorized) {
 		t.Fatalf("Expected error '%s' but got '%s'", ErrNotAuthorized, err)
 	}
@@ -170,6 +177,7 @@ func TestEncryptWrongAPIScope(t *testing.T) {
 
 // It is verified that an object is correctly encrypted and decrypted.
 func TestDecrypt(t *testing.T) {
+	ctx := context.Background()
 	enc := newTestD1(t)
 	_, token := newTestUser(t, &enc, id.ScopeEncrypt, id.ScopeDecrypt)
 
@@ -178,12 +186,12 @@ func TestDecrypt(t *testing.T) {
 		AssociatedData: []byte("associated_data"),
 	}
 
-	id, err := enc.Encrypt(token, &plainObject)
+	id, err := enc.Encrypt(ctx, token, &plainObject)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	decrypted, err := enc.Decrypt(token, id)
+	decrypted, err := enc.Decrypt(ctx, token, id)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -194,8 +202,9 @@ func TestDecrypt(t *testing.T) {
 
 // It is verified that an unauthenticated user is not able to decrypt.
 func TestDecryptUnauthenticated(t *testing.T) {
+	ctx := context.Background()
 	enc := newTestD1(t)
-	object, err := enc.Decrypt("bad token", uuid.Must(uuid.NewV4()))
+	object, err := enc.Decrypt(ctx, "bad token", uuid.Must(uuid.NewV4()))
 	if !errors.Is(err, ErrNotAuthenticated) {
 		t.Fatalf("Expected error '%s' but got '%s'", ErrNotAuthenticated, err)
 	}
@@ -206,6 +215,7 @@ func TestDecryptUnauthenticated(t *testing.T) {
 
 // It is verified that an unauthorized user is not able to decrypt.
 func TestDecryptUnauthorizedUser(t *testing.T) {
+	ctx := context.Background()
 	enc := newTestD1(t)
 	_, token1 := newTestUser(t, &enc, id.ScopeEncrypt)
 	_, token2 := newTestUser(t, &enc, id.ScopeDecrypt)
@@ -215,22 +225,23 @@ func TestDecryptUnauthorizedUser(t *testing.T) {
 		AssociatedData: []byte("associated_data"),
 	}
 
-	oid, err := enc.Encrypt(token1, &plainObject)
+	oid, err := enc.Encrypt(ctx, token1, &plainObject)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if _, err = enc.Decrypt(token2, oid); err == nil {
+	if _, err = enc.Decrypt(ctx, token2, oid); err == nil {
 		t.Fatal("Unauthorized user was able to decrypt")
 	}
 }
 
 // Test that a user without the Decrypt scope cannot decrypt.
 func TestDecryptWrongAPIScope(t *testing.T) {
+	ctx := context.Background()
 	enc := newTestD1(t)
 	scope := id.ScopeAll ^ id.ScopeDecrypt // All scopes except Decrypt
 	_, token := newTestUser(t, &enc, scope)
-	object, err := enc.Decrypt(token, uuid.Must(uuid.NewV4()))
+	object, err := enc.Decrypt(ctx, token, uuid.Must(uuid.NewV4()))
 	if !errors.Is(err, ErrNotAuthorized) {
 		t.Fatalf("Expected error '%s' but got '%s'", ErrNotAuthorized, err)
 	}
@@ -241,6 +252,7 @@ func TestDecryptWrongAPIScope(t *testing.T) {
 
 // Test that a user whose group does not have the Decrypt scope cannot decrypt.
 func TestDecryptWrongGroupScope(t *testing.T) {
+	ctx := context.Background()
 	enc := newTestD1(t)
 	_, token1 := newTestUser(t, &enc, id.ScopeAll)
 	user2, token2 := newTestUser(t, &enc, id.ScopeAll)
@@ -250,15 +262,15 @@ func TestDecryptWrongGroupScope(t *testing.T) {
 	scope := id.ScopeAll ^ id.ScopeDecrypt // All scopes except Decrypt
 	gid := newTestGroup(t, &enc, token1, scope, user2)
 
-	oid, err := enc.Encrypt(token1, &data.Object{})
+	oid, err := enc.Encrypt(ctx, token1, &data.Object{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := enc.AddGroupsToAccess(token1, oid, gid); err != nil {
+	if err := enc.AddGroupsToAccess(ctx, token1, oid, gid); err != nil {
 		t.Fatal(err)
 	}
 
-	object, err := enc.Decrypt(token2, oid)
+	object, err := enc.Decrypt(ctx, token2, oid)
 	if !errors.Is(err, ErrNotAuthorized) {
 		t.Fatalf("Expected error '%s' but got '%s'", ErrNotAuthorized, err)
 	}
@@ -273,6 +285,7 @@ func TestDecryptWrongGroupScope(t *testing.T) {
 
 // It is verified that an object is correctly encrypted, updated, and decrypted.
 func TestUpdate(t *testing.T) {
+	ctx := context.Background()
 	enc := newTestD1(t)
 	_, token := newTestUser(t, &enc, id.ScopeEncrypt, id.ScopeDecrypt, id.ScopeUpdate)
 
@@ -281,7 +294,7 @@ func TestUpdate(t *testing.T) {
 		AssociatedData: []byte("associated_data"),
 	}
 
-	id, err := enc.Encrypt(token, &plainObject)
+	id, err := enc.Encrypt(ctx, token, &plainObject)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -291,12 +304,12 @@ func TestUpdate(t *testing.T) {
 		AssociatedData: []byte("associated_data_updated"),
 	}
 
-	err = enc.Update(token, id, &plainObjectUpdated)
+	err = enc.Update(ctx, token, id, &plainObjectUpdated)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	decrypted, err := enc.Decrypt(token, id)
+	decrypted, err := enc.Decrypt(ctx, token, id)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -307,8 +320,9 @@ func TestUpdate(t *testing.T) {
 
 // It is verified that an unauthenticated user is not able to update.
 func TestUpdateUnauthenticated(t *testing.T) {
+	ctx := context.Background()
 	enc := newTestD1(t)
-	err := enc.Update("bad token", uuid.Must(uuid.NewV4()), &data.Object{})
+	err := enc.Update(ctx, "bad token", uuid.Must(uuid.NewV4()), &data.Object{})
 	if !errors.Is(err, ErrNotAuthenticated) {
 		t.Fatalf("Expected error '%s' but got '%s'", ErrNotAuthenticated, err)
 	}
@@ -316,6 +330,7 @@ func TestUpdateUnauthenticated(t *testing.T) {
 
 // It is verified that an unauthorized user is not able to update.
 func TestUpdateUnauthorizedUser(t *testing.T) {
+	ctx := context.Background()
 	enc := newTestD1(t)
 	_, token1 := newTestUser(t, &enc, id.ScopeEncrypt)
 	_, token2 := newTestUser(t, &enc, id.ScopeUpdate)
@@ -325,7 +340,7 @@ func TestUpdateUnauthorizedUser(t *testing.T) {
 		AssociatedData: []byte("associated_data"),
 	}
 
-	id, err := enc.Encrypt(token1, &plainObject)
+	id, err := enc.Encrypt(ctx, token1, &plainObject)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -335,7 +350,7 @@ func TestUpdateUnauthorizedUser(t *testing.T) {
 		AssociatedData: []byte("associated_data_updated"),
 	}
 
-	err = enc.Update(token2, id, &plainObjectUpdated)
+	err = enc.Update(ctx, token2, id, &plainObjectUpdated)
 	if err == nil {
 		t.Fatal("Unauthorized user able to update")
 	}
@@ -343,10 +358,11 @@ func TestUpdateUnauthorizedUser(t *testing.T) {
 
 // Test that a user without the Update scope cannot update.
 func TestUpdateWrongAPIScope(t *testing.T) {
+	ctx := context.Background()
 	enc := newTestD1(t)
 	scope := id.ScopeAll ^ id.ScopeUpdate // All scopes except Update
 	_, token := newTestUser(t, &enc, scope)
-	err := enc.Update(token, uuid.Must(uuid.NewV4()), &data.Object{})
+	err := enc.Update(ctx, token, uuid.Must(uuid.NewV4()), &data.Object{})
 	if !errors.Is(err, ErrNotAuthorized) {
 		t.Fatalf("Expected error '%s' but got '%s'", ErrNotAuthorized, err)
 	}
@@ -354,6 +370,7 @@ func TestUpdateWrongAPIScope(t *testing.T) {
 
 // Test that a user whose group does not have the Update scope cannot update.
 func TestUpdateWrongGroupScope(t *testing.T) {
+	ctx := context.Background()
 	enc := newTestD1(t)
 	_, token1 := newTestUser(t, &enc, id.ScopeAll)
 	user2, token2 := newTestUser(t, &enc, id.ScopeAll)
@@ -363,15 +380,15 @@ func TestUpdateWrongGroupScope(t *testing.T) {
 	scope := id.ScopeAll ^ id.ScopeUpdate // All scopes except Update
 	gid := newTestGroup(t, &enc, token1, scope, user2)
 
-	oid, err := enc.Encrypt(token1, &data.Object{})
+	oid, err := enc.Encrypt(ctx, token1, &data.Object{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := enc.AddGroupsToAccess(token1, oid, gid); err != nil {
+	if err := enc.AddGroupsToAccess(ctx, token1, oid, gid); err != nil {
 		t.Fatal(err)
 	}
 
-	err = enc.Update(token2, oid, &data.Object{})
+	err = enc.Update(ctx, token2, oid, &data.Object{})
 	if !errors.Is(err, ErrNotAuthorized) {
 		t.Fatalf("Expected error '%s' but got '%s'", ErrNotAuthorized, err)
 	}
@@ -379,6 +396,7 @@ func TestUpdateWrongGroupScope(t *testing.T) {
 
 // Test that an appropriate error is returned when a user tries to update an object that does not exist.
 func TestUpdateNotFound(t *testing.T) {
+	ctx := context.Background()
 	enc := newTestD1(t)
 	_, token := newTestUser(t, &enc, id.ScopeUpdate)
 
@@ -387,7 +405,7 @@ func TestUpdateNotFound(t *testing.T) {
 		AssociatedData: []byte("associated_data_updated"),
 	}
 
-	err := enc.Update(token, uuid.Must(uuid.NewV4()), &plainObjectUpdated)
+	err := enc.Update(ctx, token, uuid.Must(uuid.NewV4()), &plainObjectUpdated)
 	if !errors.Is(err, io.ErrNotFound) {
 		t.Fatalf("Expected error '%s' but got '%s'", io.ErrNotFound, err)
 	}
@@ -398,8 +416,9 @@ func TestUpdateNotFound(t *testing.T) {
 ////////////////////////////////////////////////////////
 
 func checkDataIsDeleted(t *testing.T, ioProvider io.Provider, id []byte, dataTypes ...io.DataType) {
+	ctx := context.Background()
 	for _, dataType := range dataTypes {
-		sealedData, err := ioProvider.Get(id, dataType)
+		sealedData, err := ioProvider.Get(ctx, id, dataType)
 		if !errors.Is(err, io.ErrNotFound) {
 			t.Fatalf("Expected error '%s' but got '%s'", io.ErrNotFound, err)
 		}
@@ -411,6 +430,7 @@ func checkDataIsDeleted(t *testing.T, ioProvider io.Provider, id []byte, dataTyp
 
 // It is verified that an object is correctly encrypted and deleted.
 func TestDelete(t *testing.T) {
+	ctx := context.Background()
 	enc := newTestD1(t)
 	_, token := newTestUser(t, &enc, id.ScopeEncrypt, id.ScopeDecrypt, id.ScopeDelete)
 
@@ -419,16 +439,16 @@ func TestDelete(t *testing.T) {
 		AssociatedData: []byte("associated_data"),
 	}
 
-	id, err := enc.Encrypt(token, &plainObject)
+	id, err := enc.Encrypt(ctx, token, &plainObject)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = enc.Delete(token, id)
+	err = enc.Delete(ctx, token, id)
 	if err != nil {
 		t.Fatal(err)
 	}
-	object, err := enc.Decrypt(token, id)
+	object, err := enc.Decrypt(ctx, token, id)
 	if !errors.Is(err, io.ErrNotFound) {
 		t.Fatalf("Expected error '%s' but got '%s'", io.ErrNotFound, err)
 	}
@@ -445,6 +465,7 @@ func TestDelete(t *testing.T) {
 
 // It is verified that no errors are returned when deleting a deleted object.
 func TestDeleteTwice(t *testing.T) {
+	ctx := context.Background()
 	enc := newTestD1(t)
 	_, token := newTestUser(t, &enc, id.ScopeEncrypt, id.ScopeDecrypt, id.ScopeDelete)
 
@@ -453,17 +474,17 @@ func TestDeleteTwice(t *testing.T) {
 		AssociatedData: []byte("associated_data"),
 	}
 
-	id, err := enc.Encrypt(token, &plainObject)
+	id, err := enc.Encrypt(ctx, token, &plainObject)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = enc.Delete(token, id)
+	err = enc.Delete(ctx, token, id)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = enc.Delete(token, id)
+	err = enc.Delete(ctx, token, id)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -471,12 +492,13 @@ func TestDeleteTwice(t *testing.T) {
 
 // It is verified that no errors are returned when deleting an object that doesn't exist.
 func TestDeleteNonExisting(t *testing.T) {
+	ctx := context.Background()
 	enc := newTestD1(t)
 	_, token := newTestUser(t, &enc, id.ScopeEncrypt, id.ScopeDecrypt, id.ScopeDelete)
 
 	id := uuid.Must(uuid.NewV4())
 
-	err := enc.Delete(token, id)
+	err := enc.Delete(ctx, token, id)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -487,6 +509,7 @@ func TestDeleteNonExisting(t *testing.T) {
 // 1) Sealed Access
 // 2) Sealed Object
 func TestDeleteFailureAndRetry(t *testing.T) {
+	ctx := context.Background()
 	type testData struct {
 		description string
 		dataType    io.DataType
@@ -518,34 +541,34 @@ func TestDeleteFailureAndRetry(t *testing.T) {
 				AssociatedData: []byte("associated_data"),
 			}
 
-			id, err := enc.Encrypt(token, &plainObject)
+			id, err := enc.Encrypt(ctx, token, &plainObject)
 			if err != nil {
 				t.Fatal(err)
 			}
 
 			// Temporarily inject failures into the delete function.
 			delete := ioProxy.DeleteFunc
-			ioProxy.DeleteFunc = func(id []byte, dataType io.DataType) error {
+			ioProxy.DeleteFunc = func(_ context.Context, id []byte, dataType io.DataType) error {
 				if dataType == test.dataType {
 					return test.err
 				}
-				return delete(id, dataType)
+				return delete(ctx, id, dataType)
 			}
-			err = enc.Delete(token, id)
+			err = enc.Delete(ctx, token, id)
 			if !errors.Is(err, test.err) {
 				t.Fatalf("Expected error '%s' but got '%s'", test.err, err)
 			}
 
 			// Double-check with the IO Provider that the sealed access/object is still there.
 			// NOTE: We don't check the other sealed entries, since they may or may not be gone at this point.
-			_, err = enc.ioProvider.Get(id.Bytes(), test.dataType)
+			_, err = enc.ioProvider.Get(ctx, id.Bytes(), test.dataType)
 			if err != nil {
 				t.Fatal(err)
 			}
 
 			// Reset the delete function back to the non-failing implementation.
 			ioProxy.DeleteFunc = delete
-			err = enc.Delete(token, id)
+			err = enc.Delete(ctx, token, id)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -561,9 +584,10 @@ func TestDeleteFailureAndRetry(t *testing.T) {
 
 // It is verified that an unauthenticated user is not able to delete.
 func TestDeleteUnauthenticated(t *testing.T) {
+	ctx := context.Background()
 	enc := newTestD1(t)
 
-	err := enc.Delete("bad token", uuid.Must(uuid.NewV4()))
+	err := enc.Delete(ctx, "bad token", uuid.Must(uuid.NewV4()))
 	if !errors.Is(err, ErrNotAuthenticated) {
 		t.Fatalf("Expected error '%s' but got '%s'", ErrNotAuthenticated, err)
 	}
@@ -571,6 +595,7 @@ func TestDeleteUnauthenticated(t *testing.T) {
 
 // It is verified that an unauthorized user is not able to delete.
 func TestDeleteUnauthorizedUser(t *testing.T) {
+	ctx := context.Background()
 	enc := newTestD1(t)
 	_, token1 := newTestUser(t, &enc, id.ScopeEncrypt)
 	_, token2 := newTestUser(t, &enc, id.ScopeDecrypt)
@@ -580,23 +605,24 @@ func TestDeleteUnauthorizedUser(t *testing.T) {
 		AssociatedData: []byte("associated_data"),
 	}
 
-	oid, err := enc.Encrypt(token1, &plainObject)
+	oid, err := enc.Encrypt(ctx, token1, &plainObject)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if err = enc.Delete(token2, oid); err == nil {
+	if err = enc.Delete(ctx, token2, oid); err == nil {
 		t.Fatal("Unauthorized user was able to delete")
 	}
 }
 
 // Test that a user without the Delete scope cannot delete.
 func TestDeleteWrongAPIScope(t *testing.T) {
+	ctx := context.Background()
 	enc := newTestD1(t)
 	scope := id.ScopeAll ^ id.ScopeDelete // All scopes except Decrypt
 	_, token := newTestUser(t, &enc, scope)
 
-	err := enc.Delete(token, uuid.Must(uuid.NewV4()))
+	err := enc.Delete(ctx, token, uuid.Must(uuid.NewV4()))
 	if !errors.Is(err, ErrNotAuthorized) {
 		t.Fatalf("Expected error '%s' but got '%s'", ErrNotAuthorized, err)
 	}
@@ -604,6 +630,7 @@ func TestDeleteWrongAPIScope(t *testing.T) {
 
 // Test that a user whose group does not have the Delete scope cannot delete.
 func TestDeleteWrongGroupScope(t *testing.T) {
+	ctx := context.Background()
 	enc := newTestD1(t)
 	_, token1 := newTestUser(t, &enc, id.ScopeAll)
 	user2, token2 := newTestUser(t, &enc, id.ScopeAll)
@@ -613,15 +640,15 @@ func TestDeleteWrongGroupScope(t *testing.T) {
 	scope := id.ScopeAll ^ id.ScopeDelete // All scopes except Decrypt
 	gid := newTestGroup(t, &enc, token1, scope, user2)
 
-	oid, err := enc.Encrypt(token1, &data.Object{})
+	oid, err := enc.Encrypt(ctx, token1, &data.Object{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := enc.AddGroupsToAccess(token1, oid, gid); err != nil {
+	if err := enc.AddGroupsToAccess(ctx, token1, oid, gid); err != nil {
 		t.Fatal(err)
 	}
 
-	err = enc.Delete(token2, oid)
+	err = enc.Delete(ctx, token2, oid)
 	if !errors.Is(err, ErrNotAuthorized) {
 		t.Fatalf("Expected error '%s' but got '%s'", ErrNotAuthorized, err)
 	}
@@ -633,16 +660,17 @@ func TestDeleteWrongGroupScope(t *testing.T) {
 
 // It is verified that token contents can be derived correctly.
 func TestToken(t *testing.T) {
+	ctx := context.Background()
 	enc := newTestD1(t)
 
 	plaintext := []byte("plaintext")
 
-	token, err := enc.CreateToken(plaintext)
+	token, err := enc.CreateToken(ctx, plaintext)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	contents, err := enc.GetTokenContents(&token)
+	contents, err := enc.GetTokenContents(ctx, &token)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -653,11 +681,12 @@ func TestToken(t *testing.T) {
 
 // It is verified that contents cannot be derived from an invalid token.
 func TestInvalidToken(t *testing.T) {
+	ctx := context.Background()
 	enc := newTestD1(t)
 
 	plaintext := []byte("plaintext")
 
-	token, err := enc.CreateToken(plaintext)
+	token, err := enc.CreateToken(ctx, plaintext)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -665,7 +694,7 @@ func TestInvalidToken(t *testing.T) {
 	// Make token invalid by changing its first 5 ciphertext bytes.
 	copy(token.Ciphertext[:5], make([]byte, 5))
 
-	contents, err := enc.GetTokenContents(&token)
+	contents, err := enc.GetTokenContents(ctx, &token)
 	if err == nil {
 		t.Fatal("Contents can be derived from invalid token")
 	}
@@ -679,6 +708,7 @@ func TestInvalidToken(t *testing.T) {
 ////////////////////////////////////////////////////////
 
 func TestGetAccessGroups(t *testing.T) {
+	ctx := context.Background()
 	enc := newTestD1(t)
 	uid, token := newTestUser(t, &enc, id.ScopeEncrypt, id.ScopeModifyAccessGroups, id.ScopeGetAccessGroups)
 
@@ -693,17 +723,17 @@ func TestGetAccessGroups(t *testing.T) {
 		AssociatedData: []byte("associated_data"),
 	}
 
-	oid, err := enc.Encrypt(token, &plainObject)
+	oid, err := enc.Encrypt(ctx, token, &plainObject)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = enc.AddGroupsToAccess(token, oid, ids...)
+	err = enc.AddGroupsToAccess(ctx, token, oid, ids...)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	accessGroups, err := enc.GetAccessGroups(token, oid)
+	accessGroups, err := enc.GetAccessGroups(ctx, token, oid)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -722,8 +752,9 @@ func TestGetAccessGroups(t *testing.T) {
 }
 
 func TestGetAccessGroupsUnauthenticated(t *testing.T) {
+	ctx := context.Background()
 	enc := newTestD1(t)
-	groups, err := enc.GetAccessGroups("bad token", uuid.Must(uuid.NewV4()))
+	groups, err := enc.GetAccessGroups(ctx, "bad token", uuid.Must(uuid.NewV4()))
 	if !errors.Is(err, ErrNotAuthenticated) {
 		t.Fatalf("Expected error '%s' but got '%s'", ErrNotAuthenticated, err)
 	}
@@ -737,6 +768,7 @@ func TestGetAccessGroupsUnauthenticated(t *testing.T) {
 // 2) user1 encrypts an object.
 // 3) It is verified that only user1 who is part of the access object is able to call GetAccessGroups.
 func TestGetAccessGroupsUnauthorized(t *testing.T) {
+	ctx := context.Background()
 	enc := newTestD1(t)
 
 	_, token1 := newTestUser(t, &enc, id.ScopeEncrypt)
@@ -747,12 +779,12 @@ func TestGetAccessGroupsUnauthorized(t *testing.T) {
 		AssociatedData: []byte("associated_data"),
 	}
 
-	id, err := enc.Encrypt(token1, &plainObject)
+	id, err := enc.Encrypt(ctx, token1, &plainObject)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	accessGroups, err := enc.GetAccessGroups(token2, id)
+	accessGroups, err := enc.GetAccessGroups(ctx, token2, id)
 	if err == nil {
 		t.Fatal("Unauthorized user able to get group IDs contained in access object")
 	}
@@ -763,10 +795,11 @@ func TestGetAccessGroupsUnauthorized(t *testing.T) {
 
 // Test that a user without the GetAccessGroups scope cannot get the access list.
 func TestGetAccessGroupsWrongAPIScope(t *testing.T) {
+	ctx := context.Background()
 	enc := newTestD1(t)
 	scope := id.ScopeAll ^ id.ScopeGetAccessGroups // All scopes except GetAccessGroups
 	_, token := newTestUser(t, &enc, scope)
-	groups, err := enc.GetAccessGroups(token, uuid.Must(uuid.NewV4()))
+	groups, err := enc.GetAccessGroups(ctx, token, uuid.Must(uuid.NewV4()))
 	if !errors.Is(err, ErrNotAuthorized) {
 		t.Fatalf("Expected error '%s' but got '%s'", ErrNotAuthorized, err)
 	}
@@ -777,6 +810,7 @@ func TestGetAccessGroupsWrongAPIScope(t *testing.T) {
 
 // Test that a user whose group does not have the GetAccessGroups scope cannot get the access list.
 func TestGetAccessGroupsWrongGroupScope(t *testing.T) {
+	ctx := context.Background()
 	enc := newTestD1(t)
 	_, token1 := newTestUser(t, &enc, id.ScopeAll)
 	user2, token2 := newTestUser(t, &enc, id.ScopeAll)
@@ -786,15 +820,15 @@ func TestGetAccessGroupsWrongGroupScope(t *testing.T) {
 	scope := id.ScopeAll ^ id.ScopeGetAccessGroups // All scopes except GetAccessGroups
 	gid := newTestGroup(t, &enc, token1, scope, user2)
 
-	oid, err := enc.Encrypt(token1, &data.Object{})
+	oid, err := enc.Encrypt(ctx, token1, &data.Object{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := enc.AddGroupsToAccess(token1, oid, gid); err != nil {
+	if err := enc.AddGroupsToAccess(ctx, token1, oid, gid); err != nil {
 		t.Fatal(err)
 	}
 
-	groups, err := enc.GetAccessGroups(token2, oid)
+	groups, err := enc.GetAccessGroups(ctx, token2, oid)
 	if !errors.Is(err, ErrNotAuthorized) {
 		t.Fatalf("Expected error '%s' but got '%s'", ErrNotAuthorized, err)
 	}
@@ -809,6 +843,7 @@ func TestGetAccessGroupsWrongGroupScope(t *testing.T) {
 
 // It is verified that a user can encrypt an object and add/remove a group to/from the access object.
 func TestAddRemoveGroupsFromAccess(t *testing.T) {
+	ctx := context.Background()
 	enc := newTestD1(t)
 	_, token := newTestUser(t, &enc, id.ScopeEncrypt, id.ScopeModifyAccessGroups, id.ScopeGetAccessGroups)
 	group := newTestGroup(t, &enc, token, id.ScopeNone)
@@ -818,16 +853,16 @@ func TestAddRemoveGroupsFromAccess(t *testing.T) {
 		AssociatedData: []byte("associated_data"),
 	}
 
-	id, err := enc.Encrypt(token, &plainObject)
+	id, err := enc.Encrypt(ctx, token, &plainObject)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if err = enc.AddGroupsToAccess(token, id, group); err != nil {
+	if err = enc.AddGroupsToAccess(ctx, token, id, group); err != nil {
 		t.Fatal(err)
 	}
 
-	accessGroups, err := enc.GetAccessGroups(token, id)
+	accessGroups, err := enc.GetAccessGroups(ctx, token, id)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -835,11 +870,11 @@ func TestAddRemoveGroupsFromAccess(t *testing.T) {
 		t.Fatal("Group not correctly added to access object")
 	}
 
-	if err = enc.RemoveGroupsFromAccess(token, id, group); err != nil {
+	if err = enc.RemoveGroupsFromAccess(ctx, token, id, group); err != nil {
 		t.Fatal(err)
 	}
 
-	accessGroups, err = enc.GetAccessGroups(token, id)
+	accessGroups, err = enc.GetAccessGroups(ctx, token, id)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -849,16 +884,18 @@ func TestAddRemoveGroupsFromAccess(t *testing.T) {
 }
 
 func TestAddGroupsToAccessUnauthenticated(t *testing.T) {
+	ctx := context.Background()
 	enc := newTestD1(t)
-	err := enc.AddGroupsToAccess("bad token", uuid.Must(uuid.NewV4()), "groupID")
+	err := enc.AddGroupsToAccess(ctx, "bad token", uuid.Must(uuid.NewV4()), "groupID")
 	if !errors.Is(err, ErrNotAuthenticated) {
 		t.Fatalf("Expected error '%s' but got '%s'", ErrNotAuthenticated, err)
 	}
 }
 
 func TestRemoveGroupsFromAccessUnauthenticated(t *testing.T) {
+	ctx := context.Background()
 	enc := newTestD1(t)
-	err := enc.RemoveGroupsFromAccess("bad token", uuid.Must(uuid.NewV4()), "groupID")
+	err := enc.RemoveGroupsFromAccess(ctx, "bad token", uuid.Must(uuid.NewV4()), "groupID")
 	if !errors.Is(err, ErrNotAuthenticated) {
 		t.Fatalf("Expected error '%s' but got '%s'", ErrNotAuthenticated, err)
 	}
@@ -866,10 +903,11 @@ func TestRemoveGroupsFromAccessUnauthenticated(t *testing.T) {
 
 // Test that a user without the ModifyAccessGroups scope cannot add to the access list.
 func TestAddGroupsToAccessWrongAPIScope(t *testing.T) {
+	ctx := context.Background()
 	enc := newTestD1(t)
 	scope := id.ScopeAll ^ id.ScopeModifyAccessGroups // All scopes except ModifyAccessGroups
 	_, token := newTestUser(t, &enc, scope)
-	err := enc.AddGroupsToAccess(token, uuid.Must(uuid.NewV4()), "groupID")
+	err := enc.AddGroupsToAccess(ctx, token, uuid.Must(uuid.NewV4()), "groupID")
 	if !errors.Is(err, ErrNotAuthorized) {
 		t.Fatalf("Expected error '%s' but got '%s'", ErrNotAuthorized, err)
 	}
@@ -877,10 +915,11 @@ func TestAddGroupsToAccessWrongAPIScope(t *testing.T) {
 
 // Test that a user without the ModifyAccessGroups scope cannot remove from the access list.
 func TestRemoveGroupsToAccessWrongAPIScope(t *testing.T) {
+	ctx := context.Background()
 	enc := newTestD1(t)
 	scope := id.ScopeAll ^ id.ScopeModifyAccessGroups // All scopes except ModifyAccessGroups
 	_, token := newTestUser(t, &enc, scope)
-	err := enc.RemoveGroupsFromAccess(token, uuid.Must(uuid.NewV4()), "groupID")
+	err := enc.RemoveGroupsFromAccess(ctx, token, uuid.Must(uuid.NewV4()), "groupID")
 	if !errors.Is(err, ErrNotAuthorized) {
 		t.Fatalf("Expected error '%s' but got '%s'", ErrNotAuthorized, err)
 	}
@@ -888,6 +927,7 @@ func TestRemoveGroupsToAccessWrongAPIScope(t *testing.T) {
 
 // Test that a user whose group does not have the AddGroupsToAccess scope cannot add to the access list.
 func TestAddGroupsToAccessWrongGroupScope(t *testing.T) {
+	ctx := context.Background()
 	enc := newTestD1(t)
 	_, token1 := newTestUser(t, &enc, id.ScopeAll)
 	user2, token2 := newTestUser(t, &enc, id.ScopeAll)
@@ -897,15 +937,15 @@ func TestAddGroupsToAccessWrongGroupScope(t *testing.T) {
 	scope := id.ScopeAll ^ id.ScopeModifyAccessGroups // All scopes except ModifyAccessGroups
 	gid := newTestGroup(t, &enc, token1, scope, user2)
 
-	oid, err := enc.Encrypt(token1, &data.Object{})
+	oid, err := enc.Encrypt(ctx, token1, &data.Object{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := enc.AddGroupsToAccess(token1, oid, gid); err != nil {
+	if err := enc.AddGroupsToAccess(ctx, token1, oid, gid); err != nil {
 		t.Fatal(err)
 	}
 
-	err = enc.AddGroupsToAccess(token2, oid, "groupID")
+	err = enc.AddGroupsToAccess(ctx, token2, oid, "groupID")
 	if !errors.Is(err, ErrNotAuthorized) {
 		t.Fatalf("Expected error '%s' but got '%s'", ErrNotAuthorized, err)
 	}
@@ -913,6 +953,7 @@ func TestAddGroupsToAccessWrongGroupScope(t *testing.T) {
 
 // Test that a user whose group does not have the RemoveGroupsFromAccess scope cannot remove from the access list.
 func TestRemoveGroupsFromAccessWrongGroupScope(t *testing.T) {
+	ctx := context.Background()
 	enc := newTestD1(t)
 	_, token1 := newTestUser(t, &enc, id.ScopeAll)
 	user2, token2 := newTestUser(t, &enc, id.ScopeAll)
@@ -922,15 +963,15 @@ func TestRemoveGroupsFromAccessWrongGroupScope(t *testing.T) {
 	scope := id.ScopeAll ^ id.ScopeModifyAccessGroups // All scopes except ModifyAccessGroups
 	gid := newTestGroup(t, &enc, token1, scope, user2)
 
-	oid, err := enc.Encrypt(token1, &data.Object{})
+	oid, err := enc.Encrypt(ctx, token1, &data.Object{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := enc.RemoveGroupsFromAccess(token1, oid, gid); err != nil {
+	if err := enc.RemoveGroupsFromAccess(ctx, token1, oid, gid); err != nil {
 		t.Fatal(err)
 	}
 
-	err = enc.RemoveGroupsFromAccess(token2, oid, "groupID")
+	err = enc.RemoveGroupsFromAccess(ctx, token2, oid, "groupID")
 	if !errors.Is(err, ErrNotAuthorized) {
 		t.Fatalf("Expected error '%s' but got '%s'", ErrNotAuthorized, err)
 	}
@@ -938,6 +979,7 @@ func TestRemoveGroupsFromAccessWrongGroupScope(t *testing.T) {
 
 // It is verified that a user cannot add/remove groups to/from an access object without being part of the access object.
 func TestAddRemoveGroupsFromAccessUnauthorized(t *testing.T) {
+	ctx := context.Background()
 	enc := newTestD1(t)
 	_, token1 := newTestUser(t, &enc, id.ScopeEncrypt, id.ScopeModifyAccessGroups)
 	_, token2 := newTestUser(t, &enc, id.ScopeModifyAccessGroups)
@@ -948,20 +990,20 @@ func TestAddRemoveGroupsFromAccessUnauthorized(t *testing.T) {
 		AssociatedData: []byte("associated_data"),
 	}
 
-	id, err := enc.Encrypt(token1, &plainObject)
+	id, err := enc.Encrypt(ctx, token1, &plainObject)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if err = enc.AddGroupsToAccess(token2, id, group); err == nil {
+	if err = enc.AddGroupsToAccess(ctx, token2, id, group); err == nil {
 		t.Fatal("Unauthorized user able to add groups to access")
 	}
 
-	if err = enc.AddGroupsToAccess(token1, id, group); err != nil {
+	if err = enc.AddGroupsToAccess(ctx, token1, id, group); err != nil {
 		t.Fatal(err)
 	}
 
-	if err = enc.RemoveGroupsFromAccess(token2, id, group); err == nil {
+	if err = enc.RemoveGroupsFromAccess(ctx, token2, id, group); err == nil {
 		t.Fatal("Unauthorized user able to remove groups from access")
 	}
 }
@@ -969,6 +1011,7 @@ func TestAddRemoveGroupsFromAccessUnauthorized(t *testing.T) {
 // It is verified that a user can add/remove groups to/from an access object without being member of the groups,
 // as long as the user is part of the access object.
 func TestAddRemoveGroupsFromAccessAuthorized(t *testing.T) {
+	ctx := context.Background()
 	enc := newTestD1(t)
 	_, token := newTestUser(t, &enc, id.ScopeEncrypt, id.ScopeModifyAccessGroups, id.ScopeGetAccessGroups)
 	group := newTestGroup(t, &enc, token, id.ScopeNone)
@@ -978,16 +1021,16 @@ func TestAddRemoveGroupsFromAccessAuthorized(t *testing.T) {
 		AssociatedData: []byte("associated_data"),
 	}
 
-	id, err := enc.Encrypt(token, &plainObject)
+	id, err := enc.Encrypt(ctx, token, &plainObject)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if err = enc.AddGroupsToAccess(token, id, group); err != nil {
+	if err = enc.AddGroupsToAccess(ctx, token, id, group); err != nil {
 		t.Fatal(err)
 	}
 
-	accessGroups, err := enc.GetAccessGroups(token, id)
+	accessGroups, err := enc.GetAccessGroups(ctx, token, id)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -995,11 +1038,11 @@ func TestAddRemoveGroupsFromAccessAuthorized(t *testing.T) {
 		t.Fatal("User not able to add groups to access object. User is not member of all groups, but is part of access object.")
 	}
 
-	if err = enc.RemoveGroupsFromAccess(token, id, group); err != nil {
+	if err = enc.RemoveGroupsFromAccess(ctx, token, id, group); err != nil {
 		t.Fatal(err)
 	}
 
-	accessGroups, err = enc.GetAccessGroups(token, id)
+	accessGroups, err = enc.GetAccessGroups(ctx, token, id)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1010,6 +1053,7 @@ func TestAddRemoveGroupsFromAccessAuthorized(t *testing.T) {
 
 // user1 creates an object, adds user2, and it is verified that user2 is able to decrypt the object.
 func TestSharingObjectPart1(t *testing.T) {
+	ctx := context.Background()
 	enc := newTestD1(t)
 	_, token1 := newTestUser(t, &enc, id.ScopeEncrypt, id.ScopeModifyAccessGroups)
 	id2, token2 := newTestUser(t, &enc, id.ScopeDecrypt)
@@ -1019,26 +1063,27 @@ func TestSharingObjectPart1(t *testing.T) {
 		AssociatedData: []byte("associated_data"),
 	}
 
-	oid, err := enc.Encrypt(token1, &plainObject)
+	oid, err := enc.Encrypt(ctx, token1, &plainObject)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if _, err = enc.Decrypt(token2, oid); err == nil {
+	if _, err = enc.Decrypt(ctx, token2, oid); err == nil {
 		t.Fatal("Unauthorized user was able to decrypt")
 	}
 
-	if err = enc.AddGroupsToAccess(token1, oid, id2); err != nil {
+	if err = enc.AddGroupsToAccess(ctx, token1, oid, id2); err != nil {
 		t.Fatal(err)
 	}
 
-	if _, err = enc.Decrypt(token2, oid); err != nil {
+	if _, err = enc.Decrypt(ctx, token2, oid); err != nil {
 		t.Fatal(err)
 	}
 }
 
 // user1 creates an object and adds user2. User2 removes user1, and it is verified that user1 is not able to decrypt the object.
 func TestSharingObjectPart2(t *testing.T) {
+	ctx := context.Background()
 	enc := newTestD1(t)
 	id1, token1 := newTestUser(t, &enc, id.ScopeEncrypt, id.ScopeModifyAccessGroups)
 	id2, token2 := newTestUser(t, &enc, id.ScopeModifyAccessGroups)
@@ -1048,24 +1093,25 @@ func TestSharingObjectPart2(t *testing.T) {
 		AssociatedData: []byte("associated_data"),
 	}
 
-	oid, err := enc.Encrypt(token1, &plainObject)
+	oid, err := enc.Encrypt(ctx, token1, &plainObject)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = enc.AddGroupsToAccess(token1, oid, id2); err != nil {
+	if err = enc.AddGroupsToAccess(ctx, token1, oid, id2); err != nil {
 		t.Fatal(err)
 	}
-	if err = enc.RemoveGroupsFromAccess(token2, oid, id1); err != nil {
+	if err = enc.RemoveGroupsFromAccess(ctx, token2, oid, id1); err != nil {
 		t.Fatal(err)
 	}
 
-	if _, err = enc.Decrypt(token1, oid); err == nil {
+	if _, err = enc.Decrypt(ctx, token1, oid); err == nil {
 		t.Fatal("Unauthorized user able to decrypt")
 	}
 }
 
 // User1 creates an object, adds user2, user2 adds user3, and it is verified that user3 is able to decrypt the object.
 func TestSharingObjectPart3(t *testing.T) {
+	ctx := context.Background()
 	enc := newTestD1(t)
 	_, token1 := newTestUser(t, &enc, id.ScopeEncrypt, id.ScopeModifyAccessGroups)
 	id2, token2 := newTestUser(t, &enc, id.ScopeModifyAccessGroups)
@@ -1076,19 +1122,19 @@ func TestSharingObjectPart3(t *testing.T) {
 		AssociatedData: []byte("associated_data"),
 	}
 
-	oid, err := enc.Encrypt(token1, &plainObject)
+	oid, err := enc.Encrypt(ctx, token1, &plainObject)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if err = enc.AddGroupsToAccess(token1, oid, id2); err != nil {
+	if err = enc.AddGroupsToAccess(ctx, token1, oid, id2); err != nil {
 		t.Fatal(err)
 	}
-	if err = enc.AddGroupsToAccess(token2, oid, id3); err != nil {
+	if err = enc.AddGroupsToAccess(ctx, token2, oid, id3); err != nil {
 		t.Fatal(err)
 	}
 
-	if _, err = enc.Decrypt(token3, oid); err != nil {
+	if _, err = enc.Decrypt(ctx, token3, oid); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -1099,6 +1145,7 @@ func TestSharingObjectPart3(t *testing.T) {
 // 3) user1 encrypts an object and adds the group to the access object.
 // 4) It is verified that all five users are able to decrypt the object.
 func TestSharingObjectPart4(t *testing.T) {
+	ctx := context.Background()
 	numUsers := 5
 
 	enc := newTestD1(t)
@@ -1118,17 +1165,17 @@ func TestSharingObjectPart4(t *testing.T) {
 		AssociatedData: []byte("associated_data"),
 	}
 
-	oid, err := enc.Encrypt(tokens[0], &plainObject)
+	oid, err := enc.Encrypt(ctx, tokens[0], &plainObject)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if err = enc.AddGroupsToAccess(tokens[0], oid, gid); err != nil {
+	if err = enc.AddGroupsToAccess(ctx, tokens[0], oid, gid); err != nil {
 		t.Fatal(err)
 	}
 
 	for _, token := range tokens {
-		if _, err = enc.Decrypt(token, oid); err != nil {
+		if _, err = enc.Decrypt(ctx, token, oid); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -1140,9 +1187,10 @@ func TestSharingObjectPart4(t *testing.T) {
 // 3) The user removes its own group from the access object.
 // 4) It is verified that the user is no longer part of the access object even though he created it.
 func TestRemoveAccess(t *testing.T) {
+	ctx := context.Background()
 	enc := newTestD1(t)
 	_, token := newTestUser(t, &enc, id.ScopeEncrypt, id.ScopeModifyAccessGroups)
-	identity, err := enc.idProvider.GetIdentity(token)
+	identity, err := enc.idProvider.GetIdentity(ctx, token)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1152,16 +1200,16 @@ func TestRemoveAccess(t *testing.T) {
 		AssociatedData: []byte("associated_data"),
 	}
 
-	id, err := enc.Encrypt(token, &plainObject)
+	id, err := enc.Encrypt(ctx, token, &plainObject)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if err = enc.RemoveGroupsFromAccess(token, id, identity.ID); err != nil {
+	if err = enc.RemoveGroupsFromAccess(ctx, token, id, identity.ID); err != nil {
 		t.Fatal(err)
 	}
 
-	if err = enc.AuthorizeIdentity(token, id); err == nil {
+	if err = enc.AuthorizeIdentity(ctx, token, id); err == nil {
 		t.Fatal("Unauthorized user is authorized anyway")
 	}
 }
@@ -1175,6 +1223,7 @@ func TestRemoveAccess(t *testing.T) {
 // 2) user1 encrypts an object.
 // 3) It is verified that only user1 is authorized.
 func TestAuthorizeUser(t *testing.T) {
+	ctx := context.Background()
 	enc := newTestD1(t)
 	_, token1 := newTestUser(t, &enc, id.ScopeEncrypt, id.ScopeGetAccessGroups)
 	_, token2 := newTestUser(t, &enc, id.ScopeGetAccessGroups)
@@ -1184,21 +1233,22 @@ func TestAuthorizeUser(t *testing.T) {
 		AssociatedData: []byte("associated_data"),
 	}
 
-	id, err := enc.Encrypt(token1, &plainObject)
+	id, err := enc.Encrypt(ctx, token1, &plainObject)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if err = enc.AuthorizeIdentity(token1, id); err != nil {
+	if err = enc.AuthorizeIdentity(ctx, token1, id); err != nil {
 		t.Fatal(err)
 	}
 
-	if err = enc.AuthorizeIdentity(token2, id); err == nil {
+	if err = enc.AuthorizeIdentity(ctx, token2, id); err == nil {
 		t.Fatal("Unauthorized user is authorized anyway")
 	}
 }
 
 func TestAuthorizeUserExtraGroups(t *testing.T) {
+	ctx := context.Background()
 	enc := newTestD1(t)
 	_, token1 := newTestUser(t, &enc, id.ScopeEncrypt, id.ScopeGetAccessGroups)
 	user2, token2 := newTestUser(t, &enc, id.ScopeGetAccessGroups)
@@ -1210,27 +1260,28 @@ func TestAuthorizeUserExtraGroups(t *testing.T) {
 	}
 
 	// Add user2 at encryption time
-	id, err := enc.Encrypt(token1, &plainObject, user2)
+	id, err := enc.Encrypt(ctx, token1, &plainObject, user2)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// Both the encrypter and user2 should have access
-	if err = enc.AuthorizeIdentity(token1, id); err != nil {
+	if err = enc.AuthorizeIdentity(ctx, token1, id); err != nil {
 		t.Fatal(err)
 	}
-	if err = enc.AuthorizeIdentity(token2, id); err != nil {
+	if err = enc.AuthorizeIdentity(ctx, token2, id); err != nil {
 		t.Fatal(err)
 	}
 
-	if err = enc.AuthorizeIdentity(token3, id); err == nil {
+	if err = enc.AuthorizeIdentity(ctx, token3, id); err == nil {
 		t.Fatal("Unauthorized user is authorized anyway")
 	}
 }
 
 func TestAuthorizeUserUnauthenticated(t *testing.T) {
+	ctx := context.Background()
 	enc := newTestD1(t)
-	err := enc.AuthorizeIdentity("bad token", uuid.Must(uuid.NewV4()))
+	err := enc.AuthorizeIdentity(ctx, "bad token", uuid.Must(uuid.NewV4()))
 	if !errors.Is(err, ErrNotAuthenticated) {
 		t.Fatalf("Expected error '%s' but got '%s'", ErrNotAuthenticated, err)
 	}
@@ -1238,10 +1289,11 @@ func TestAuthorizeUserUnauthenticated(t *testing.T) {
 
 // Test that a user without the GetAccessGroups scope cannot check if a user is authorized.
 func TestAuthorizeUserWrongAPIScope(t *testing.T) {
+	ctx := context.Background()
 	enc := newTestD1(t)
 	scope := id.ScopeAll ^ id.ScopeGetAccessGroups // All scopes except GetAccessGroups
 	_, token := newTestUser(t, &enc, scope)
-	err := enc.AuthorizeIdentity(token, uuid.Must(uuid.NewV4()))
+	err := enc.AuthorizeIdentity(ctx, token, uuid.Must(uuid.NewV4()))
 	if !errors.Is(err, ErrNotAuthorized) {
 		t.Fatalf("Expected error '%s' but got '%s'", ErrNotAuthorized, err)
 	}
@@ -1249,6 +1301,7 @@ func TestAuthorizeUserWrongAPIScope(t *testing.T) {
 
 // Test that a user whose group does not have the AuthorizeUser scope cannot check if a user is authorized.
 func TestAuthorizeUserWrongGroupScope(t *testing.T) {
+	ctx := context.Background()
 	enc := newTestD1(t)
 	_, token1 := newTestUser(t, &enc, id.ScopeAll)
 	user2, token2 := newTestUser(t, &enc, id.ScopeAll)
@@ -1258,15 +1311,15 @@ func TestAuthorizeUserWrongGroupScope(t *testing.T) {
 	scope := id.ScopeAll ^ id.ScopeGetAccessGroups // All scopes except GetAccessGroups
 	gid := newTestGroup(t, &enc, token1, scope, user2)
 
-	oid, err := enc.Encrypt(token1, &data.Object{})
+	oid, err := enc.Encrypt(ctx, token1, &data.Object{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := enc.AddGroupsToAccess(token1, oid, gid); err != nil {
+	if err := enc.AddGroupsToAccess(ctx, token1, oid, gid); err != nil {
 		t.Fatal(err)
 	}
 
-	err = enc.AuthorizeIdentity(token2, oid)
+	err = enc.AuthorizeIdentity(ctx, token2, oid)
 	if !errors.Is(err, ErrNotAuthorized) {
 		t.Fatalf("Expected error '%s' but got '%s'", ErrNotAuthorized, err)
 	}
