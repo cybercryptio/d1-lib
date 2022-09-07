@@ -16,6 +16,7 @@
 package io
 
 import (
+	"context"
 	"testing"
 
 	"bytes"
@@ -24,6 +25,7 @@ import (
 
 // Test that putting and subsequently getting data returns the right bytes for all data types.
 func TestBoltPutAndGet(t *testing.T) {
+	ctx := context.Background()
 	bolt, err := NewBolt(t.TempDir() + "test.db")
 	if err != nil {
 		t.Fatal(err)
@@ -34,12 +36,12 @@ func TestBoltPutAndGet(t *testing.T) {
 
 	for dt := DataType(0); dt < DataTypeEnd; dt++ {
 		testData := append(data, dt.Bytes()...)
-		err := bolt.Put(id, dt, testData)
+		err := bolt.Put(ctx, id, dt, testData)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		fetched, err := bolt.Get(id, dt)
+		fetched, err := bolt.Get(ctx, id, dt)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -52,6 +54,7 @@ func TestBoltPutAndGet(t *testing.T) {
 
 // Test that putting existing data returns the right error.
 func TestBoltPutAlreadyExists(t *testing.T) {
+	ctx := context.Background()
 	bolt, err := NewBolt(t.TempDir() + "test.db")
 	if err != nil {
 		t.Fatal(err)
@@ -62,12 +65,12 @@ func TestBoltPutAlreadyExists(t *testing.T) {
 
 	for dt := DataType(0); dt < DataTypeEnd; dt++ {
 		testData := append(data, dt.Bytes()...)
-		err := bolt.Put(id, dt, testData)
+		err := bolt.Put(ctx, id, dt, testData)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		err = bolt.Put(id, dt, testData)
+		err = bolt.Put(ctx, id, dt, testData)
 		if !errors.Is(err, ErrAlreadyExists) {
 			t.Fatalf("Expected %v but got %v", ErrAlreadyExists, err)
 		}
@@ -76,6 +79,7 @@ func TestBoltPutAlreadyExists(t *testing.T) {
 
 // Test that getting non-existing data returns the right error.
 func TestBoltNotFound(t *testing.T) {
+	ctx := context.Background()
 	bolt, err := NewBolt(t.TempDir() + "test.db")
 	if err != nil {
 		t.Fatal(err)
@@ -83,7 +87,7 @@ func TestBoltNotFound(t *testing.T) {
 
 	id := []byte("mock id")
 
-	data, err := bolt.Get(id, DataTypeSealedObject)
+	data, err := bolt.Get(ctx, id, DataTypeSealedObject)
 	if !errors.Is(err, ErrNotFound) {
 		t.Fatalf("Expected %v but got %v", ErrNotFound, err)
 	}
@@ -102,6 +106,7 @@ func TestBoltInvalidPath(t *testing.T) {
 
 // Test that data can be updated correctly.
 func TestBoltUpdate(t *testing.T) {
+	ctx := context.Background()
 	bolt, err := NewBolt(t.TempDir() + "test.db")
 	if err != nil {
 		t.Fatal(err)
@@ -112,18 +117,18 @@ func TestBoltUpdate(t *testing.T) {
 	id := []byte("mock id")
 
 	for dt := DataType(0); dt < DataTypeEnd; dt++ {
-		err := bolt.Put(id, dt, append(data, dt.Bytes()...))
+		err := bolt.Put(ctx, id, dt, append(data, dt.Bytes()...))
 		if err != nil {
 			t.Fatal(err)
 		}
 
 		testUpdated := append(updated, dt.Bytes()...)
-		err = bolt.Update(id, dt, testUpdated)
+		err = bolt.Update(ctx, id, dt, testUpdated)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		fetched, err := bolt.Get(id, dt)
+		fetched, err := bolt.Get(ctx, id, dt)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -136,6 +141,7 @@ func TestBoltUpdate(t *testing.T) {
 
 // Test that updating data that doesn't exist errors correctly.
 func TestBoltUpdateNotFound(t *testing.T) {
+	ctx := context.Background()
 	bolt, err := NewBolt(t.TempDir() + "test.db")
 	if err != nil {
 		t.Fatal(err)
@@ -143,7 +149,7 @@ func TestBoltUpdateNotFound(t *testing.T) {
 
 	id := []byte("mock id")
 
-	err = bolt.Update(id, DataTypeSealedObject, []byte("mock data"))
+	err = bolt.Update(ctx, id, DataTypeSealedObject, []byte("mock data"))
 	if !errors.Is(err, ErrNotFound) {
 		t.Fatalf("Expected %v but got %v", ErrNotFound, err)
 	}
@@ -151,6 +157,7 @@ func TestBoltUpdateNotFound(t *testing.T) {
 
 // Test that deleting data actually removes it.
 func TestBoltDelete(t *testing.T) {
+	ctx := context.Background()
 	bolt, err := NewBolt(t.TempDir() + "test.db")
 	if err != nil {
 		t.Fatal(err)
@@ -160,17 +167,17 @@ func TestBoltDelete(t *testing.T) {
 	id := []byte("mock id")
 
 	for dt := DataType(0); dt < DataTypeEnd; dt++ {
-		err := bolt.Put(id, dt, append(data, dt.Bytes()...))
+		err := bolt.Put(ctx, id, dt, append(data, dt.Bytes()...))
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		err = bolt.Delete(id, dt)
+		err = bolt.Delete(ctx, id, dt)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		data, err := bolt.Get(id, dt)
+		data, err := bolt.Get(ctx, id, dt)
 		if !errors.Is(err, ErrNotFound) {
 			t.Fatalf("Expected %v but got %v", ErrNotFound, err)
 		}
@@ -182,6 +189,7 @@ func TestBoltDelete(t *testing.T) {
 
 // Test that deleting non-existing data doesn't error.
 func TestBoltDeleteNotFound(t *testing.T) {
+	ctx := context.Background()
 	bolt, err := NewBolt(t.TempDir() + "test.db")
 	if err != nil {
 		t.Fatal(err)
@@ -189,7 +197,7 @@ func TestBoltDeleteNotFound(t *testing.T) {
 
 	id := []byte("mock id")
 
-	err = bolt.Delete(id, DataTypeSealedObject)
+	err = bolt.Delete(ctx, id, DataTypeSealedObject)
 	if err != nil {
 		t.Fatal(err)
 	}

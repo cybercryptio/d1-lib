@@ -2,32 +2,36 @@
 
 package io
 
+import (
+	"context"
+)
+
 // Proxy is an IO Provider that wraps other IO Providers
 // By default, it forwards calls directly to the implementation,
 // but allows you to customize the behavior as you see fit by
 // changing the individual functions as you see fit.
 type Proxy struct {
 	Implementation Provider
-	PutFunc        func(id []byte, dataType DataType, data []byte) error
-	GetFunc        func(id []byte, dataType DataType) ([]byte, error)
-	UpdateFunc     func(id []byte, dataType DataType, data []byte) error
-	DeleteFunc     func(id []byte, dataType DataType) error
+	PutFunc        func(ctx context.Context, id []byte, dataType DataType, data []byte) error
+	GetFunc        func(ctx context.Context, id []byte, dataType DataType) ([]byte, error)
+	UpdateFunc     func(ctx context.Context, id []byte, dataType DataType, data []byte) error
+	DeleteFunc     func(ctx context.Context, id []byte, dataType DataType) error
 }
 
-func (o *Proxy) Put(id []byte, dataType DataType, data []byte) error {
-	return o.PutFunc(id, dataType, data)
+func (o *Proxy) Put(ctx context.Context, id []byte, dataType DataType, data []byte) error {
+	return o.PutFunc(ctx, id, dataType, data)
 }
 
-func (o *Proxy) Get(id []byte, dataType DataType) ([]byte, error) {
-	return o.GetFunc(id, dataType)
+func (o *Proxy) Get(ctx context.Context, id []byte, dataType DataType) ([]byte, error) {
+	return o.GetFunc(ctx, id, dataType)
 }
 
-func (o *Proxy) Update(id []byte, dataType DataType, data []byte) error {
-	return o.UpdateFunc(id, dataType, data)
+func (o *Proxy) Update(ctx context.Context, id []byte, dataType DataType, data []byte) error {
+	return o.UpdateFunc(ctx, id, dataType, data)
 }
 
-func (o *Proxy) Delete(id []byte, dataType DataType) error {
-	return o.DeleteFunc(id, dataType)
+func (o *Proxy) Delete(ctx context.Context, id []byte, dataType DataType) error {
+	return o.DeleteFunc(ctx, id, dataType)
 }
 
 // NewProxy returns a basic implementation of Proxy that can be used as a basis

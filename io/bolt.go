@@ -16,6 +16,7 @@
 package io
 
 import (
+	"context"
 	"time"
 
 	bolt "go.etcd.io/bbolt"
@@ -51,7 +52,7 @@ func NewBolt(path string) (Bolt, error) {
 	return Bolt{store, objectBucket}, nil
 }
 
-func (b *Bolt) Put(id []byte, dataType DataType, data []byte) error {
+func (b *Bolt) Put(_ context.Context, id []byte, dataType DataType, data []byte) error {
 	key := append(id, dataType.Bytes()...)
 	return b.store.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket(b.objectBucket)
@@ -62,7 +63,7 @@ func (b *Bolt) Put(id []byte, dataType DataType, data []byte) error {
 	})
 }
 
-func (b *Bolt) Get(id []byte, dataType DataType) ([]byte, error) {
+func (b *Bolt) Get(_ context.Context, id []byte, dataType DataType) ([]byte, error) {
 	key := append(id, dataType.Bytes()...)
 	var out []byte
 	err := b.store.View(func(tx *bolt.Tx) error {
@@ -79,7 +80,7 @@ func (b *Bolt) Get(id []byte, dataType DataType) ([]byte, error) {
 	return out, nil
 }
 
-func (b *Bolt) Update(id []byte, dataType DataType, data []byte) error {
+func (b *Bolt) Update(_ context.Context, id []byte, dataType DataType, data []byte) error {
 	key := append(id, dataType.Bytes()...)
 	return b.store.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket(b.objectBucket)
@@ -90,7 +91,7 @@ func (b *Bolt) Update(id []byte, dataType DataType, data []byte) error {
 	})
 }
 
-func (b *Bolt) Delete(id []byte, dataType DataType) error {
+func (b *Bolt) Delete(_ context.Context, id []byte, dataType DataType) error {
 	key := append(id, dataType.Bytes()...)
 	return b.store.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket(b.objectBucket)

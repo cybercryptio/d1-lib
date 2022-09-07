@@ -23,7 +23,7 @@ import (
 
 	"github.com/gofrs/uuid"
 
-	"github.com/cybercryptio/d1-lib/crypto"
+	"github.com/cybercryptio/d1-lib/v2/crypto"
 )
 
 var groupIDs = []string{

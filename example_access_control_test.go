@@ -16,13 +16,14 @@
 package d1_test
 
 import (
+	"context"
 	"fmt"
 	"log"
 
 	"github.com/gofrs/uuid"
 
-	d1lib "github.com/cybercryptio/d1-lib"
-	"github.com/cybercryptio/d1-lib/data"
+	d1lib "github.com/cybercryptio/d1-lib/v2"
+	"github.com/cybercryptio/d1-lib/v2/data"
 )
 
 // The UserData struct models the data of a user. It contains both private data that should be kept confidential and public data that can be shared
@@ -44,20 +45,20 @@ type PublicUserData struct {
 }
 
 // createUserData instantiates a user with its private and public data.
-func createUserData(d1 d1lib.D1) UserData {
-	uid, gid, token := NewUser()
+func createUserData(ctx context.Context, d1 d1lib.D1) UserData {
+	uid, gid, token := NewUser(ctx)
 
 	privateUserObject := data.Object{
 		Plaintext:      []byte("Plaintext"),
 		AssociatedData: []byte("AssociatedData"),
 	}
 
-	oid, err := d1.Encrypt(token, &privateUserObject)
+	oid, err := d1.Encrypt(ctx, token, &privateUserObject)
 	if err != nil {
 		log.Fatalf("Error encrypting object: %v", err)
 	}
 
-	err = d1.AddGroupsToAccess(token, oid, gid)
+	err = d1.AddGroupsToAccess(ctx, token, oid, gid)
 	if err != nil {
 		log.Fatalf("Error adding group to access list: %v", err)
 	}
@@ -70,38 +71,40 @@ func createUserData(d1 d1lib.D1) UserData {
 
 // This example demonstrates how to use the D1 library to enforce discretionary access control for binary data.
 func Example_accessControl() {
+	ctx := context.Background()
+
 	// Instantiate the D1 library with the given keys.
-	d1, err := d1lib.New(&keyProvider, &ioProvider, &idProvider)
+	d1, err := d1lib.New(ctx, &keyProvider, &ioProvider, &idProvider)
 	if err != nil {
 		log.Fatalf("Error instantiating D1: %v", err)
 	}
 
 	// Create three users with their data.
-	alice := createUserData(d1)
-	bob := createUserData(d1)
-	charlie := createUserData(d1)
+	alice := createUserData(ctx, d1)
+	bob := createUserData(ctx, d1)
+	charlie := createUserData(ctx, d1)
 
 	// charlie wants to share her data with bob.
-	err = d1.AddGroupsToAccess(charlie.private.token, charlie.public.oid, bob.public.uid)
+	err = d1.AddGroupsToAccess(ctx, charlie.private.token, charlie.public.oid, bob.public.uid)
 	if err != nil {
 		log.Fatalf("Error adding group to access: %v", err)
 	}
 
 	// bob can now decrypt charlie's encrypted data.
-	charliesDecryptedData, err := d1.Decrypt(bob.private.token, charlie.public.oid)
+	charliesDecryptedData, err := d1.Decrypt(ctx, bob.private.token, charlie.public.oid)
 	if err != nil {
 		log.Fatalf("Error decrypting object: %v", err)
 	}
 	fmt.Printf("%s %s\n", charliesDecryptedData.Plaintext, charliesDecryptedData.AssociatedData)
 
 	// alice wants to form a group with charlie so that all of his previously encrypted data can be decrypted by charlie.
-	err = idProvider.AddUserToGroups(alice.private.token, charlie.public.uid, alice.public.gid)
+	err = idProvider.AddUserToGroups(ctx, alice.private.token, charlie.public.uid, alice.public.gid)
 	if err != nil {
 		log.Fatalf("Error adding user to group: %v", err)
 	}
 
 	// charlie can now decrypt all of alice's previously encrypted data.
-	alicesDecryptedData, err := d1.Decrypt(charlie.private.token, alice.public.oid)
+	alicesDecryptedData, err := d1.Decrypt(ctx, charlie.private.token, alice.public.oid)
 	if err != nil {
 		log.Fatalf("Error decrypting object: %v", err)
 	}

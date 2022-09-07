@@ -18,7 +18,7 @@ package id
 import (
 	"errors"
 
-	"github.com/cybercryptio/d1-lib/crypto"
+	"github.com/cybercryptio/d1-lib/v2/crypto"
 )
 
 // Error returned if a user cannot be authenticated, e.g. if they provide a wrong password.

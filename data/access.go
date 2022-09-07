@@ -18,7 +18,7 @@ package data
 import (
 	"github.com/gofrs/uuid"
 
-	"github.com/cybercryptio/d1-lib/crypto"
+	"github.com/cybercryptio/d1-lib/v2/crypto"
 )
 
 // Access is used to manage access to encrypted objects. Note: All member fields need to be exported

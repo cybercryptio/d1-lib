@@ -17,13 +17,14 @@ package d1
 
 import (
 	"bytes"
+	"context"
 	"encoding/gob"
 
 	"github.com/gofrs/uuid"
 
-	"github.com/cybercryptio/d1-lib/data"
-	"github.com/cybercryptio/d1-lib/id"
-	"github.com/cybercryptio/d1-lib/io"
+	"github.com/cybercryptio/d1-lib/v2/data"
+	"github.com/cybercryptio/d1-lib/v2/id"
+	"github.com/cybercryptio/d1-lib/v2/io"
 )
 
 // authorizeAccess checks whether the authorizing Identity is allowed to access the provided access
@@ -50,7 +51,7 @@ func (d *D1) authorizeAccess(identity *id.Identity, scopes id.Scope, sealedAcces
 
 // putSealedObject encodes a sealed object and sends it to the IO Provider, either as a "Put" or an
 // "Update".
-func (d *D1) putSealedObject(object *data.SealedObject, update bool) error {
+func (d *D1) putSealedObject(ctx context.Context, object *data.SealedObject, update bool) error {
 	var objectBuffer bytes.Buffer
 	enc := gob.NewEncoder(&objectBuffer)
 	if err := enc.Encode(object); err != nil {
@@ -58,14 +59,14 @@ func (d *D1) putSealedObject(object *data.SealedObject, update bool) error {
 	}
 
 	if update {
-		return d.ioProvider.Update(object.OID.Bytes(), io.DataTypeSealedObject, objectBuffer.Bytes())
+		return d.ioProvider.Update(ctx, object.OID.Bytes(), io.DataTypeSealedObject, objectBuffer.Bytes())
 	}
-	return d.ioProvider.Put(object.OID.Bytes(), io.DataTypeSealedObject, objectBuffer.Bytes())
+	return d.ioProvider.Put(ctx, object.OID.Bytes(), io.DataTypeSealedObject, objectBuffer.Bytes())
 }
 
 // getSealedObject fetches bytes from the IO Provider and decodes them into a sealed object.
-func (d *D1) getSealedObject(oid uuid.UUID) (*data.SealedObject, error) {
-	objectBytes, err := d.ioProvider.Get(oid.Bytes(), io.DataTypeSealedObject)
+func (d *D1) getSealedObject(ctx context.Context, oid uuid.UUID) (*data.SealedObject, error) {
+	objectBytes, err := d.ioProvider.Get(ctx, oid.Bytes(), io.DataTypeSealedObject)
 	if err != nil {
 		return nil, err
 	}
@@ -82,13 +83,13 @@ func (d *D1) getSealedObject(oid uuid.UUID) (*data.SealedObject, error) {
 }
 
 // deleteSealedObject deletes a sealed object from the IO Provider.
-func (d *D1) deleteSealedObject(oid uuid.UUID) error {
-	return d.ioProvider.Delete(oid.Bytes(), io.DataTypeSealedObject)
+func (d *D1) deleteSealedObject(ctx context.Context, oid uuid.UUID) error {
+	return d.ioProvider.Delete(ctx, oid.Bytes(), io.DataTypeSealedObject)
 }
 
 // putSealedAccess encodes a sealed access and sends it to the IO Provider, either as a "Put" or an
 // "Update".
-func (d *D1) putSealedAccess(access *data.SealedAccess, update bool) error {
+func (d *D1) putSealedAccess(ctx context.Context, access *data.SealedAccess, update bool) error {
 	var accessBuffer bytes.Buffer
 	enc := gob.NewEncoder(&accessBuffer)
 	if err := enc.Encode(access); err != nil {
@@ -96,14 +97,14 @@ func (d *D1) putSealedAccess(access *data.SealedAccess, update bool) error {
 	}
 
 	if update {
-		return d.ioProvider.Update(access.OID.Bytes(), io.DataTypeSealedAccess, accessBuffer.Bytes())
+		return d.ioProvider.Update(ctx, access.OID.Bytes(), io.DataTypeSealedAccess, accessBuffer.Bytes())
 	}
-	return d.ioProvider.Put(access.OID.Bytes(), io.DataTypeSealedAccess, accessBuffer.Bytes())
+	return d.ioProvider.Put(ctx, access.OID.Bytes(), io.DataTypeSealedAccess, accessBuffer.Bytes())
 }
 
 // getSealedAccess fetches bytes from the IO Provider and decodes them into a sealed access.
-func (d *D1) getSealedAccess(oid uuid.UUID) (*data.SealedAccess, error) {
-	accessBytes, err := d.ioProvider.Get(oid.Bytes(), io.DataTypeSealedAccess)
+func (d *D1) getSealedAccess(ctx context.Context, oid uuid.UUID) (*data.SealedAccess, error) {
+	accessBytes, err := d.ioProvider.Get(ctx, oid.Bytes(), io.DataTypeSealedAccess)
 	if err != nil {
 		return nil, err
 	}
@@ -120,6 +121,6 @@ func (d *D1) getSealedAccess(oid uuid.UUID) (*data.SealedAccess, error) {
 }
 
 // deleteSealedAccess deletes a sealed object from the IO Provider.
-func (d *D1) deleteSealedAccess(oid uuid.UUID) error {
-	return d.ioProvider.Delete(oid.Bytes(), io.DataTypeSealedAccess)
+func (d *D1) deleteSealedAccess(ctx context.Context, oid uuid.UUID) error {
+	return d.ioProvider.Delete(ctx, oid.Bytes(), io.DataTypeSealedAccess)
 }

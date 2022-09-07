@@ -18,7 +18,7 @@ package data
 import (
 	"github.com/gofrs/uuid"
 
-	"github.com/cybercryptio/d1-lib/crypto"
+	"github.com/cybercryptio/d1-lib/v2/crypto"
 )
 
 // Object contains plaintext data provided to D1 for encryption.

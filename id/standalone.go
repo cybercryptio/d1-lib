@@ -17,14 +17,15 @@ package id
 
 import (
 	"bytes"
+	"context"
 	"encoding/gob"
 	"errors"
 
 	"github.com/gofrs/uuid"
 
-	"github.com/cybercryptio/d1-lib/crypto"
-	"github.com/cybercryptio/d1-lib/data"
-	"github.com/cybercryptio/d1-lib/io"
+	"github.com/cybercryptio/d1-lib/v2/crypto"
+	"github.com/cybercryptio/d1-lib/v2/data"
+	"github.com/cybercryptio/d1-lib/v2/io"
 )
 
 var ErrNotFound = errors.New("not found")
@@ -75,7 +76,7 @@ func NewStandalone(config StandaloneConfig, ioProvider io.Provider) (Standalone,
 	}, nil
 }
 
-func (s *Standalone) GetIdentity(token string) (Identity, error) {
+func (s *Standalone) GetIdentity(ctx context.Context, token string) (Identity, error) {
 	sealedToken, err := data.TokenFromString(token)
 	if err != nil {
 		return Identity{}, err
@@ -88,14 +89,14 @@ func (s *Standalone) GetIdentity(token string) (Identity, error) {
 
 	id := string(plainToken.Plaintext)
 
-	user, err := s.getUser(id)
+	user, err := s.getUser(ctx, id)
 	if err != nil {
 		return Identity{}, err
 	}
 
 	groups := make(map[string]AccessGroup, len(user.Groups))
 	for gid := range user.getGroups() {
-		group, err := s.getGroup(gid)
+		group, err := s.getGroup(ctx, gid)
 		if err != nil {
 			return Identity{}, err
 		}
@@ -111,7 +112,7 @@ func (s *Standalone) GetIdentity(token string) (Identity, error) {
 }
 
 // NewUser creates a new user with a randomly generated ID and password.
-func (s *Standalone) NewUser(scopes ...Scope) (string, string, error) {
+func (s *Standalone) NewUser(ctx context.Context, scopes ...Scope) (string, string, error) {
 	uid, err := uuid.NewV4()
 	if err != nil {
 		return "", "", err
@@ -122,7 +123,7 @@ func (s *Standalone) NewUser(scopes ...Scope) (string, string, error) {
 	if err != nil {
 		return "", "", err
 	}
-	if err := s.putUser(uidString, &user, false); err != nil {
+	if err := s.putUser(ctx, uidString, &user, false); err != nil {
 		return "", "", err
 	}
 
@@ -131,8 +132,8 @@ func (s *Standalone) NewUser(scopes ...Scope) (string, string, error) {
 
 // LoginUser checks whether the password provided matches the user. If authentication is successful
 // a token is generated and returned alongside its expiry time in Unix time.
-func (s *Standalone) LoginUser(uid, password string) (string, int64, error) {
-	user, err := s.getUser(uid)
+func (s *Standalone) LoginUser(ctx context.Context, uid, password string) (string, int64, error) {
+	user, err := s.getUser(ctx, uid)
 	if err != nil {
 		return "", 0, ErrNotAuthenticated
 	}
@@ -157,8 +158,8 @@ func (s *Standalone) LoginUser(uid, password string) (string, int64, error) {
 
 // ChangeUserPassword authenticates the provided user with the given password and generates a new
 // password for the user.
-func (s *Standalone) ChangeUserPassword(uid, oldPassword string) (string, error) {
-	user, err := s.getUser(uid)
+func (s *Standalone) ChangeUserPassword(ctx context.Context, uid, oldPassword string) (string, error) {
+	user, err := s.getUser(ctx, uid)
 	if err != nil {
 		return "", err
 	}
@@ -167,7 +168,7 @@ func (s *Standalone) ChangeUserPassword(uid, oldPassword string) (string, error)
 	if err != nil {
 		return "", err
 	}
-	if err := s.putUser(uid, user, true); err != nil {
+	if err := s.putUser(ctx, uid, user, true); err != nil {
 		return "", err
 	}
 
@@ -176,9 +177,9 @@ func (s *Standalone) ChangeUserPassword(uid, oldPassword string) (string, error)
 
 // AddUserToGroups adds the user to the provided groups. The authorizing user must be a member of
 // all the groups.
-func (s *Standalone) AddUserToGroups(token, uid string, gids ...string) error {
+func (s *Standalone) AddUserToGroups(ctx context.Context, token, uid string, gids ...string) error {
 	// Authenticate calling user
-	identity, err := s.GetIdentity(token)
+	identity, err := s.GetIdentity(ctx, token)
 	if err != nil {
 		return err
 	}
@@ -192,13 +193,13 @@ func (s *Standalone) AddUserToGroups(token, uid string, gids ...string) error {
 	}
 
 	// Update user
-	user, err := s.getUser(uid)
+	user, err := s.getUser(ctx, uid)
 	if err != nil {
 		return err
 	}
 
 	user.addGroups(gids...)
-	if err := s.putUser(uid, user, true); err != nil {
+	if err := s.putUser(ctx, uid, user, true); err != nil {
 		return err
 	}
 
@@ -207,9 +208,9 @@ func (s *Standalone) AddUserToGroups(token, uid string, gids ...string) error {
 
 // RemoveUserFromGroups removes the user from the provided groups. The authorizing user must be a
 // member of all the groups.
-func (s *Standalone) RemoveUserFromGroups(token, uid string, gids ...string) error {
+func (s *Standalone) RemoveUserFromGroups(ctx context.Context, token, uid string, gids ...string) error {
 	// Authenticate calling user
-	identity, err := s.GetIdentity(token)
+	identity, err := s.GetIdentity(ctx, token)
 	if err != nil {
 		return err
 	}
@@ -222,13 +223,13 @@ func (s *Standalone) RemoveUserFromGroups(token, uid string, gids ...string) err
 		}
 	}
 
-	user, err := s.getUser(uid)
+	user, err := s.getUser(ctx, uid)
 	if err != nil {
 		return err
 	}
 
 	user.removeGroups(gids...)
-	if err := s.putUser(uid, user, true); err != nil {
+	if err := s.putUser(ctx, uid, user, true); err != nil {
 		return err
 	}
 
@@ -236,18 +237,18 @@ func (s *Standalone) RemoveUserFromGroups(token, uid string, gids ...string) err
 }
 
 // DeleteUser deletes the user from the IO Provider.
-func (s *Standalone) DeleteUser(token, uid string) error {
+func (s *Standalone) DeleteUser(ctx context.Context, token, uid string) error {
 	// Authenticate calling user
-	if _, err := s.GetIdentity(token); err != nil {
+	if _, err := s.GetIdentity(ctx, token); err != nil {
 		return err
 	}
 
-	return s.ioProvider.Delete([]byte(uid), DataTypeSealedUser)
+	return s.ioProvider.Delete(ctx, []byte(uid), DataTypeSealedUser)
 }
 
 // NewGroup creates a new group and adds the calling user to it.
-func (s *Standalone) NewGroup(token string, scopes ...Scope) (string, error) {
-	identity, err := s.GetIdentity(token)
+func (s *Standalone) NewGroup(ctx context.Context, token string, scopes ...Scope) (string, error) {
+	identity, err := s.GetIdentity(ctx, token)
 	if err != nil {
 		return "", err
 	}
@@ -259,18 +260,18 @@ func (s *Standalone) NewGroup(token string, scopes ...Scope) (string, error) {
 	gidString := gid.String()
 
 	group := newGroup(scopes...)
-	if err := s.putGroup(gidString, &group); err != nil {
+	if err := s.putGroup(ctx, gidString, &group); err != nil {
 		return "", err
 	}
 
 	// Add caller to group
-	user, err := s.getUser(identity.ID)
+	user, err := s.getUser(ctx, identity.ID)
 	if err != nil {
 		return "", err
 	}
 
 	user.addGroups(gidString)
-	if err := s.putUser(identity.ID, user, true); err != nil {
+	if err := s.putUser(ctx, identity.ID, user, true); err != nil {
 		return "", err
 	}
 
@@ -279,7 +280,7 @@ func (s *Standalone) NewGroup(token string, scopes ...Scope) (string, error) {
 
 // putUser seals the user, encodes the sealed user, and sends it to the IO Provider, either as a
 // "Put" or an "Update".
-func (s *Standalone) putUser(uid string, user *User, update bool) error {
+func (s *Standalone) putUser(ctx context.Context, uid string, user *User, update bool) error {
 	sealedUser, err := user.seal(uid, s.userCryptor)
 	if err != nil {
 		return err
@@ -292,14 +293,14 @@ func (s *Standalone) putUser(uid string, user *User, update bool) error {
 	}
 
 	if update {
-		return s.ioProvider.Update([]byte(sealedUser.UID), DataTypeSealedUser, userBuffer.Bytes())
+		return s.ioProvider.Update(ctx, []byte(sealedUser.UID), DataTypeSealedUser, userBuffer.Bytes())
 	}
-	return s.ioProvider.Put([]byte(sealedUser.UID), DataTypeSealedUser, userBuffer.Bytes())
+	return s.ioProvider.Put(ctx, []byte(sealedUser.UID), DataTypeSealedUser, userBuffer.Bytes())
 }
 
 // getUser fetches bytes from the IO Provider, decodes them into a sealed user, and unseals it.
-func (s *Standalone) getUser(uid string) (*User, error) {
-	userBytes, err := s.ioProvider.Get([]byte(uid), DataTypeSealedUser)
+func (s *Standalone) getUser(ctx context.Context, uid string) (*User, error) {
+	userBytes, err := s.ioProvider.Get(ctx, []byte(uid), DataTypeSealedUser)
 	if err != nil {
 		return nil, err
 	}
@@ -320,7 +321,7 @@ func (s *Standalone) getUser(uid string) (*User, error) {
 }
 
 // putGroup seals a group, encodes the sealed group, and sends it to the IO Provider.
-func (s *Standalone) putGroup(gid string, group *Group) error {
+func (s *Standalone) putGroup(ctx context.Context, gid string, group *Group) error {
 	sealedGroup, err := group.seal(gid, s.groupCryptor)
 	if err != nil {
 		return err
@@ -332,12 +333,12 @@ func (s *Standalone) putGroup(gid string, group *Group) error {
 		return err
 	}
 
-	return s.ioProvider.Put([]byte(sealedGroup.GID), DataTypeSealedGroup, groupBuffer.Bytes())
+	return s.ioProvider.Put(ctx, []byte(sealedGroup.GID), DataTypeSealedGroup, groupBuffer.Bytes())
 }
 
 // getGroup fetches bytes from the IO Provider, decodes them into a sealed group, and unseals it.
-func (s *Standalone) getGroup(gid string) (*Group, error) {
-	groupBytes, err := s.ioProvider.Get([]byte(gid), DataTypeSealedGroup)
+func (s *Standalone) getGroup(ctx context.Context, gid string) (*Group, error) {
+	groupBytes, err := s.ioProvider.Get(ctx, []byte(gid), DataTypeSealedGroup)
 	if err != nil {
 		return nil, err
 	}

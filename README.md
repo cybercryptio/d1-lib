@@ -28,20 +28,20 @@ The CYBERCRYPT D1 library provides cryptographic functions for data encryption a
 To use the library in your Go project, you first need to add it to your `go.mod` file by running the following command in the root folder of the project:
 
 ```
-go get -u github.com/cybercryptio/d1-lib@latest
+go get -u github.com/cybercryptio/d1-lib/v2@latest
 
 ```
 
 Then, you can access the D1 library functions by importing the library in your application code:
 
 ```
-import github.com/cybercryptio/d1-lib
+import github.com/cybercryptio/d1-lib/v2
 
 ```
 
 ## Usage
 
-For examples on how to use the D1 library [see the Examples section in the godocs](https://pkg.go.dev/github.com/cybercryptio/d1-lib#example-package-BasicEncryptDecrypt).
+For examples on how to use the D1 library [see the Examples section in the godocs](https://pkg.go.dev/github.com/cybercryptio/d1-lib/v2#example-package-BasicEncryptDecrypt).
 
 ## High level overview
 
@@ -49,7 +49,7 @@ For a high level overview of the main concepts and use cases of the D1 library [
 
 ## API Reference
 
-The API reference is published available on the Go Packages website at [https://pkg.go.dev/github.com/cybercryptio/d1-lib](https://pkg.go.dev/github.com/cybercryptio/d1-lib)
+The API reference is published available on the Go Packages website at [https://pkg.go.dev/github.com/cybercryptio/d1-lib/v2](https://pkg.go.dev/github.com/cybercryptio/d1-lib/v2)
 
 ## License
 

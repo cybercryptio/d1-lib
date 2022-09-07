@@ -17,6 +17,10 @@
 // the concept.
 package key
 
+import (
+	"context"
+)
+
 // Keys contains the master key material used by D1. All keys must be 32 bytes.
 type Keys struct {
 	// Object Encryption Key used for sealing Objects.
@@ -35,5 +39,5 @@ type Keys struct {
 // Provider is the interface a Key Provider must implement to serve keys to D1.
 type Provider interface {
 	// GetKeys returns a set of keys.
-	GetKeys() (Keys, error)
+	GetKeys(ctx context.Context) (Keys, error)
 }
