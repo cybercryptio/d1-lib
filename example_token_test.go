@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"log"
 
-	d1lib "github.com/cybercryptio/d1-lib"
+	d1lib "github.com/cybercryptio/d1-lib/v2"
 )
 
 func ExampleD1_CreateToken() {

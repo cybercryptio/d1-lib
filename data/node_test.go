@@ -20,7 +20,7 @@ import (
 
 	"reflect"
 
-	"github.com/cybercryptio/d1-lib/crypto"
+	"github.com/cybercryptio/d1-lib/v2/crypto"
 )
 
 func TestNextLabel(t *testing.T) {

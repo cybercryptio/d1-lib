@@ -1,11 +1,11 @@
-module github.com/cybercryptio/d1-lib
+module github.com/cybercryptio/d1-lib/v2
 
 go 1.18
 
 require (
 	github.com/gofrs/uuid v4.2.0+incompatible
 	go.etcd.io/bbolt v1.3.6
-	golang.org/x/crypto v0.0.0-20220210151621-f4118a5b28e2
+	golang.org/x/crypto v0.0.0-20220829220503-c86fa9a7ed90
 )
 
-require golang.org/x/sys v0.0.0-20210615035016-665e8c7367d1 // indirect
+require golang.org/x/sys v0.0.0-20220907062415-87db552b00fd // indirect

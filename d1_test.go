@@ -25,10 +25,10 @@ import (
 
 	"github.com/gofrs/uuid"
 
-	"github.com/cybercryptio/d1-lib/data"
-	"github.com/cybercryptio/d1-lib/id"
-	"github.com/cybercryptio/d1-lib/io"
-	"github.com/cybercryptio/d1-lib/key"
+	"github.com/cybercryptio/d1-lib/v2/data"
+	"github.com/cybercryptio/d1-lib/v2/id"
+	"github.com/cybercryptio/d1-lib/v2/io"
+	"github.com/cybercryptio/d1-lib/v2/key"
 )
 
 func newTestD1(t *testing.T) D1 {

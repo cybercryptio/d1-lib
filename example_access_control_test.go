@@ -22,8 +22,8 @@ import (
 
 	"github.com/gofrs/uuid"
 
-	d1lib "github.com/cybercryptio/d1-lib"
-	"github.com/cybercryptio/d1-lib/data"
+	d1lib "github.com/cybercryptio/d1-lib/v2"
+	"github.com/cybercryptio/d1-lib/v2/data"
 )
 
 // The UserData struct models the data of a user. It contains both private data that should be kept confidential and public data that can be shared

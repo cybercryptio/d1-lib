@@ -23,9 +23,9 @@ import (
 
 	"github.com/gofrs/uuid"
 
-	"github.com/cybercryptio/d1-lib/crypto"
-	"github.com/cybercryptio/d1-lib/data"
-	"github.com/cybercryptio/d1-lib/io"
+	"github.com/cybercryptio/d1-lib/v2/crypto"
+	"github.com/cybercryptio/d1-lib/v2/data"
+	"github.com/cybercryptio/d1-lib/v2/io"
 )
 
 var ErrNotFound = errors.New("not found")

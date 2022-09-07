@@ -18,7 +18,7 @@ package data
 import (
 	"encoding/binary"
 
-	"github.com/cybercryptio/d1-lib/crypto"
+	"github.com/cybercryptio/d1-lib/v2/crypto"
 )
 
 // Node contains an identifier (e.g. a document ID) and the counter used to compute the next label.

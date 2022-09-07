@@ -20,11 +20,11 @@ import (
 	"fmt"
 	"log"
 
-	d1lib "github.com/cybercryptio/d1-lib"
-	"github.com/cybercryptio/d1-lib/data"
-	"github.com/cybercryptio/d1-lib/id"
-	"github.com/cybercryptio/d1-lib/io"
-	"github.com/cybercryptio/d1-lib/key"
+	d1lib "github.com/cybercryptio/d1-lib/v2"
+	"github.com/cybercryptio/d1-lib/v2/data"
+	"github.com/cybercryptio/d1-lib/v2/id"
+	"github.com/cybercryptio/d1-lib/v2/io"
+	"github.com/cybercryptio/d1-lib/v2/key"
 )
 
 // These are insecure keys used only for demonstration purposes.

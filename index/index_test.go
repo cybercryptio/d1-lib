@@ -21,9 +21,9 @@ import (
 	"context"
 	"reflect"
 
-	"github.com/cybercryptio/d1-lib/id"
-	"github.com/cybercryptio/d1-lib/io"
-	"github.com/cybercryptio/d1-lib/key"
+	"github.com/cybercryptio/d1-lib/v2/id"
+	"github.com/cybercryptio/d1-lib/v2/io"
+	"github.com/cybercryptio/d1-lib/v2/key"
 )
 
 func newTestSecureIndex(t *testing.T) SecureIndex {

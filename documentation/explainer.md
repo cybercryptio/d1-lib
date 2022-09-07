@@ -12,15 +12,15 @@ This document defines the main concepts and use cases for the D1 library.
 
 ### Key Provider
 
-The **Key Provider** is the source of cryptographic key material for the library. Implementations of its [interface](https://pkg.go.dev/github.com/cybercryptio/d1-lib/key#Provider) must be able to provide four 256-bit keys: Key Encryption Key (KEK), Access Encryption Key (AEK), Token Encryption Key (TEK), Index Encryption Key (IEK).
+The **Key Provider** is the source of cryptographic key material for the library. Implementations of its [interface](https://pkg.go.dev/github.com/cybercryptio/d1-lib/v2/key#Provider) must be able to provide four 256-bit keys: Key Encryption Key (KEK), Access Encryption Key (AEK), Token Encryption Key (TEK), Index Encryption Key (IEK).
 
 ### IO Provider
 
-The **IO Provider** acts as a source and destination for the [encrypted data](#data-concepts) produced/consumed by the library. Implementations of its [interface](https://pkg.go.dev/github.com/cybercryptio/d1-lib/io#Provider) could use various types of storage, for example: blob storage, relational databases, queues, in-memory storage, etc.
+The **IO Provider** acts as a source and destination for the [encrypted data](#data-concepts) produced/consumed by the library. Implementations of its [interface](https://pkg.go.dev/github.com/cybercryptio/d1-lib/v2/io#Provider) could use various types of storage, for example: blob storage, relational databases, queues, in-memory storage, etc.
 
 ### Identity Provider
 
-The **Identity Provider** is the source of identifying information about the caller of the library. It allows the library to validate [**Identity Tokens**](#identity-token) and fetch their corresponding [**Identity**](#identity) objects. Implementations of its [interface](https://pkg.go.dev/github.com/cybercryptio/d1-lib/id#Provider) could use various Identity and Access Management (IAM) solutions such as SAML or OpenID. For easily getting up and running, the library implements a [**Standalone Identity Provider**](#standalone-identity-provider).
+The **Identity Provider** is the source of identifying information about the caller of the library. It allows the library to validate [**Identity Tokens**](#identity-token) and fetch their corresponding [**Identity**](#identity) objects. Implementations of its [interface](https://pkg.go.dev/github.com/cybercryptio/d1-lib/v2/id#Provider) could use various Identity and Access Management (IAM) solutions such as SAML or OpenID. For easily getting up and running, the library implements a [**Standalone Identity Provider**](#standalone-identity-provider).
 
 ### Identity
 
@@ -33,7 +33,7 @@ The **Identity Provider** implementation must decide the format of the identifyi
 
 ### Scope
 
-**Scopes** are used to control access to the [**Encrypted Objects**](#object). **Identities** have associated **Scopes**, and they can only perform operations on [**Data**](#data-concepts) when they have the required scopes. [See our documentation for examples of how to enforce access control using the D1 library.](https://pkg.go.dev/github.com/cybercryptio/d1-lib#example-package-AccessControl)
+**Scopes** are used to control access to the [**Encrypted Objects**](#object). **Identities** have associated **Scopes**, and they can only perform operations on [**Data**](#data-concepts) when they have the required scopes. [See our documentation for examples of how to enforce access control using the D1 library.](https://pkg.go.dev/github.com/cybercryptio/d1-lib/v2#example-package-AccessControl)
 
 ### Identity Token
 
@@ -41,7 +41,7 @@ The **Identity Provider** implementation must decide the format of the identifyi
 
 ### Standalone Identity Provider
 
-The [**Standalone Identity Provider**](https://pkg.go.dev/github.com/cybercryptio/d1-lib/id#Standalone) is an **Identity Provider** implementation designed to easily get up and running for the library users who do not have an existing IAM system in place. It provides the following functionalities:
+The [**Standalone Identity Provider**](https://pkg.go.dev/github.com/cybercryptio/d1-lib/v2/id#Standalone) is an **Identity Provider** implementation designed to easily get up and running for the library users who do not have an existing IAM system in place. It provides the following functionalities:
 - Creating and managing **Users**, **Groups** and **Identity Tokens**;
 - Translating between **Identity Tokens** and **Identities**;
 - Storing the user data with the configured **IO Provider**;

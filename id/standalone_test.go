@@ -21,7 +21,7 @@ import (
 	"context"
 	"reflect"
 
-	"github.com/cybercryptio/d1-lib/io"
+	"github.com/cybercryptio/d1-lib/v2/io"
 )
 
 func newTestStandalone(t *testing.T) *Standalone {
