@@ -47,3 +47,28 @@ func ScopeUnion(scopes ...Scope) Scope {
 func (s Scope) Contains(scope Scope) bool {
 	return (s & scope) == scope
 }
+
+func (s Scope) String() string {
+	switch s {
+	case ScopeEncrypt:
+		return "encrypt"
+	case ScopeDecrypt:
+		return "decrypt"
+	case ScopeUpdate:
+		return "update"
+	case ScopeDelete:
+		return "delete"
+	case ScopeCreateToken:
+		return "create token"
+	case ScopeGetTokenContents:
+		return "get token"
+	case ScopeGetAccessGroups:
+		return "get access"
+	case ScopeModifyAccessGroups:
+		return "modify access"
+	case ScopeIndex:
+		return "index"
+	default:
+		return "unknown"
+	}
+}
