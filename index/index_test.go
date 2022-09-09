@@ -418,12 +418,17 @@ func TestGetLastNode(t *testing.T) {
 	keyword := "keyword"
 	identifiers := [5]string{"id1", "id2", "id3", "id4", "id5"}
 
+	tagger, cryptor, err := index.getTaggerAndCryptor(keyword)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	for i := 0; i < len(identifiers); i++ {
 		if err := index.Add(ctx, token, keyword, identifiers[i]); err != nil {
 			t.Fatal(err)
 		}
 
-		lastNode, err := index.getLastNode(ctx, keyword)
+		lastNode, err := index.getLastNode(ctx, tagger, cryptor)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -441,8 +446,12 @@ func TestGetLastNodeBeforeAdd(t *testing.T) {
 	index := newTestSecureIndex(t)
 
 	keyword := "keyword"
+	tagger, cryptor, err := index.getTaggerAndCryptor(keyword)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	lastNode, err := index.getLastNode(ctx, keyword)
+	lastNode, err := index.getLastNode(ctx, tagger, cryptor)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -467,9 +476,12 @@ func TestGetLastNodeWrongKeyword(t *testing.T) {
 	}
 
 	keywordShort := "first keywor"
-	keywordLong := "first keywordd"
+	tagger, cryptor, err := index.getTaggerAndCryptor(keywordShort)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	lastNode, err := index.getLastNode(ctx, keywordShort)
+	lastNode, err := index.getLastNode(ctx, tagger, cryptor)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -480,7 +492,13 @@ func TestGetLastNodeWrongKeyword(t *testing.T) {
 		t.Fatal("getLastNode returned non-empty Node when given wrong keyword.")
 	}
 
-	lastNode, err = index.getLastNode(ctx, keywordLong)
+	keywordLong := "first keywordd"
+	tagger, cryptor, err = index.getTaggerAndCryptor(keywordLong)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	lastNode, err = index.getLastNode(ctx, tagger, cryptor)
 	if err != nil {
 		t.Fatal(err)
 	}

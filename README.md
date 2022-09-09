@@ -43,6 +43,12 @@ import github.com/cybercryptio/d1-lib/v2
 
 For examples on how to use the D1 library [see the Examples section in the godocs](https://pkg.go.dev/github.com/cybercryptio/d1-lib/v2#example-package-BasicEncryptDecrypt).
 
+In order to receive debug logging from the library you can pass a [zerolog
+logger](https://pkg.go.dev/github.com/rs/zerolog) via the context (see
+`zerolog.Logger.WithContext`). Note that the library only logs at debug level, and that the logs may
+contain sensitive information. This functionality should therefore not be used under normal
+circumstances.
+
 ## High level overview
 
 For a high level overview of the main concepts and use cases of the D1 library [see our Explainer Document](documentation/explainer.md).

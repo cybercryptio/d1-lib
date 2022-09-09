@@ -23,7 +23,7 @@ import (
 	d1lib "github.com/cybercryptio/d1-lib/v2"
 )
 
-func ExampleD1_CreateToken() {
+func Example_createToken() {
 	ctx := context.Background()
 
 	// Instantiate the D1 library with the given keys.

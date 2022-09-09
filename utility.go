@@ -21,11 +21,34 @@ import (
 	"encoding/gob"
 
 	"github.com/gofrs/uuid"
+	"github.com/rs/zerolog"
 
 	"github.com/cybercryptio/d1-lib/v2/data"
 	"github.com/cybercryptio/d1-lib/v2/id"
 	"github.com/cybercryptio/d1-lib/v2/io"
 )
+
+// verifyAccess verifies the caller. It verifies both that the caller is authenticated by the
+// Identity Provider, and that the caller has the necessary scopes.
+func (d *D1) verifyAccess(ctx context.Context, token string, scope id.Scope) (id.Identity, error) {
+	log := zerolog.Ctx(ctx)
+
+	log.Debug().Msg("authenticating caller")
+	identity, err := d.idProvider.GetIdentity(ctx, token)
+	if err != nil {
+		log.Debug().Err(err).Msg("authentication failed")
+		return id.Identity{}, ErrNotAuthenticated
+	}
+	*log = log.With().Str("uid", identity.ID).Logger()
+
+	log.Debug().Msg("authorizing caller")
+	if !identity.Scopes.Contains(scope) {
+		log.Debug().Stringer("scope", scope).Msg("scope missing")
+		return id.Identity{}, ErrNotAuthorized
+	}
+
+	return identity, nil
+}
 
 // authorizeAccess checks whether the authorizing Identity is allowed to access the provided access
 // object. If so, the unsealed access object is returned.
@@ -35,7 +58,10 @@ import (
 //     required scope.
 //   - One of the Identity's group IDs is part of the Access and that group's scope contains the required
 //     scope.
-func (d *D1) authorizeAccess(identity *id.Identity, scopes id.Scope, sealedAccess *data.SealedAccess) (data.Access, error) {
+func (d *D1) authorizeAccess(ctx context.Context, identity *id.Identity, scopes id.Scope, sealedAccess *data.SealedAccess) (data.Access, error) {
+	log := zerolog.Ctx(ctx)
+	log.Debug().Msg("authorizing access")
+
 	plainAccess, err := sealedAccess.Unseal(d.accessCryptor)
 	if err != nil {
 		return data.Access{}, err
@@ -52,6 +78,9 @@ func (d *D1) authorizeAccess(identity *id.Identity, scopes id.Scope, sealedAcces
 // putSealedObject encodes a sealed object and sends it to the IO Provider, either as a "Put" or an
 // "Update".
 func (d *D1) putSealedObject(ctx context.Context, object *data.SealedObject, update bool) error {
+	log := zerolog.Ctx(ctx)
+	log.Debug().Msg("storing object")
+
 	var objectBuffer bytes.Buffer
 	enc := gob.NewEncoder(&objectBuffer)
 	if err := enc.Encode(object); err != nil {
@@ -59,13 +88,18 @@ func (d *D1) putSealedObject(ctx context.Context, object *data.SealedObject, upd
 	}
 
 	if update {
+		log.Debug().Msg("updating stored object")
 		return d.ioProvider.Update(ctx, object.OID.Bytes(), io.DataTypeSealedObject, objectBuffer.Bytes())
 	}
+	log.Debug().Msg("creating new object")
 	return d.ioProvider.Put(ctx, object.OID.Bytes(), io.DataTypeSealedObject, objectBuffer.Bytes())
 }
 
 // getSealedObject fetches bytes from the IO Provider and decodes them into a sealed object.
 func (d *D1) getSealedObject(ctx context.Context, oid uuid.UUID) (*data.SealedObject, error) {
+	log := zerolog.Ctx(ctx)
+	log.Debug().Msg("getting stored object")
+
 	objectBytes, err := d.ioProvider.Get(ctx, oid.Bytes(), io.DataTypeSealedObject)
 	if err != nil {
 		return nil, err
@@ -84,12 +118,17 @@ func (d *D1) getSealedObject(ctx context.Context, oid uuid.UUID) (*data.SealedOb
 
 // deleteSealedObject deletes a sealed object from the IO Provider.
 func (d *D1) deleteSealedObject(ctx context.Context, oid uuid.UUID) error {
+	log := zerolog.Ctx(ctx)
+	log.Debug().Msg("deleting stored object")
 	return d.ioProvider.Delete(ctx, oid.Bytes(), io.DataTypeSealedObject)
 }
 
 // putSealedAccess encodes a sealed access and sends it to the IO Provider, either as a "Put" or an
 // "Update".
 func (d *D1) putSealedAccess(ctx context.Context, access *data.SealedAccess, update bool) error {
+	log := zerolog.Ctx(ctx)
+	log.Debug().Msg("storing access")
+
 	var accessBuffer bytes.Buffer
 	enc := gob.NewEncoder(&accessBuffer)
 	if err := enc.Encode(access); err != nil {
@@ -97,13 +136,18 @@ func (d *D1) putSealedAccess(ctx context.Context, access *data.SealedAccess, upd
 	}
 
 	if update {
+		log.Debug().Msg("updating stored access")
 		return d.ioProvider.Update(ctx, access.OID.Bytes(), io.DataTypeSealedAccess, accessBuffer.Bytes())
 	}
+	log.Debug().Msg("creating new access")
 	return d.ioProvider.Put(ctx, access.OID.Bytes(), io.DataTypeSealedAccess, accessBuffer.Bytes())
 }
 
 // getSealedAccess fetches bytes from the IO Provider and decodes them into a sealed access.
 func (d *D1) getSealedAccess(ctx context.Context, oid uuid.UUID) (*data.SealedAccess, error) {
+	log := zerolog.Ctx(ctx)
+	log.Debug().Msg("getting stored access")
+
 	accessBytes, err := d.ioProvider.Get(ctx, oid.Bytes(), io.DataTypeSealedAccess)
 	if err != nil {
 		return nil, err
@@ -122,5 +166,7 @@ func (d *D1) getSealedAccess(ctx context.Context, oid uuid.UUID) (*data.SealedAc
 
 // deleteSealedAccess deletes a sealed object from the IO Provider.
 func (d *D1) deleteSealedAccess(ctx context.Context, oid uuid.UUID) error {
+	log := zerolog.Ctx(ctx)
+	log.Debug().Msg("deleting stored access")
 	return d.ioProvider.Delete(ctx, oid.Bytes(), io.DataTypeSealedAccess)
 }
