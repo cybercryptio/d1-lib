@@ -16,8 +16,7 @@
 package crypto
 
 import (
-	"bytes"
-	"encoding/gob"
+	json "github.com/json-iterator/go"
 )
 
 const TagLength = 32
@@ -38,13 +37,12 @@ func NewKMAC256Tagger(key []byte) (Tagger, error) {
 }
 
 func (t *Tagger) Tag(data interface{}) ([]byte, error) {
-	var dataBuffer bytes.Buffer
-	enc := gob.NewEncoder(&dataBuffer)
-	if err := enc.Encode(data); err != nil {
+	dataBytes, err := json.Marshal(data)
+	if err != nil {
 		return nil, err
 	}
 
-	mac := NewKMAC256(t.Key, TagLength, dataBuffer.Bytes())
+	mac := NewKMAC256(t.Key, TagLength, dataBytes)
 	macSum := mac.Sum(nil)
 
 	return macSum, nil

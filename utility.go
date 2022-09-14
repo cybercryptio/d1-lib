@@ -16,11 +16,10 @@
 package d1
 
 import (
-	"bytes"
 	"context"
-	"encoding/gob"
 
 	"github.com/gofrs/uuid"
+	json "github.com/json-iterator/go"
 	"github.com/rs/zerolog"
 
 	"github.com/cybercryptio/d1-lib/v2/data"
@@ -82,18 +81,17 @@ func (d *D1) putSealedObject(ctx context.Context, object *data.SealedObject, upd
 	l := zerolog.Ctx(ctx)
 	l.Debug().Msg("storing object")
 
-	var objectBuffer bytes.Buffer
-	enc := gob.NewEncoder(&objectBuffer)
-	if err := enc.Encode(object); err != nil {
+	objectBytes, err := json.Marshal(object)
+	if err != nil {
 		return err
 	}
 
 	if update {
 		l.Debug().Msg("updating stored object")
-		return d.ioProvider.Update(ctx, object.OID.Bytes(), io.DataTypeSealedObject, objectBuffer.Bytes())
+		return d.ioProvider.Update(ctx, object.OID.Bytes(), io.DataTypeSealedObject, objectBytes)
 	}
 	l.Debug().Msg("creating new object")
-	return d.ioProvider.Put(ctx, object.OID.Bytes(), io.DataTypeSealedObject, objectBuffer.Bytes())
+	return d.ioProvider.Put(ctx, object.OID.Bytes(), io.DataTypeSealedObject, objectBytes)
 }
 
 // getSealedObject fetches bytes from the IO Provider and decodes them into a sealed object.
@@ -107,9 +105,7 @@ func (d *D1) getSealedObject(ctx context.Context, oid uuid.UUID) (*data.SealedOb
 	}
 
 	object := &data.SealedObject{}
-	dec := gob.NewDecoder(bytes.NewReader(objectBytes))
-	err = dec.Decode(object)
-	if err != nil {
+	if err := json.Unmarshal(objectBytes, object); err != nil {
 		return nil, err
 	}
 
@@ -130,18 +126,17 @@ func (d *D1) putSealedAccess(ctx context.Context, access *data.SealedAccess, upd
 	l := zerolog.Ctx(ctx)
 	l.Debug().Msg("storing access")
 
-	var accessBuffer bytes.Buffer
-	enc := gob.NewEncoder(&accessBuffer)
-	if err := enc.Encode(access); err != nil {
+	accessBytes, err := json.Marshal(access)
+	if err != nil {
 		return err
 	}
 
 	if update {
 		l.Debug().Msg("updating stored access")
-		return d.ioProvider.Update(ctx, access.OID.Bytes(), io.DataTypeSealedAccess, accessBuffer.Bytes())
+		return d.ioProvider.Update(ctx, access.OID.Bytes(), io.DataTypeSealedAccess, accessBytes)
 	}
 	l.Debug().Msg("creating new access")
-	return d.ioProvider.Put(ctx, access.OID.Bytes(), io.DataTypeSealedAccess, accessBuffer.Bytes())
+	return d.ioProvider.Put(ctx, access.OID.Bytes(), io.DataTypeSealedAccess, accessBytes)
 }
 
 // getSealedAccess fetches bytes from the IO Provider and decodes them into a sealed access.
@@ -155,9 +150,7 @@ func (d *D1) getSealedAccess(ctx context.Context, oid uuid.UUID) (*data.SealedAc
 	}
 
 	access := &data.SealedAccess{}
-	dec := gob.NewDecoder(bytes.NewReader(accessBytes))
-	err = dec.Decode(access)
-	if err != nil {
+	if err := json.Unmarshal(accessBytes, access); err != nil {
 		return nil, err
 	}
 
