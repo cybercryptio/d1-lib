@@ -29,6 +29,7 @@ import (
 	"github.com/cybercryptio/d1-lib/v2/id"
 	"github.com/cybercryptio/d1-lib/v2/io"
 	"github.com/cybercryptio/d1-lib/v2/key"
+	"github.com/cybercryptio/d1-lib/v2/log"
 )
 
 // The length of the master key.
@@ -52,9 +53,9 @@ type SecureIndex struct {
 
 // NewSecureIndex creates a SecureIndex which is used to manage keyword/identifier pairs.
 func NewSecureIndex(ctx context.Context, keyProvider key.Provider, ioProvider io.Provider, idProvider id.Provider) (SecureIndex, error) {
-	log := *zerolog.Ctx(ctx)
+	l := *zerolog.Ctx(ctx)
 
-	log.Debug().Msg("getting keys")
+	l.Debug().Msg("getting keys")
 	keys, err := keyProvider.GetKeys(ctx)
 	if err != nil {
 		return SecureIndex{}, err
@@ -73,8 +74,8 @@ func NewSecureIndex(ctx context.Context, keyProvider key.Provider, ioProvider io
 
 // Add adds a keyword/identifier pair to the secure index.
 func (i *SecureIndex) Add(ctx context.Context, token, keyword, identifier string) error {
-	log := zerolog.Ctx(ctx)
-	*log = log.With().Str("method", "add").Logger()
+	l := zerolog.Ctx(ctx)
+	log.WithMethod(l, "add")
 
 	if err := i.verifyAccess(ctx, token); err != nil {
 		return err
@@ -93,7 +94,7 @@ func (i *SecureIndex) Add(ctx context.Context, token, keyword, identifier string
 	}
 
 	// Compute new label and plaintext Node, seal it, and send it to the IO Provider.
-	log.Debug().Msg("adding new node")
+	l.Debug().Msg("adding new node")
 	label, err := last.NextLabel(tagger)
 	if err != nil {
 		return err
@@ -114,8 +115,8 @@ func (i *SecureIndex) Add(ctx context.Context, token, keyword, identifier string
 
 // Search returns all identifiers that the given keyword is contained in.
 func (i *SecureIndex) Search(ctx context.Context, token, keyword string) ([]string, error) {
-	log := zerolog.Ctx(ctx)
-	*log = log.With().Str("method", "search").Logger()
+	l := zerolog.Ctx(ctx)
+	log.WithMethod(l, "search")
 
 	if err := i.verifyAccess(ctx, token); err != nil {
 		return nil, err
@@ -132,7 +133,7 @@ func (i *SecureIndex) Search(ctx context.Context, token, keyword string) ([]stri
 	decryptedNode := data.Node{}
 	identifiers := []string{}
 
-	log.Debug().Msg("searching the index")
+	l.Debug().Msg("searching the index")
 	for {
 		// Get the next Node. If ErrNotFound, all the identifiers that contain the given keyword
 		// have been found, and the function should return them.
@@ -152,8 +153,8 @@ func (i *SecureIndex) Search(ctx context.Context, token, keyword string) ([]stri
 
 // Delete deletes all occurrences of a keyword/identifier pair from the secure index.
 func (i *SecureIndex) Delete(ctx context.Context, token, keyword, identifier string) error {
-	log := zerolog.Ctx(ctx)
-	*log = log.With().Str("method", "delete").Logger()
+	l := zerolog.Ctx(ctx)
+	log.WithMethod(l, "delete")
 
 	if err := i.verifyAccess(ctx, token); err != nil {
 		return err
@@ -169,7 +170,7 @@ func (i *SecureIndex) Delete(ctx context.Context, token, keyword, identifier str
 	// counter value.
 	current := data.Node{}
 
-	log.Debug().Msg("deleting entries from index")
+	l.Debug().Msg("deleting entries from index")
 	for {
 		// Get the next Node. If ErrNotFound, there are no more Nodes to check (and
 		// delete), and the function can terminate.
@@ -205,15 +206,15 @@ func (i *SecureIndex) Delete(ctx context.Context, token, keyword, identifier str
 // * If "A" is the last node, "A" itself is simply deleted.
 // * If there is a next node "B", "A" is overwritten with "B"s data and "B" is deleted.
 func (i *SecureIndex) deleteNode(ctx context.Context, label []byte, node data.Node, tagger crypto.TaggerInterface, cryptor crypto.CryptorInterface) error {
-	log := zerolog.Ctx(ctx)
-	log.Debug().Msg("deleting node")
+	l := zerolog.Ctx(ctx)
+	l.Debug().Msg("deleting node")
 
 	// Get the next Node. If ErrNotFound, then the current Node is the one
 	// with the largest value of counter, and therefore it can simply be deleted without
 	// any other updates.
 	next, err := i.getNextNode(ctx, node, tagger, cryptor)
 	if err == io.ErrNotFound {
-		log.Debug().Msg("last node, deleting")
+		l.Debug().Msg("last node, deleting")
 		if err = i.deleteSealedNode(ctx, label); err != nil {
 			return err
 		}
@@ -224,7 +225,7 @@ func (i *SecureIndex) deleteNode(ctx context.Context, label []byte, node data.No
 	}
 
 	// Overwrite original node with the next node
-	log.Debug().Msg("overwriting with next node")
+	l.Debug().Msg("overwriting with next node")
 	updatedSealedNode, err := next.Seal(label, cryptor)
 	if err != nil {
 		return err
@@ -234,7 +235,7 @@ func (i *SecureIndex) deleteNode(ctx context.Context, label []byte, node data.No
 	}
 
 	// Delete next.
-	log.Debug().Msg("deleting next node")
+	l.Debug().Msg("deleting next node")
 	nextLabel, err := node.NextLabel(tagger)
 	if err != nil {
 		return err
@@ -249,8 +250,8 @@ func (i *SecureIndex) deleteNode(ctx context.Context, label []byte, node data.No
 // getLastNode computes the current last Node containing the given keyword, i.e. the
 // current Node with the largest value of counter.
 func (i *SecureIndex) getLastNode(ctx context.Context, tagger crypto.TaggerInterface, cryptor crypto.CryptorInterface) (data.Node, error) {
-	log := zerolog.Ctx(ctx)
-	log.Debug().Msg("getting last node")
+	l := zerolog.Ctx(ctx)
+	l.Debug().Msg("getting last node")
 
 	// Starting with label with counter = 0, check if the corresponding Node exists. As long
 	// as the Node exists, repeat with the next counter value.
@@ -273,8 +274,8 @@ func (i *SecureIndex) getLastNode(ctx context.Context, tagger crypto.TaggerInter
 
 // getNextNode returns the next Node, given a current Node.
 func (i *SecureIndex) getNextNode(ctx context.Context, currentNode data.Node, tagger crypto.TaggerInterface, cryptor crypto.CryptorInterface) (data.Node, error) {
-	log := zerolog.Ctx(ctx)
-	log.Debug().Msg("getting next node")
+	l := zerolog.Ctx(ctx)
+	l.Debug().Msg("getting next node")
 
 	nextLabel, err := currentNode.NextLabel(tagger)
 	if err != nil {
@@ -299,19 +300,19 @@ func (i *SecureIndex) getNextNode(ctx context.Context, currentNode data.Node, ta
 // verifyAccess verifies the caller. It verifies both that the caller is authenticated by the
 // Identity Provider, and that the caller has the necessary scopes.
 func (i *SecureIndex) verifyAccess(ctx context.Context, token string) error {
-	log := zerolog.Ctx(ctx)
+	l := zerolog.Ctx(ctx)
 
-	log.Debug().Msg("authenticating caller")
+	l.Debug().Msg("authenticating caller")
 	identity, err := i.idProvider.GetIdentity(ctx, token)
 	if err != nil {
-		log.Debug().Err(err).Msg("authentication failed")
+		l.Debug().Err(err).Msg("authentication failed")
 		return ErrNotAuthenticated
 	}
-	*log = log.With().Str("uid", identity.ID).Logger()
+	log.WithUID(l, identity.ID)
 
-	log.Debug().Msg("authorizing caller")
+	l.Debug().Msg("authorizing caller")
 	if !identity.Scopes.Contains(id.ScopeIndex) {
-		log.Debug().Stringer("scope", id.ScopeIndex).Msg("scope missing")
+		l.Debug().Stringer("scope", id.ScopeIndex).Msg("scope missing")
 		return ErrNotAuthorized
 	}
 
@@ -344,8 +345,8 @@ func (i *SecureIndex) getTaggerAndCryptor(keyword string) (crypto.TaggerInterfac
 // putSealedNode encodes a sealed Node and sends it to the IO Provider, either as a "Put" or an
 // "Update".
 func (i *SecureIndex) putSealedNode(ctx context.Context, tag []byte, sealedNode *data.SealedNode, update bool) error {
-	log := zerolog.Ctx(ctx)
-	log.Debug().Msg("storing node")
+	l := zerolog.Ctx(ctx)
+	l.Debug().Msg("storing node")
 
 	var sealedNodeBuffer bytes.Buffer
 	enc := gob.NewEncoder(&sealedNodeBuffer)
@@ -354,17 +355,17 @@ func (i *SecureIndex) putSealedNode(ctx context.Context, tag []byte, sealedNode 
 	}
 
 	if update {
-		log.Debug().Msg("updating stored node")
+		l.Debug().Msg("updating stored node")
 		return i.ioProvider.Update(ctx, tag, io.DataTypeSealedNode, sealedNodeBuffer.Bytes())
 	}
-	log.Debug().Msg("creating new node")
+	l.Debug().Msg("creating new node")
 	return i.ioProvider.Put(ctx, tag, io.DataTypeSealedNode, sealedNodeBuffer.Bytes())
 }
 
 // getSealedNode fetches bytes from the IO Provider and decodes them into a sealed Node.
 func (i *SecureIndex) getSealedNode(ctx context.Context, tag []byte) (*data.SealedNode, error) {
-	log := zerolog.Ctx(ctx)
-	log.Debug().Msg("getting stored node")
+	l := zerolog.Ctx(ctx)
+	l.Debug().Msg("getting stored node")
 
 	sealedNodeBytes, err := i.ioProvider.Get(ctx, tag, io.DataTypeSealedNode)
 	if err != nil {
@@ -383,7 +384,7 @@ func (i *SecureIndex) getSealedNode(ctx context.Context, tag []byte) (*data.Seal
 
 // deleteSealedNode deletes a sealed Node from the IO Provider.
 func (i *SecureIndex) deleteSealedNode(ctx context.Context, tag []byte) error {
-	log := zerolog.Ctx(ctx)
-	log.Debug().Msg("deleting stored node")
+	l := zerolog.Ctx(ctx)
+	l.Debug().Msg("deleting stored node")
 	return i.ioProvider.Delete(ctx, tag, io.DataTypeSealedNode)
 }

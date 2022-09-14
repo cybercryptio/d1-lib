@@ -30,6 +30,7 @@ import (
 	"github.com/cybercryptio/d1-lib/v2/id"
 	"github.com/cybercryptio/d1-lib/v2/io"
 	"github.com/cybercryptio/d1-lib/v2/key"
+	"github.com/cybercryptio/d1-lib/v2/log"
 )
 
 // Error returned if the caller cannot be authenticated by the Identity Provider.
@@ -52,25 +53,25 @@ type D1 struct {
 
 // New creates a new instance of D1 configured with the given providers.
 func New(ctx context.Context, keyProvider key.Provider, ioProvider io.Provider, idProvider id.Provider) (D1, error) {
-	log := zerolog.Ctx(ctx)
+	l := zerolog.Ctx(ctx)
 
-	log.Debug().Msg("getting keys")
+	l.Debug().Msg("getting keys")
 	keys, err := keyProvider.GetKeys(ctx)
 	if err != nil {
 		return D1{}, err
 	}
 
-	log.Debug().Msg("creating object cryptor")
+	l.Debug().Msg("creating object cryptor")
 	objectCryptor, err := crypto.NewAESCryptor(keys.KEK)
 	if err != nil {
 		return D1{}, err
 	}
-	log.Debug().Msg("creating access cryptor")
+	l.Debug().Msg("creating access cryptor")
 	accessCryptor, err := crypto.NewAESCryptor(keys.AEK)
 	if err != nil {
 		return D1{}, err
 	}
-	log.Debug().Msg("creating token cryptor")
+	l.Debug().Msg("creating token cryptor")
 	tokenCryptor, err := crypto.NewAESCryptor(keys.TEK)
 	if err != nil {
 		return D1{}, err
@@ -105,8 +106,8 @@ func New(ctx context.Context, keyProvider key.Provider, ioProvider io.Provider, 
 // Required scopes:
 // - Encrypt
 func (d *D1) Encrypt(ctx context.Context, token string, object *data.Object, groups ...string) (uuid.UUID, error) {
-	log := zerolog.Ctx(ctx)
-	*log = log.With().Str("method", "encrypt").Logger()
+	l := zerolog.Ctx(ctx)
+	log.WithMethod(l, "encrypt")
 
 	identity, err := d.verifyAccess(ctx, token, id.ScopeEncrypt)
 	if err != nil {
@@ -117,19 +118,19 @@ func (d *D1) Encrypt(ctx context.Context, token string, object *data.Object, gro
 	if err != nil {
 		return uuid.Nil, err
 	}
-	*log = log.With().Stringer("oid", oid).Logger()
+	log.WithOID(l, oid)
 
-	log.Debug().Msg("sealing object")
+	l.Debug().Msg("sealing object")
 	wrappedOEK, sealedObject, err := object.Seal(oid, d.objectCryptor)
 	if err != nil {
 		return uuid.Nil, err
 	}
 
-	log.Debug().Strs("groups", groups).Msg("creating access")
+	l.Debug().Strs("groups", groups).Msg("creating access")
 	access := data.NewAccess(wrappedOEK)
 	access.AddGroups(append(groups, identity.ID)...)
 
-	log.Debug().Msg("sealing access")
+	l.Debug().Msg("sealing access")
 	sealedAccess, err := access.Seal(oid, d.accessCryptor)
 	if err != nil {
 		return uuid.Nil, err
@@ -155,9 +156,9 @@ func (d *D1) Encrypt(ctx context.Context, token string, object *data.Object, gro
 // Required scopes:
 // - Update
 func (d *D1) Update(ctx context.Context, token string, oid uuid.UUID, object *data.Object) error {
-	log := zerolog.Ctx(ctx)
-	*log = log.With().Str("method", "update").Logger()
-	*log = log.With().Stringer("oid", oid).Logger()
+	l := zerolog.Ctx(ctx)
+	log.WithMethod(l, "update")
+	log.WithOID(l, oid)
 
 	identity, err := d.verifyAccess(ctx, token, id.ScopeUpdate)
 	if err != nil {
@@ -174,13 +175,13 @@ func (d *D1) Update(ctx context.Context, token string, oid uuid.UUID, object *da
 		return err
 	}
 
-	log.Debug().Msg("sealing object")
+	l.Debug().Msg("sealing object")
 	wrappedOEK, sealedObject, err := object.Seal(oid, d.objectCryptor)
 	if err != nil {
 		return err
 	}
 
-	log.Debug().Msg("sealing access")
+	l.Debug().Msg("sealing access")
 	plainAccess.WrappedOEK = wrappedOEK
 	sealedAccess, err := plainAccess.Seal(oid, d.accessCryptor)
 	if err != nil {
@@ -208,9 +209,9 @@ func (d *D1) Update(ctx context.Context, token string, oid uuid.UUID, object *da
 // Required scopes:
 // - Decrypt
 func (d *D1) Decrypt(ctx context.Context, token string, oid uuid.UUID) (data.Object, error) {
-	log := zerolog.Ctx(ctx)
-	*log = log.With().Str("method", "decrypt").Logger()
-	*log = log.With().Stringer("oid", oid).Logger()
+	l := zerolog.Ctx(ctx)
+	log.WithMethod(l, "encrypt")
+	log.WithOID(l, oid)
 
 	identity, err := d.verifyAccess(ctx, token, id.ScopeDecrypt)
 	if err != nil {
@@ -232,7 +233,7 @@ func (d *D1) Decrypt(ctx context.Context, token string, oid uuid.UUID) (data.Obj
 		return data.Object{}, err
 	}
 
-	log.Debug().Msg("unsealing object")
+	l.Debug().Msg("unsealing object")
 	return object.Unseal(plainAccess.WrappedOEK, d.objectCryptor)
 }
 
@@ -244,9 +245,9 @@ func (d *D1) Decrypt(ctx context.Context, token string, oid uuid.UUID) (data.Obj
 // Required scopes:
 // - Delete
 func (d *D1) Delete(ctx context.Context, token string, oid uuid.UUID) error {
-	log := zerolog.Ctx(ctx)
-	*log = log.With().Str("method", "delete").Logger()
-	*log = log.With().Stringer("oid", oid).Logger()
+	l := zerolog.Ctx(ctx)
+	log.WithMethod(l, "delete")
+	log.WithOID(l, oid)
 
 	identity, err := d.verifyAccess(ctx, token, id.ScopeDelete)
 	if err != nil {
@@ -258,7 +259,7 @@ func (d *D1) Delete(ctx context.Context, token string, oid uuid.UUID) error {
 	case nil:
 		// Ignore and proceed
 	case io.ErrNotFound:
-		log.Debug().Msg("object not found")
+		l.Debug().Msg("object not found")
 		// If we can't find the access, that should mean the sealed object
 		// doesn't exist, either because it never existed, or it has been completely deleted.
 		// Because the sealed access is deleted last as the step in a deletion
@@ -301,22 +302,22 @@ func (d *D1) Delete(ctx context.Context, token string, oid uuid.UUID) error {
 //
 // The contents of the token can be validated and retrieved with the GetTokenContents method.
 func (d *D1) CreateToken(ctx context.Context, plaintext []byte) (data.SealedToken, error) {
-	log := zerolog.Ctx(ctx)
-	*log = log.With().Str("method", "create token").Logger()
+	l := zerolog.Ctx(ctx)
+	log.WithMethod(l, "create token")
 
 	token := data.NewToken(plaintext, data.TokenValidity)
-	log.Debug().Time("expiry", token.ExpiryTime).Msg("token created")
-	log.Debug().Msg("sealing token")
+	l.Debug().Time("expiry", token.ExpiryTime).Msg("token created")
+	l.Debug().Msg("sealing token")
 	return token.Seal(d.tokenCryptor)
 }
 
 // GetTokenContents extracts the plaintext data from a sealed token, provided that the token has not
 // expired.
 func (d *D1) GetTokenContents(ctx context.Context, token *data.SealedToken) ([]byte, error) {
-	log := zerolog.Ctx(ctx)
-	*log = log.With().Str("method", "get token contents").Logger()
+	l := zerolog.Ctx(ctx)
+	log.WithMethod(l, "get token contents")
 
-	log.Debug().Time("expiry", token.ExpiryTime).Msg("unsealing token")
+	l.Debug().Time("expiry", token.ExpiryTime).Msg("unsealing token")
 	plainToken, err := token.Unseal(d.tokenCryptor)
 	if err != nil {
 		return nil, err
@@ -339,9 +340,9 @@ func (d *D1) GetTokenContents(ctx context.Context, token *data.SealedToken) ([]b
 // Required scopes:
 // - GetAccessGroups
 func (d *D1) GetAccessGroups(ctx context.Context, token string, oid uuid.UUID) (map[string]struct{}, error) {
-	log := zerolog.Ctx(ctx)
-	*log = log.With().Str("method", "get access groups").Logger()
-	*log = log.With().Stringer("oid", oid).Logger()
+	l := zerolog.Ctx(ctx)
+	log.WithMethod(l, "get access groups")
+	log.WithOID(l, oid)
 
 	identity, err := d.verifyAccess(ctx, token, id.ScopeGetAccessGroups)
 	if err != nil {
@@ -369,9 +370,9 @@ func (d *D1) GetAccessGroups(ctx context.Context, token string, oid uuid.UUID) (
 // Required scopes:
 // - ModifyAccessGroups
 func (d *D1) AddGroupsToAccess(ctx context.Context, token string, oid uuid.UUID, groups ...string) error {
-	log := zerolog.Ctx(ctx)
-	*log = log.With().Str("method", "add groups to access").Logger()
-	*log = log.With().Stringer("oid", oid).Logger()
+	l := zerolog.Ctx(ctx)
+	log.WithMethod(l, "add groups to access")
+	log.WithOID(l, oid)
 
 	identity, err := d.verifyAccess(ctx, token, id.ScopeModifyAccessGroups)
 	if err != nil {
@@ -388,10 +389,10 @@ func (d *D1) AddGroupsToAccess(ctx context.Context, token string, oid uuid.UUID,
 		return err
 	}
 
-	log.Debug().Strs("groups", groups).Msg("adding groups")
+	l.Debug().Strs("groups", groups).Msg("adding groups")
 	plainAccess.AddGroups(groups...)
 
-	log.Debug().Msg("sealing access")
+	l.Debug().Msg("sealing access")
 	*access, err = plainAccess.Seal(oid, d.accessCryptor)
 	if err != nil {
 		return err
@@ -408,9 +409,9 @@ func (d *D1) AddGroupsToAccess(ctx context.Context, token string, oid uuid.UUID,
 // Required scopes:
 // - ModifyAccessGroups
 func (d *D1) RemoveGroupsFromAccess(ctx context.Context, token string, oid uuid.UUID, groups ...string) error {
-	log := zerolog.Ctx(ctx)
-	*log = log.With().Str("method", "remove groups from access").Logger()
-	*log = log.With().Stringer("oid", oid).Logger()
+	l := zerolog.Ctx(ctx)
+	log.WithMethod(l, "remove groups from access")
+	log.WithOID(l, oid)
 
 	identity, err := d.verifyAccess(ctx, token, id.ScopeModifyAccessGroups)
 	if err != nil {
@@ -427,10 +428,10 @@ func (d *D1) RemoveGroupsFromAccess(ctx context.Context, token string, oid uuid.
 		return err
 	}
 
-	log.Debug().Strs("groups", groups).Msg("removing groups")
+	l.Debug().Strs("groups", groups).Msg("removing groups")
 	plainAccess.RemoveGroups(groups...)
 
-	log.Debug().Msg("sealing access")
+	l.Debug().Msg("sealing access")
 	*access, err = plainAccess.Seal(oid, d.accessCryptor)
 	if err != nil {
 		return err
@@ -448,9 +449,9 @@ func (d *D1) RemoveGroupsFromAccess(ctx context.Context, token string, oid uuid.
 // Required scopes:
 // - GetAccessGroups
 func (d *D1) AuthorizeIdentity(ctx context.Context, token string, oid uuid.UUID) error {
-	log := zerolog.Ctx(ctx)
-	*log = log.With().Str("method", "authorize identity").Logger()
-	*log = log.With().Stringer("oid", oid).Logger()
+	l := zerolog.Ctx(ctx)
+	log.WithMethod(l, "authorize identity")
+	log.WithOID(l, oid)
 
 	identity, err := d.verifyAccess(ctx, token, id.ScopeGetAccessGroups)
 	if err != nil {
