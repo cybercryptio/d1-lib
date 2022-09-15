@@ -55,12 +55,7 @@ func NewToken(plaintext []byte, validityPeriod time.Duration) Token {
 
 // Seal encrypts the token.
 func (t *Token) Seal(cryptor crypto.CryptorInterface) (SealedToken, error) {
-	associatedData, err := t.ExpiryTime.MarshalBinary()
-	if err != nil {
-		return SealedToken{}, err
-	}
-
-	wrappedKey, ciphertext, err := cryptor.Encrypt(t.Plaintext, associatedData)
+	wrappedKey, ciphertext, err := cryptor.Encrypt(t.Plaintext, t.ExpiryTime)
 	if err != nil {
 		return SealedToken{}, err
 	}
@@ -83,13 +78,8 @@ func (t *SealedToken) Unseal(cryptor crypto.CryptorInterface) (Token, error) {
 		return Token{}, errors.New("Token expired")
 	}
 
-	associatedData, err := t.ExpiryTime.MarshalBinary()
-	if err != nil {
-		return Token{}, err
-	}
-
 	plaintext := []byte{}
-	err = cryptor.Decrypt(&plaintext, associatedData, t.WrappedKey, t.Ciphertext)
+	err := cryptor.Decrypt(&plaintext, t.ExpiryTime, t.WrappedKey, t.Ciphertext)
 	if err != nil {
 		return Token{}, err
 	}
