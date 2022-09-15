@@ -22,7 +22,7 @@ import (
 )
 
 // Access is used to manage access to encrypted objects. Note: All member fields need to be exported
-// in order for gob to serialize them.
+// in order to serialize them.
 type Access struct {
 	// The set of groups that have access to the associated object. The format of the key strings
 	// depends on how the ID Provider implements group identifiers.

@@ -16,9 +16,9 @@
 package crypto
 
 import (
-	"bytes"
-	"encoding/gob"
 	"fmt"
+
+	json "github.com/json-iterator/go"
 )
 
 const EncryptionKeyLength = 32
@@ -52,15 +52,13 @@ func NewAESCryptor(KEK []byte) (Cryptor, error) {
 }
 
 func (c *Cryptor) Encrypt(plaintext, data interface{}) ([]byte, []byte, error) {
-	var plaintextBuffer bytes.Buffer
-	enc := gob.NewEncoder(&plaintextBuffer)
-	if err := enc.Encode(plaintext); err != nil {
+	plaintextBytes, err := json.Marshal(plaintext)
+	if err != nil {
 		return nil, nil, err
 	}
 
-	var dataBuffer bytes.Buffer
-	enc = gob.NewEncoder(&dataBuffer)
-	if err := enc.Encode(data); err != nil {
+	dataBytes, err := json.Marshal(data)
+	if err != nil {
 		return nil, nil, err
 	}
 
@@ -69,7 +67,7 @@ func (c *Cryptor) Encrypt(plaintext, data interface{}) ([]byte, []byte, error) {
 		return nil, nil, err
 	}
 
-	ciphertext, err := c.aead.Encrypt(plaintextBuffer.Bytes(), dataBuffer.Bytes(), key)
+	ciphertext, err := c.aead.Encrypt(plaintextBytes, dataBytes, key)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -88,12 +86,10 @@ func (c *Cryptor) Decrypt(plaintext, data interface{}, wrappedKey, ciphertext []
 		return err
 	}
 
-	var buffer bytes.Buffer
-	enc := gob.NewEncoder(&buffer)
-	if err := enc.Encode(data); err != nil {
+	dataBytes, err := json.Marshal(data)
+	if err != nil {
 		return err
 	}
-	dataBytes := buffer.Bytes()
 
 	// Need to copy here, as AEADInterface is allowed to modify the array.
 	ciphertextCopy := make([]byte, len(ciphertext))
@@ -103,6 +99,5 @@ func (c *Cryptor) Decrypt(plaintext, data interface{}, wrappedKey, ciphertext []
 		return err
 	}
 
-	dec := gob.NewDecoder(bytes.NewReader(plaintextBytes))
-	return dec.Decode(plaintext)
+	return json.Unmarshal(plaintextBytes, plaintext)
 }

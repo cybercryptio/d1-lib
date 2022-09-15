@@ -19,8 +19,8 @@ import (
 	"github.com/cybercryptio/d1-lib/v2/crypto"
 )
 
-// Group contains data about a group of users. Note: All fields need to exported in order for
-// gob to serialize them.
+// Group contains data about a group of users. Note: All fields need to exported in order to
+// serialize them.
 type Group struct {
 	Scopes Scope
 }

@@ -16,12 +16,11 @@
 package index
 
 import (
-	"bytes"
 	"context"
-	"encoding/gob"
 	"errors"
 	"fmt"
 
+	json "github.com/json-iterator/go"
 	"github.com/rs/zerolog"
 
 	"github.com/cybercryptio/d1-lib/v2/crypto"
@@ -348,18 +347,17 @@ func (i *SecureIndex) putSealedNode(ctx context.Context, tag []byte, sealedNode 
 	l := zerolog.Ctx(ctx)
 	l.Debug().Msg("storing node")
 
-	var sealedNodeBuffer bytes.Buffer
-	enc := gob.NewEncoder(&sealedNodeBuffer)
-	if err := enc.Encode(sealedNode); err != nil {
+	sealedNodeBytes, err := json.Marshal(sealedNode)
+	if err != nil {
 		return err
 	}
 
 	if update {
 		l.Debug().Msg("updating stored node")
-		return i.ioProvider.Update(ctx, tag, io.DataTypeSealedNode, sealedNodeBuffer.Bytes())
+		return i.ioProvider.Update(ctx, tag, io.DataTypeSealedNode, sealedNodeBytes)
 	}
 	l.Debug().Msg("creating new node")
-	return i.ioProvider.Put(ctx, tag, io.DataTypeSealedNode, sealedNodeBuffer.Bytes())
+	return i.ioProvider.Put(ctx, tag, io.DataTypeSealedNode, sealedNodeBytes)
 }
 
 // getSealedNode fetches bytes from the IO Provider and decodes them into a sealed Node.
@@ -373,9 +371,7 @@ func (i *SecureIndex) getSealedNode(ctx context.Context, tag []byte) (*data.Seal
 	}
 
 	sealedNode := &data.SealedNode{}
-	dec := gob.NewDecoder(bytes.NewReader(sealedNodeBytes))
-	err = dec.Decode(sealedNode)
-	if err != nil {
+	if err := json.Unmarshal(sealedNodeBytes, sealedNode); err != nil {
 		return nil, err
 	}
 

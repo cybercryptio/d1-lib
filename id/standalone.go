@@ -16,12 +16,11 @@
 package id
 
 import (
-	"bytes"
 	"context"
-	"encoding/gob"
 	"errors"
 
 	"github.com/gofrs/uuid"
+	json "github.com/json-iterator/go"
 
 	"github.com/cybercryptio/d1-lib/v2/crypto"
 	"github.com/cybercryptio/d1-lib/v2/data"
@@ -286,16 +285,15 @@ func (s *Standalone) putUser(ctx context.Context, uid string, user *User, update
 		return err
 	}
 
-	var userBuffer bytes.Buffer
-	enc := gob.NewEncoder(&userBuffer)
-	if err := enc.Encode(sealedUser); err != nil {
+	b, err := json.Marshal(sealedUser)
+	if err != nil {
 		return err
 	}
 
 	if update {
-		return s.ioProvider.Update(ctx, []byte(sealedUser.UID), DataTypeSealedUser, userBuffer.Bytes())
+		return s.ioProvider.Update(ctx, []byte(sealedUser.UID), DataTypeSealedUser, b)
 	}
-	return s.ioProvider.Put(ctx, []byte(sealedUser.UID), DataTypeSealedUser, userBuffer.Bytes())
+	return s.ioProvider.Put(ctx, []byte(sealedUser.UID), DataTypeSealedUser, b)
 }
 
 // getUser fetches bytes from the IO Provider, decodes them into a sealed user, and unseals it.
@@ -306,9 +304,7 @@ func (s *Standalone) getUser(ctx context.Context, uid string) (*User, error) {
 	}
 
 	user := &SealedUser{}
-	dec := gob.NewDecoder(bytes.NewReader(userBytes))
-	err = dec.Decode(user)
-	if err != nil {
+	if err = json.Unmarshal(userBytes, user); err != nil {
 		return nil, err
 	}
 
@@ -327,13 +323,12 @@ func (s *Standalone) putGroup(ctx context.Context, gid string, group *Group) err
 		return err
 	}
 
-	var groupBuffer bytes.Buffer
-	enc := gob.NewEncoder(&groupBuffer)
-	if err := enc.Encode(sealedGroup); err != nil {
+	groupBytes, err := json.Marshal(sealedGroup)
+	if err != nil {
 		return err
 	}
 
-	return s.ioProvider.Put(ctx, []byte(sealedGroup.GID), DataTypeSealedGroup, groupBuffer.Bytes())
+	return s.ioProvider.Put(ctx, []byte(sealedGroup.GID), DataTypeSealedGroup, groupBytes)
 }
 
 // getGroup fetches bytes from the IO Provider, decodes them into a sealed group, and unseals it.
@@ -344,9 +339,7 @@ func (s *Standalone) getGroup(ctx context.Context, gid string) (*Group, error) {
 	}
 
 	group := &SealedGroup{}
-	dec := gob.NewDecoder(bytes.NewReader(groupBytes))
-	err = dec.Decode(group)
-	if err != nil {
+	if err := json.Unmarshal(groupBytes, group); err != nil {
 		return nil, err
 	}
 
