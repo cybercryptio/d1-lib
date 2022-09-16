@@ -59,4 +59,4 @@ The API reference is published available on the Go Packages website at [https://
 
 ## License
 
-The software in the CYBERCRYPT D1-Lib repository is dual-licensed under AGPL and a commercial license. If you wish to use the library under a commercial license please visit [cybercrypt.io](https://cybercrypt.io/) for details on how to obtain a commercial license.
+The software in the CYBERCRYPT D1-Lib repository is dual-licensed under AGPL and a commercial license. If you wish to use the library under a commercial license please visit [d1.cyber-crypt.com](https://d1.cyber-crypt.com/) for details on how to obtain a commercial license.
