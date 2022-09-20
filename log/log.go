@@ -16,27 +16,40 @@
 package log
 
 import (
-	"github.com/gofrs/uuid"
+	"context"
+
 	"github.com/rs/zerolog"
 )
 
-// WithMethod adds a method field to the log.
-func WithMethod(l *zerolog.Logger, method string) {
-	l.UpdateContext(func(c zerolog.Context) zerolog.Context {
+// CopyCtxLogger creates a new context with a copy of any logger found in the context. This is
+// useful when we don't want to pollute the caller's log context.
+func CopyCtxLogger(ctx context.Context) context.Context {
+	l := *zerolog.Ctx(ctx)
+	return l.WithContext(ctx)
+}
+
+// Ctx returns any logger contained in the context, or a disable logger if none is present.
+func Ctx(ctx context.Context) *zerolog.Logger {
+	return zerolog.Ctx(ctx)
+}
+
+// WithMethod adds a method field to the context's logger.
+func WithMethod(ctx context.Context, method string) {
+	Ctx(ctx).UpdateContext(func(c zerolog.Context) zerolog.Context {
 		return c.Str("method", method)
 	})
 }
 
-// WithMethod adds an bject ID field to the log.
-func WithOID(l *zerolog.Logger, oid uuid.UUID) {
-	l.UpdateContext(func(c zerolog.Context) zerolog.Context {
-		return c.Stringer("oid", oid)
+// WithUserID adds a user ID field to the context's logger.
+func WithUserID(ctx context.Context, id string) {
+	Ctx(ctx).UpdateContext(func(c zerolog.Context) zerolog.Context {
+		return c.Str("uid", id)
 	})
 }
 
-// WithMethod adds a user ID field to the log.
-func WithUID(l *zerolog.Logger, uid string) {
-	l.UpdateContext(func(c zerolog.Context) zerolog.Context {
-		return c.Str("uid", uid)
+// WithObjectID adds an object ID field to the context's logger.
+func WithObjectID(ctx context.Context, id string) {
+	Ctx(ctx).UpdateContext(func(c zerolog.Context) zerolog.Context {
+		return c.Str("oid", id)
 	})
 }

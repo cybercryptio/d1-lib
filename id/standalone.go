@@ -25,6 +25,7 @@ import (
 	"github.com/cybercryptio/d1-lib/v2/crypto"
 	"github.com/cybercryptio/d1-lib/v2/data"
 	"github.com/cybercryptio/d1-lib/v2/io"
+	"github.com/cybercryptio/d1-lib/v2/log"
 )
 
 var ErrNotFound = errors.New("not found")
@@ -76,11 +77,15 @@ func NewStandalone(config StandaloneConfig, ioProvider io.Provider) (Standalone,
 }
 
 func (s *Standalone) GetIdentity(ctx context.Context, token string) (Identity, error) {
+	ctx = log.CopyCtxLogger(ctx)
+	log.WithMethod(ctx, "get identity")
+
 	sealedToken, err := data.TokenFromString(token)
 	if err != nil {
 		return Identity{}, err
 	}
 
+	log.Ctx(ctx).Debug().Msg("unsealing token")
 	plainToken, err := sealedToken.Unseal(s.tokenCryptor)
 	if err != nil {
 		return Identity{}, err
@@ -93,6 +98,7 @@ func (s *Standalone) GetIdentity(ctx context.Context, token string) (Identity, e
 		return Identity{}, err
 	}
 
+	log.Ctx(ctx).Debug().Msgf("fetching %d groups", len(user.Groups))
 	groups := make(map[string]AccessGroup, len(user.Groups))
 	for gid := range user.getGroups() {
 		group, err := s.getGroup(ctx, gid)
@@ -112,12 +118,16 @@ func (s *Standalone) GetIdentity(ctx context.Context, token string) (Identity, e
 
 // NewUser creates a new user with a randomly generated ID and password.
 func (s *Standalone) NewUser(ctx context.Context, scopes ...Scope) (string, string, error) {
+	ctx = log.CopyCtxLogger(ctx)
+	log.WithMethod(ctx, "new user")
+
 	uid, err := uuid.NewV4()
 	if err != nil {
 		return "", "", err
 	}
 	uidString := uid.String()
 
+	log.Ctx(ctx).Debug().Msg("creating new user")
 	user, password, err := newUser(scopes...)
 	if err != nil {
 		return "", "", err
@@ -132,15 +142,20 @@ func (s *Standalone) NewUser(ctx context.Context, scopes ...Scope) (string, stri
 // LoginUser checks whether the password provided matches the user. If authentication is successful
 // a token is generated and returned alongside its expiry time in Unix time.
 func (s *Standalone) LoginUser(ctx context.Context, uid, password string) (string, int64, error) {
+	ctx = log.CopyCtxLogger(ctx)
+	log.WithMethod(ctx, "login user")
+
 	user, err := s.getUser(ctx, uid)
 	if err != nil {
 		return "", 0, ErrNotAuthenticated
 	}
 
+	log.Ctx(ctx).Debug().Msg("authenticating")
 	if err := user.authenticate(password); err != nil {
 		return "", 0, ErrNotAuthenticated
 	}
 
+	log.Ctx(ctx).Debug().Msg("creating token")
 	token := data.NewToken([]byte(uid), data.TokenValidity)
 	sealedToken, err := token.Seal(s.tokenCryptor)
 	if err != nil {
@@ -158,11 +173,15 @@ func (s *Standalone) LoginUser(ctx context.Context, uid, password string) (strin
 // ChangeUserPassword authenticates the provided user with the given password and generates a new
 // password for the user.
 func (s *Standalone) ChangeUserPassword(ctx context.Context, uid, oldPassword string) (string, error) {
+	ctx = log.CopyCtxLogger(ctx)
+	log.WithMethod(ctx, "change password")
+
 	user, err := s.getUser(ctx, uid)
 	if err != nil {
 		return "", err
 	}
 
+	log.Ctx(ctx).Debug().Msg("updating password")
 	newPwd, err := user.changePassword(oldPassword)
 	if err != nil {
 		return "", err
@@ -177,6 +196,9 @@ func (s *Standalone) ChangeUserPassword(ctx context.Context, uid, oldPassword st
 // AddUserToGroups adds the user to the provided groups. The authorizing user must be a member of
 // all the groups.
 func (s *Standalone) AddUserToGroups(ctx context.Context, token, uid string, gids ...string) error {
+	ctx = log.CopyCtxLogger(ctx)
+	log.WithMethod(ctx, "add user to group")
+
 	// Authenticate calling user
 	identity, err := s.GetIdentity(ctx, token)
 	if err != nil {
@@ -184,6 +206,7 @@ func (s *Standalone) AddUserToGroups(ctx context.Context, token, uid string, gid
 	}
 
 	// Check if caller is a member of all groups
+	log.Ctx(ctx).Debug().Msgf("checking membership of %d groups", len(gids))
 	callerGroups := identity.GetIDs()
 	for _, gid := range gids {
 		if _, ok := callerGroups[gid]; !ok {
@@ -197,6 +220,7 @@ func (s *Standalone) AddUserToGroups(ctx context.Context, token, uid string, gid
 		return err
 	}
 
+	log.Ctx(ctx).Debug().Msgf("adding user to %d groups", len(gids))
 	user.addGroups(gids...)
 	if err := s.putUser(ctx, uid, user, true); err != nil {
 		return err
@@ -208,6 +232,9 @@ func (s *Standalone) AddUserToGroups(ctx context.Context, token, uid string, gid
 // RemoveUserFromGroups removes the user from the provided groups. The authorizing user must be a
 // member of all the groups.
 func (s *Standalone) RemoveUserFromGroups(ctx context.Context, token, uid string, gids ...string) error {
+	ctx = log.CopyCtxLogger(ctx)
+	log.WithMethod(ctx, "remove user from group")
+
 	// Authenticate calling user
 	identity, err := s.GetIdentity(ctx, token)
 	if err != nil {
@@ -215,6 +242,7 @@ func (s *Standalone) RemoveUserFromGroups(ctx context.Context, token, uid string
 	}
 
 	// Check if caller is a member of all groups
+	log.Ctx(ctx).Debug().Msgf("checking membership of %d groups", len(gids))
 	callerGroups := identity.GetIDs()
 	for _, gid := range gids {
 		if _, ok := callerGroups[gid]; !ok {
@@ -227,6 +255,7 @@ func (s *Standalone) RemoveUserFromGroups(ctx context.Context, token, uid string
 		return err
 	}
 
+	log.Ctx(ctx).Debug().Msgf("removing user from %d groups", len(gids))
 	user.removeGroups(gids...)
 	if err := s.putUser(ctx, uid, user, true); err != nil {
 		return err
@@ -237,16 +266,23 @@ func (s *Standalone) RemoveUserFromGroups(ctx context.Context, token, uid string
 
 // DeleteUser deletes the user from the IO Provider.
 func (s *Standalone) DeleteUser(ctx context.Context, token, uid string) error {
+	ctx = log.CopyCtxLogger(ctx)
+	log.WithMethod(ctx, "delete user")
+
 	// Authenticate calling user
 	if _, err := s.GetIdentity(ctx, token); err != nil {
 		return err
 	}
 
+	log.Ctx(ctx).Debug().Msg("deleting user")
 	return s.ioProvider.Delete(ctx, []byte(uid), DataTypeSealedUser)
 }
 
 // NewGroup creates a new group and adds the calling user to it.
 func (s *Standalone) NewGroup(ctx context.Context, token string, scopes ...Scope) (string, error) {
+	ctx = log.CopyCtxLogger(ctx)
+	log.WithMethod(ctx, "new group")
+
 	identity, err := s.GetIdentity(ctx, token)
 	if err != nil {
 		return "", err
@@ -258,12 +294,14 @@ func (s *Standalone) NewGroup(ctx context.Context, token string, scopes ...Scope
 	}
 	gidString := gid.String()
 
+	log.Ctx(ctx).Debug().Msg("creating new group")
 	group := newGroup(scopes...)
 	if err := s.putGroup(ctx, gidString, &group); err != nil {
 		return "", err
 	}
 
 	// Add caller to group
+	log.Ctx(ctx).Debug().Msg("adding caller to group")
 	user, err := s.getUser(ctx, identity.ID)
 	if err != nil {
 		return "", err
@@ -280,6 +318,7 @@ func (s *Standalone) NewGroup(ctx context.Context, token string, scopes ...Scope
 // putUser seals the user, encodes the sealed user, and sends it to the IO Provider, either as a
 // "Put" or an "Update".
 func (s *Standalone) putUser(ctx context.Context, uid string, user *User, update bool) error {
+	log.Ctx(ctx).Debug().Msg("sealing user")
 	sealedUser, err := user.seal(uid, s.userCryptor)
 	if err != nil {
 		return err
@@ -291,13 +330,16 @@ func (s *Standalone) putUser(ctx context.Context, uid string, user *User, update
 	}
 
 	if update {
+		log.Ctx(ctx).Debug().Msg("updating stored user")
 		return s.ioProvider.Update(ctx, []byte(sealedUser.UID), DataTypeSealedUser, b)
 	}
+	log.Ctx(ctx).Debug().Msg("storing new user")
 	return s.ioProvider.Put(ctx, []byte(sealedUser.UID), DataTypeSealedUser, b)
 }
 
 // getUser fetches bytes from the IO Provider, decodes them into a sealed user, and unseals it.
 func (s *Standalone) getUser(ctx context.Context, uid string) (*User, error) {
+	log.Ctx(ctx).Debug().Msg("getting stored user")
 	userBytes, err := s.ioProvider.Get(ctx, []byte(uid), DataTypeSealedUser)
 	if err != nil {
 		return nil, err
@@ -308,6 +350,7 @@ func (s *Standalone) getUser(ctx context.Context, uid string) (*User, error) {
 		return nil, err
 	}
 
+	log.Ctx(ctx).Debug().Msg("unsealing user")
 	plainUser, err := user.unseal(s.userCryptor)
 	if err != nil {
 		return nil, err
@@ -318,6 +361,7 @@ func (s *Standalone) getUser(ctx context.Context, uid string) (*User, error) {
 
 // putGroup seals a group, encodes the sealed group, and sends it to the IO Provider.
 func (s *Standalone) putGroup(ctx context.Context, gid string, group *Group) error {
+	log.Ctx(ctx).Debug().Msg("sealing user")
 	sealedGroup, err := group.seal(gid, s.groupCryptor)
 	if err != nil {
 		return err
@@ -328,11 +372,13 @@ func (s *Standalone) putGroup(ctx context.Context, gid string, group *Group) err
 		return err
 	}
 
+	log.Ctx(ctx).Debug().Msg("storing new group")
 	return s.ioProvider.Put(ctx, []byte(sealedGroup.GID), DataTypeSealedGroup, groupBytes)
 }
 
 // getGroup fetches bytes from the IO Provider, decodes them into a sealed group, and unseals it.
 func (s *Standalone) getGroup(ctx context.Context, gid string) (*Group, error) {
+	log.Ctx(ctx).Debug().Msg("getting stored group")
 	groupBytes, err := s.ioProvider.Get(ctx, []byte(gid), DataTypeSealedGroup)
 	if err != nil {
 		return nil, err
@@ -343,6 +389,7 @@ func (s *Standalone) getGroup(ctx context.Context, gid string) (*Group, error) {
 		return nil, err
 	}
 
+	log.Ctx(ctx).Debug().Msg("unsealing group")
 	plainGroup, err := group.unseal(s.groupCryptor)
 	if err != nil {
 		return nil, err
