@@ -42,6 +42,12 @@ var ErrNotAuthenticated = errors.New("user not authenticated")
 // Error returned if a user tries to access data they are not authorized for.
 var ErrNotAuthorized = errors.New("user not authorized")
 
+// Error returned if an node was not found in the IO Provider.
+var ErrNodeNotFound = errors.New("node not found")
+
+// Error returned if an node already exists in the IO Provider.
+var ErrNodeAlreadyExists = errors.New("node already exists")
+
 type SecureIndex struct {
 	ioProvider io.Provider
 	idProvider id.Provider
@@ -133,10 +139,10 @@ func (i *SecureIndex) Search(ctx context.Context, token, keyword string) ([]stri
 
 	log.Ctx(ctx).Debug().Msg("searching the index")
 	for {
-		// Get the next Node. If ErrNotFound, all the identifiers that contain the given keyword
+		// Get the next Node. If ErrNodeNotFound, all the identifiers that contain the given keyword
 		// have been found, and the function should return them.
 		decryptedNode, err = i.getNextNode(ctx, decryptedNode, tagger, cryptor)
-		if err == io.ErrNotFound {
+		if errors.Is(err, ErrNodeNotFound) {
 			break
 		}
 		if err != nil {
@@ -170,10 +176,10 @@ func (i *SecureIndex) Delete(ctx context.Context, token, keyword, identifier str
 
 	log.Ctx(ctx).Debug().Msg("deleting entries from index")
 	for {
-		// Get the next Node. If ErrNotFound, there are no more Nodes to check (and
+		// Get the next Node. If ErrNodeNotFound, there are no more Nodes to check (and
 		// delete), and the function can terminate.
 		next, err := i.getNextNode(ctx, current, tagger, cryptor)
-		if err == io.ErrNotFound {
+		if errors.Is(err, ErrNodeNotFound) {
 			break
 		}
 		if err != nil {
@@ -206,11 +212,11 @@ func (i *SecureIndex) Delete(ctx context.Context, token, keyword, identifier str
 func (i *SecureIndex) deleteNode(ctx context.Context, label []byte, node data.Node, tagger crypto.TaggerInterface, cryptor crypto.CryptorInterface) error {
 	log.Ctx(ctx).Debug().Msg("deleting node")
 
-	// Get the next Node. If ErrNotFound, then the current Node is the one
+	// Get the next Node. If ErrNodeNotFound, then the current Node is the one
 	// with the largest value of counter, and therefore it can simply be deleted without
 	// any other updates.
 	next, err := i.getNextNode(ctx, node, tagger, cryptor)
-	if err == io.ErrNotFound {
+	if errors.Is(err, ErrNodeNotFound) {
 		log.Ctx(ctx).Debug().Msg("last node, deleting")
 		if err = i.deleteSealedNode(ctx, label); err != nil {
 			return err
@@ -227,7 +233,7 @@ func (i *SecureIndex) deleteNode(ctx context.Context, label []byte, node data.No
 	if err != nil {
 		return err
 	}
-	if err = i.putSealedNode(ctx, label, &updatedSealedNode, true); err != nil {
+	if err := i.putSealedNode(ctx, label, &updatedSealedNode, true); err != nil {
 		return err
 	}
 
@@ -237,7 +243,7 @@ func (i *SecureIndex) deleteNode(ctx context.Context, label []byte, node data.No
 	if err != nil {
 		return err
 	}
-	if err = i.deleteSealedNode(ctx, nextLabel); err != nil {
+	if err := i.deleteSealedNode(ctx, nextLabel); err != nil {
 		return err
 	}
 
@@ -254,10 +260,10 @@ func (i *SecureIndex) getLastNode(ctx context.Context, tagger crypto.TaggerInter
 	decryptedNode := data.Node{}
 
 	for {
-		// Get the next Node. If ErrNotFound, then the last Node has been found, and the
+		// Get the next Node. If ErrNodeNotFound, then the last Node has been found, and the
 		// function should return it.
 		nextDecrypted, err := i.getNextNode(ctx, decryptedNode, tagger, cryptor)
-		if err == io.ErrNotFound {
+		if errors.Is(err, ErrNodeNotFound) {
 			return decryptedNode, nil
 		}
 		if err != nil {
@@ -277,7 +283,7 @@ func (i *SecureIndex) getNextNode(ctx context.Context, currentNode data.Node, ta
 		return data.Node{}, err
 	}
 
-	// If the next sealed Node does not exist in the IO Provider, then an ErrNotFound
+	// If the next sealed Node does not exist in the IO Provider, then an ErrNodeNotFound
 	// is returned.
 	nextSealedNode, err := i.getSealedNode(ctx, nextLabel)
 	if err != nil {
@@ -347,10 +353,19 @@ func (i *SecureIndex) putSealedNode(ctx context.Context, tag []byte, sealedNode 
 
 	if update {
 		log.Ctx(ctx).Debug().Msg("updating stored node")
-		return i.ioProvider.Update(ctx, tag, io.DataTypeSealedNode, sealedNodeBytes)
+		err := i.ioProvider.Update(ctx, tag, io.DataTypeSealedNode, sealedNodeBytes)
+		if errors.Is(err, io.ErrNotFound) {
+			return ErrNodeNotFound
+		}
+		return err
 	}
+
 	log.Ctx(ctx).Debug().Msg("creating new node")
-	return i.ioProvider.Put(ctx, tag, io.DataTypeSealedNode, sealedNodeBytes)
+	err = i.ioProvider.Put(ctx, tag, io.DataTypeSealedNode, sealedNodeBytes)
+	if errors.Is(err, io.ErrAlreadyExists) {
+		return ErrNodeAlreadyExists
+	}
+	return err
 }
 
 // getSealedNode fetches bytes from the IO Provider and decodes them into a sealed Node.
@@ -358,6 +373,9 @@ func (i *SecureIndex) getSealedNode(ctx context.Context, tag []byte) (*data.Seal
 	log.Ctx(ctx).Debug().Msg("getting stored node")
 
 	sealedNodeBytes, err := i.ioProvider.Get(ctx, tag, io.DataTypeSealedNode)
+	if errors.Is(err, io.ErrNotFound) {
+		return nil, ErrNodeNotFound
+	}
 	if err != nil {
 		return nil, err
 	}
