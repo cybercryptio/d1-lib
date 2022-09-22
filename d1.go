@@ -38,6 +38,18 @@ var ErrNotAuthenticated = errors.New("not authenticated")
 // Error returned if the caller tries to access data they are not authorized for.
 var ErrNotAuthorized = errors.New("not authorized")
 
+// Error returned if an object was not found in the IO Provider.
+var ErrObjectNotFound = errors.New("object not found")
+
+// Error returned if an access list was not found in the IO Provider.
+var ErrAccessNotFound = errors.New("access not found")
+
+// Error returned if an object already exists in the IO Provider.
+var ErrObjectAlreadyExists = errors.New("object already exists")
+
+// Error returned if an access list already exists in the IO Provider.
+var ErrAccessAlreadyExists = errors.New("access already exists")
+
 // D1 is the entry point to the library. All main functionality is exposed through methods
 // on this struct.
 type D1 struct {
@@ -257,7 +269,7 @@ func (d *D1) Delete(ctx context.Context, token string, oid uuid.UUID) error {
 	switch err {
 	case nil:
 		// Ignore and proceed
-	case io.ErrNotFound:
+	case ErrAccessNotFound:
 		log.Ctx(ctx).Debug().Msg("object not found")
 		// If we can't find the access, that should mean the sealed object
 		// doesn't exist, either because it never existed, or it has been completely deleted.

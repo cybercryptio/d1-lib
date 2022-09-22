@@ -17,6 +17,7 @@ package d1
 
 import (
 	"context"
+	"errors"
 
 	"github.com/gofrs/uuid"
 	json "github.com/json-iterator/go"
@@ -81,10 +82,19 @@ func (d *D1) putSealedObject(ctx context.Context, object *data.SealedObject, upd
 
 	if update {
 		log.Ctx(ctx).Debug().Msg("updating stored object")
-		return d.ioProvider.Update(ctx, object.OID.Bytes(), io.DataTypeSealedObject, objectBytes)
+		err := d.ioProvider.Update(ctx, object.OID.Bytes(), io.DataTypeSealedObject, objectBytes)
+		if errors.Is(err, io.ErrNotFound) {
+			return ErrObjectNotFound
+		}
+		return err
 	}
+
 	log.Ctx(ctx).Debug().Msg("storing new object")
-	return d.ioProvider.Put(ctx, object.OID.Bytes(), io.DataTypeSealedObject, objectBytes)
+	err = d.ioProvider.Put(ctx, object.OID.Bytes(), io.DataTypeSealedObject, objectBytes)
+	if errors.Is(err, io.ErrAlreadyExists) {
+		return ErrObjectAlreadyExists
+	}
+	return err
 }
 
 // getSealedObject fetches bytes from the IO Provider and decodes them into a sealed object.
@@ -92,6 +102,9 @@ func (d *D1) getSealedObject(ctx context.Context, oid uuid.UUID) (*data.SealedOb
 	log.Ctx(ctx).Debug().Msg("getting stored object")
 
 	objectBytes, err := d.ioProvider.Get(ctx, oid.Bytes(), io.DataTypeSealedObject)
+	if errors.Is(err, io.ErrNotFound) {
+		return nil, ErrObjectNotFound
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -121,10 +134,19 @@ func (d *D1) putSealedAccess(ctx context.Context, access *data.SealedAccess, upd
 
 	if update {
 		log.Ctx(ctx).Debug().Msg("updating stored access")
-		return d.ioProvider.Update(ctx, access.OID.Bytes(), io.DataTypeSealedAccess, accessBytes)
+		err := d.ioProvider.Update(ctx, access.OID.Bytes(), io.DataTypeSealedAccess, accessBytes)
+		if errors.Is(err, io.ErrNotFound) {
+			return ErrAccessNotFound
+		}
+		return err
 	}
+
 	log.Ctx(ctx).Debug().Msg("storing new access")
-	return d.ioProvider.Put(ctx, access.OID.Bytes(), io.DataTypeSealedAccess, accessBytes)
+	err = d.ioProvider.Put(ctx, access.OID.Bytes(), io.DataTypeSealedAccess, accessBytes)
+	if errors.Is(err, io.ErrAlreadyExists) {
+		return ErrAccessAlreadyExists
+	}
+	return err
 }
 
 // getSealedAccess fetches bytes from the IO Provider and decodes them into a sealed access.
@@ -132,6 +154,9 @@ func (d *D1) getSealedAccess(ctx context.Context, oid uuid.UUID) (*data.SealedAc
 	log.Ctx(ctx).Debug().Msg("getting stored access")
 
 	accessBytes, err := d.ioProvider.Get(ctx, oid.Bytes(), io.DataTypeSealedAccess)
+	if errors.Is(err, io.ErrNotFound) {
+		return nil, ErrAccessNotFound
+	}
 	if err != nil {
 		return nil, err
 	}

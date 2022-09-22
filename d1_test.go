@@ -406,8 +406,8 @@ func TestUpdateNotFound(t *testing.T) {
 	}
 
 	err := enc.Update(ctx, token, uuid.Must(uuid.NewV4()), &plainObjectUpdated)
-	if !errors.Is(err, io.ErrNotFound) {
-		t.Fatalf("Expected error '%s' but got '%s'", io.ErrNotFound, err)
+	if !errors.Is(err, ErrAccessNotFound) {
+		t.Fatalf("Expected error '%s' but got '%s'", ErrAccessNotFound, err)
 	}
 }
 
@@ -449,8 +449,8 @@ func TestDelete(t *testing.T) {
 		t.Fatal(err)
 	}
 	object, err := enc.Decrypt(ctx, token, id)
-	if !errors.Is(err, io.ErrNotFound) {
-		t.Fatalf("Expected error '%s' but got '%s'", io.ErrNotFound, err)
+	if !errors.Is(err, ErrAccessNotFound) {
+		t.Fatalf("Expected error '%s' but got '%s'", ErrAccessNotFound, err)
 	}
 	if !reflect.DeepEqual(object, data.Object{}) {
 		t.Fatal("Data was returned from failed call")
