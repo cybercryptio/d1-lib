@@ -28,8 +28,20 @@ import (
 	"github.com/cybercryptio/d1-lib/v2/log"
 )
 
-var ErrNotFound = errors.New("not found")
-var ErrNotAuthorized = errors.New("not authorized")
+// Error returned if a user was not found.
+var ErrUserNotFound = errors.New("user not found")
+
+// Error returned if a group was not found.
+var ErrGroupNotFound = errors.New("group not found")
+
+// Error returned if a user already exists.
+var ErrUserAlreadyExists = errors.New("user already exists")
+
+// Error returned if a group already exists.
+var ErrGroupAlreadyExists = errors.New("group already exists")
+
+// Error returned if the user is not authorized.
+var ErrNotAuthorized = errors.New("user not authorized")
 
 const (
 	DataTypeSealedUser io.DataType = iota + io.DataTypeEnd + 1
@@ -82,13 +94,13 @@ func (s *Standalone) GetIdentity(ctx context.Context, token string) (Identity, e
 
 	sealedToken, err := data.TokenFromString(token)
 	if err != nil {
-		return Identity{}, err
+		return Identity{}, ErrNotAuthenticated
 	}
 
 	log.Ctx(ctx).Debug().Msg("unsealing token")
 	plainToken, err := sealedToken.Unseal(s.tokenCryptor)
 	if err != nil {
-		return Identity{}, err
+		return Identity{}, ErrNotAuthenticated
 	}
 
 	id := string(plainToken.Plaintext)
@@ -178,13 +190,13 @@ func (s *Standalone) ChangeUserPassword(ctx context.Context, uid, oldPassword st
 
 	user, err := s.getUser(ctx, uid)
 	if err != nil {
-		return "", err
+		return "", ErrNotAuthenticated
 	}
 
 	log.Ctx(ctx).Debug().Msg("updating password")
 	newPwd, err := user.changePassword(oldPassword)
 	if err != nil {
-		return "", err
+		return "", ErrNotAuthenticated
 	}
 	if err := s.putUser(ctx, uid, user, true); err != nil {
 		return "", err
@@ -331,16 +343,28 @@ func (s *Standalone) putUser(ctx context.Context, uid string, user *User, update
 
 	if update {
 		log.Ctx(ctx).Debug().Msg("updating stored user")
-		return s.ioProvider.Update(ctx, []byte(sealedUser.UID), DataTypeSealedUser, b)
+		err := s.ioProvider.Update(ctx, []byte(sealedUser.UID), DataTypeSealedUser, b)
+		if errors.Is(err, io.ErrNotFound) {
+			return ErrUserNotFound
+		}
+		return err
 	}
+
 	log.Ctx(ctx).Debug().Msg("storing new user")
-	return s.ioProvider.Put(ctx, []byte(sealedUser.UID), DataTypeSealedUser, b)
+	err = s.ioProvider.Put(ctx, []byte(sealedUser.UID), DataTypeSealedUser, b)
+	if errors.Is(err, io.ErrAlreadyExists) {
+		return ErrUserAlreadyExists
+	}
+	return err
 }
 
 // getUser fetches bytes from the IO Provider, decodes them into a sealed user, and unseals it.
 func (s *Standalone) getUser(ctx context.Context, uid string) (*User, error) {
 	log.Ctx(ctx).Debug().Msg("getting stored user")
 	userBytes, err := s.ioProvider.Get(ctx, []byte(uid), DataTypeSealedUser)
+	if errors.Is(err, io.ErrNotFound) {
+		return nil, ErrUserNotFound
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -373,13 +397,20 @@ func (s *Standalone) putGroup(ctx context.Context, gid string, group *Group) err
 	}
 
 	log.Ctx(ctx).Debug().Msg("storing new group")
-	return s.ioProvider.Put(ctx, []byte(sealedGroup.GID), DataTypeSealedGroup, groupBytes)
+	err = s.ioProvider.Put(ctx, []byte(sealedGroup.GID), DataTypeSealedGroup, groupBytes)
+	if errors.Is(err, io.ErrAlreadyExists) {
+		return ErrGroupAlreadyExists
+	}
+	return err
 }
 
 // getGroup fetches bytes from the IO Provider, decodes them into a sealed group, and unseals it.
 func (s *Standalone) getGroup(ctx context.Context, gid string) (*Group, error) {
 	log.Ctx(ctx).Debug().Msg("getting stored group")
 	groupBytes, err := s.ioProvider.Get(ctx, []byte(gid), DataTypeSealedGroup)
+	if errors.Is(err, io.ErrNotFound) {
+		return nil, ErrGroupNotFound
+	}
 	if err != nil {
 		return nil, err
 	}
