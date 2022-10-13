@@ -132,13 +132,13 @@ func (d *D1) Encrypt(ctx context.Context, token string, object *data.Object, gro
 	log.WithObjectID(ctx, oid.String())
 
 	log.Ctx(ctx).Debug().Msg("sealing object")
-	wrappedOEK, sealedObject, err := object.Seal(oid, d.objectCryptor)
+	wrappedDEK, sealedObject, err := object.Seal(oid, d.objectCryptor)
 	if err != nil {
 		return uuid.Nil, err
 	}
 
 	log.Ctx(ctx).Debug().Strs("groups", groups).Msg("creating access")
-	access := data.NewAccess(wrappedOEK)
+	access := data.NewAccess(wrappedDEK)
 	access.AddGroups(append(groups, identity.ID)...)
 
 	log.Ctx(ctx).Debug().Msg("sealing access")
@@ -187,13 +187,13 @@ func (d *D1) Update(ctx context.Context, token string, oid uuid.UUID, object *da
 	}
 
 	log.Ctx(ctx).Debug().Msg("sealing object")
-	wrappedOEK, sealedObject, err := object.Seal(oid, d.objectCryptor)
+	wrappedDEK, sealedObject, err := object.Seal(oid, d.objectCryptor)
 	if err != nil {
 		return err
 	}
 
 	log.Ctx(ctx).Debug().Msg("sealing access")
-	plainAccess.WrappedOEK = wrappedOEK
+	plainAccess.WrappedDEK = wrappedDEK
 	sealedAccess, err := plainAccess.Seal(oid, d.accessCryptor)
 	if err != nil {
 		return err
@@ -245,7 +245,7 @@ func (d *D1) Decrypt(ctx context.Context, token string, oid uuid.UUID) (data.Obj
 	}
 
 	log.Ctx(ctx).Debug().Msg("unsealing object")
-	return object.Unseal(plainAccess.WrappedOEK, d.objectCryptor)
+	return object.Unseal(plainAccess.WrappedDEK, d.objectCryptor)
 }
 
 // Delete deletes a sealed object. The authorizing Identity must be part of

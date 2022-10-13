@@ -29,7 +29,7 @@ type Access struct {
 	Groups map[string]struct{}
 
 	// The wrapped encryption key for the associated object.
-	WrappedOEK []byte
+	WrappedDEK []byte
 }
 
 // SealedAccess is an encrypted structure which is used to manage access to encrypted objects.
@@ -42,10 +42,10 @@ type SealedAccess struct {
 }
 
 // NewAccess creates a new access object which contains the provided wrapped key and no groups.
-func NewAccess(wrappedOEK []byte) Access {
+func NewAccess(wrappedDEK []byte) Access {
 	return Access{
 		Groups:     map[string]struct{}{},
-		WrappedOEK: wrappedOEK,
+		WrappedDEK: wrappedDEK,
 	}
 }
 
